@@ -3,7 +3,7 @@ package okay.effects.bench
 import java.util.concurrent.TimeUnit
 import org.openjdk.jmh.annotations.{Benchmark, BenchmarkMode, Mode, OutputTimeUnit, Param, Scope, Setup, State => JmhState}
 import okay.effects.*
-import okay.effects.simple.Machine
+import okay.effects.machine.Machine
 
 /** the same programs on each implementation, n = 1000: binds alone; `ask` under its handler; `ask` across four
  * handlers of other effects; a state's get and put */

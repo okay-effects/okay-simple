@@ -1,6 +1,6 @@
 package okay.effects
 
-import okay.effects.simple.Machine
+import okay.effects.machine.Machine
 
 /** Scala 3's interface: rows of type constructors, no parentheses and no `*`, context bounds, an effect of one's own
  * an enum whose clauses Scala 3's GADT inference types */

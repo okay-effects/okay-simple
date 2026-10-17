@@ -21,7 +21,7 @@ import scala.annotation.tailrec
  * levels crossed become `k`'s `Prefix`, put back where `k` is resumed — a stateful level with the state of its time.
  * The machine's data in an object: no outer pointer in a node or a level.
  */
-private[effects] object Machine {
+private[machine] object Engine {
   type PureRow[X] = Void[X]
   /** the row `R + E`: `Plus[R, E]#L` */
   final abstract class Plus[R[_], E[_]] { type L[X] = Sum[R, E, X] }
@@ -290,8 +290,8 @@ private[effects] object Machine {
 }
 
 /** the interface over the machine: its types the object's, a handler installed as its level */
-private[effects] class Machine extends Effects {
-  import Machine._
+private[machine] class Engine extends Effects {
+  import Engine._
 
   type ![+A, R[_]] = Prog[R, A]
   type Split[E[_], R[_], Rest[_]] = Place
@@ -341,5 +341,5 @@ private[effects] class Machine extends Effects {
     Handle(p, new Install[E, R, A, B] {
       def apply[W, Z](o: Frames[R, B, W], m: Meta[R, W, Z]) = new StateKLevel(h, s0, o, m)
     })
-  def run[A](p: Prog[PureRow, A]): A = Machine.run(p)
+  def run[A](p: Prog[PureRow, A]): A = Engine.run(p)
 }

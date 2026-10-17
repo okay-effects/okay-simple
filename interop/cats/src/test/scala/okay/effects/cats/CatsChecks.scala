@@ -6,7 +6,7 @@ import cats.effect.unsafe.implicits.global
 import cats.instances.list._
 import cats.instances.option._
 import okay.effects.{Effects, Std}
-import okay.effects.simple.Machine
+import okay.effects.machine.Machine
 import okay.effects.free.Free
 
 /** cats over the effects, on an implementation */

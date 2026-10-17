@@ -1,7 +1,7 @@
 package okay.effects.zio
 
 import okay.effects.Effects
-import okay.effects.simple.Machine
+import okay.effects.machine.Machine
 import okay.effects.free.Free
 import zio.{Runtime, Unsafe, ZIO}
 

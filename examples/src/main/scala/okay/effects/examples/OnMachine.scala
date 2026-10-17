@@ -1,6 +1,6 @@
 package okay.effects.examples
 
-import okay.effects.simple.Machine
+import okay.effects.machine.Machine
 
 /** the examples ON THE MACHINE: `sbt "examples/runMain okay.effects.examples.OnMachine"` */
 object OnMachine {

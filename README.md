@@ -18,7 +18,7 @@ of the standard effects: they are the trait `Std`, mixed in where an implementat
 Scala 3:
 
 ```scala
-import okay.effects.simple.Machine.*          // everything: the types, the primitives, the effects and their handlers
+import okay.effects.machine.Machine.*          // everything: the types, the primitives, the effects and their handlers
 
 // in any row that has these three, at any place
 def greet[R[_]: {Has[Reader % String], Has[Writer % String], Has[State % Int]}]: Int ! R =
@@ -36,7 +36,7 @@ run(reader("Ann")(state(10)(writer[String](greet[Row]))))             // (13, (L
 Scala 2:
 
 ```scala
-import okay.effects.simple.Machine._
+import okay.effects.machine.Machine._
 
 def greet[R[_]](implicit r: In[(Reader % String)#L, R], w: In[(Writer % String)#L, R], s: In[(State % Int)#L, R]): Int ! R =
   for {
@@ -183,7 +183,7 @@ sbt examples/test examplesMixed/test
 All behind the same interface, all run by the same suites (`suite/`; `machine` and the protocol's bridge by both
 compilers).
 
-- **`machine/`, the machine, one per compiler** — the same interface, the same suites, `okay.effects.simple.Machine`:
+- **`machine/`, the machine, one per compiler** — the same interface, the same suites, `okay.effects.machine.Machine`:
   - **Scala 3's own** (`machine/src/main/scala-3`): typed by Scala 3's GADT inference throughout, NO CAST. A program
     is `Prog[R, A]`, of its row, a type constructor; an operation `Perf(at, op)`, its place a typed path
     (`LastPlace`, `InitPlace`, `OnePlace` — the `Split` evidence itself), its operation an `E[X]`. The frames `Frames[R, X, V]` aligned, the

@@ -1,7 +1,7 @@
 package okay.effects.compat
 
 import okay.effects.*
-import okay.effects.simple.Machine
+import okay.effects.machine.Machine
 
 /** ONE APPLICATION OF TWO COMPILERS: Scala 3 code takes the effect, the handler and the program Scala 2.13 compiled,
  * as they are, beside its own — the types at the boundary the same */

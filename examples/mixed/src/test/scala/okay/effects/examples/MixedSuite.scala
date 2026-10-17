@@ -1,7 +1,7 @@
 package okay.effects.examples
 
 import okay.effects.Effects
-import okay.effects.simple.Machine
+import okay.effects.machine.Machine
 import okay.effects.free.Free
 
 /** the mixed application's values, on the machine and on the `Free` monad (their Scala 2.13 builds) */
