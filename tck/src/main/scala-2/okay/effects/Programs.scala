@@ -49,7 +49,7 @@ class Programs(val fx: Effects) {
   def splitThenHandle = run(state(1)(handleLast(split[(Reader % String)#L, RS, S1, Int](asked),
     new Handler[(Reader % String)#L, S1, Int, Int] {
       def ret(a: Int) = pure(a * 10)
-      def op[X](op: Reader[String, X], k: X => Int ! S1) = op match { case Reader.Ask(answer) => k(answer("abc")) }
+      def op[X](op: Reader[String, X], k: X => Int ! S1) = op match { case Std.Reader.Ask(answer) => k(answer("abc")) }
     })))
 
   /** constant stack: n operations under two handlers, n binds */
