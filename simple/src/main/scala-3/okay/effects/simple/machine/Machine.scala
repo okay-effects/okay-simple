@@ -1,252 +1,206 @@
 package okay.effects.simple.machine
 
-import okay.effects.{Cell, Clauses, Effects, StatefulClauses, StatefulTailClauses, Sum, Void, TailClauses}
+import okay.effects.{Cell, Clauses, Effects, StatefulClauses, StatefulTailClauses, Void, TailClauses}
+import okay.effects.Places
+import okay.effects.Places.{+, Place, Renaming, toEnd}
 import scala.annotation.tailrec
 
 /**
- * SCALA 3'S MACHINE, its own: typed by Scala 3's GADT inference throughout, no cast, no method that only one class
- * can mean. A program is `Prog[R, A]`, of the value `A` at the row `R`, a type constructor; an operation
- * `Perf(at, op)`, its place a typed path — `LastPlace` the last effect of `R + E`, `InitPlace` one further in,
- * `OnePlace` a row of one — the evidence `Split` itself, and the operation an `E[X]`. The run is a `@tailrec` loop
- * over the program, the frames `Frames[R, X, V]` (the binds from `X` to the value `V` of the nearest level's body,
- * aligned) and the levels `Meta[R, V, Z]`, indexed by the row the program inside them is at: a handler of `E` at
- * `T + E`, its outside at `T`; a remapping of places (`split`, `embed`) from `R1` to `R2`.
+ * SCALA 3'S MACHINE, its own: its data GADTs, each an `enum` — the places, the program, the frames, the levels, the
+ * handlers installed, the levels a `k` puts back — typed by Scala 3's GADT inference throughout, no cast. A program is
+ * `Prog[R, A]`, of the value `A` at the row `R`, a type constructor; an operation `Perf(at, op)`, its place a typed
+ * path — `Place.Last` the last effect of `R + E`, `Place.Init` one further in, `Place.Only` a row of one — the
+ * evidence `Split` itself, and the operation an `E[X]`. The run is a `@tailrec` loop over the program, the frames
+ * `Frames[R, X, V]` (the binds from `X` to the value `V` of the nearest level's body, aligned) and the levels
+ * `Meta[R, V, Z]`, indexed by the row the program inside them is at: a handler of `E` at `T + E`, its outside at `T`;
+ * a remapping of places (`split`, `embed`) from `R1` to `R2`.
  *
- * An operation's path is matched against the levels: a `LastPlace` at a handler's level is, by the types, that
+ * An operation's path is matched against the levels: `Place.Last` at a handler's level is, by the types, that
  * handler's operation. Answered in place, the answer goes straight into the next frame. Taken by a general handler,
- * the levels crossed become `k`'s `Prefix`, typed, put back where `k` is resumed — a stateful level with the state it
- * had when `k` was taken. The loop holds the hot cases; a level entered or a `k` resumed is `cold`'s.
+ * the levels crossed become a `Prefix`, data, put back where `k` is resumed — a stateful level with the state it had
+ * when `k` was taken. `k` resumed is a program, `Prog.Resume`. The loop holds the hot cases; a level entered or a
+ * `k` resumed is `cold`'s.
  */
 /** the machine's data and its loop: in an object, static — no outer pointer in a node or a level, no outer test in
  * a match */
 private[simple] object Machine:
   type PureRow[X] = Void[X]
-  type +[R[_], E[_]] = [X] =>> Sum[R, E, X]
-
-  // -- PLACES: typed paths, the evidence itself
-  //
-  // The matches over places are `@unchecked`: the checker cannot rule out an effect that is itself a row — `E` an
-  // `R + G`, `OnePlace` then meeting a handler's level — as an effect is any constructor. No effect is a row: a
-  // place's kind is told by the row it is at, and the cases matched are all a row of that shape can have.
-
-  /** the place of `E` in `R`, and `R` without it `Rest` */
-  sealed abstract class Place[E[_], R[_], Rest[_]]:
-    /** the places of `R` renamed to `Rest + E`'s: `E` moved to the end */
-    def toEnd: Renaming[R, Rest + E]
-    /** a program at `R` at `Rest + E`: itself if `R` is that already, else remapped */
-    def moved[A](p: Prog[R, A]): Prog[Rest + E, A]
-
-  final class OnePlace[E[_]] extends Place[E, E, PureRow]:
-    def toEnd: Renaming[E, PureRow + E] = new Renaming[E, PureRow + E]:
-      private val last = LastPlace[PureRow, E]()
-      def apply[E2[_]](at: Place[E2, E, ?]): Place[E2, PureRow + E, ?] = (at: @unchecked) match
-        case _: OnePlace[e] => last
-    def moved[A](p: Prog[E, A]): Prog[PureRow + E, A] = Remap(p, toEnd)
-
-  final class LastPlace[R[_], E[_]] extends Place[E, R + E, R]:
-    def toEnd: Renaming[R + E, R + E] = new Renaming[R + E, R + E]:
-      def apply[E2[_]](at: Place[E2, R + E, ?]): Place[E2, R + E, ?] = at
-    def moved[A](p: Prog[R + E, A]): Prog[R + E, A] = p
-
-  final class InitPlace[E[_], R[_], G[_], Rest[_]](val s: Place[E, R, Rest]) extends Place[E, R + G, Rest + G]:
-    def toEnd: Renaming[R + G, Rest + G + E] = new Renaming[R + G, Rest + G + E]:
-      // the places it renames to that are the same each time, made once
-      private val gNow = InitPlace[G, Rest + G, E, Rest](LastPlace[Rest, G]())
-      private val eNow = LastPlace[Rest + G, E]()
-      private val inner = s.toEnd
-      def apply[E2[_]](at: Place[E2, R + G, ?]): Place[E2, Rest + G + E, ?] = (at: @unchecked) match
-        case _: LastPlace[r, g] => gNow
-        case ip: InitPlace[e2, r, g, rest] => (inner(ip.s): @unchecked) match
-          case _: LastPlace[r3, e3] => eNow
-          case ip2: InitPlace[e4, r4, g4, rest4] => InitPlace(InitPlace[E2, Rest, G, rest4](ip2.s))
-    def moved[A](p: Prog[R + G, A]): Prog[Rest + G + E, A] = Remap(p, toEnd)
-
-  /** places renamed from `R1` to `R2`, typed */
-  trait Renaming[R1[_], R2[_]]:
-    def apply[E[_]](at: Place[E, R1, ?]): Place[E, R2, ?]
+  /** a program at `R` at `Rest + E`: itself if `R` is that already, else remapped */
+  inline def moved[E[_], R[_], Rest[_], A](at: Place[E, R, Rest], p: Prog[R, A]): Prog[Rest + E, A] = at match
+    case _: Place.Last[r, e] => p
+    case _ => Prog.Remap(p, toEnd(at))
 
   // -- PROGRAMS
 
-  sealed abstract class Prog[R[_], +A]
-  final case class Done[R[_], A](a: A) extends Prog[R, A]
-  final case class Bind[R[_], X, A](p: Prog[R, X], f: X => Prog[R, A]) extends Prog[R, A]
-  final case class Delay[R[_], A](p: () => Prog[R, A]) extends Prog[R, A]
-  /** a value through `f`: one step, no program made of it */
-  final case class Mapping[R[_], X, A](p: Prog[R, X], f: X => A) extends Prog[R, A]
-  final case class Perf[R[_], E[_], X](at: Place[E, R, ?], op: E[X]) extends Prog[R, X]
-  final case class HandleGeneral[E[_], R[_], A, B](p: Prog[R + E, A], h: Clauses[E, A, Prog[R, B]]) extends Prog[R, B]
-  final case class HandleTail[E[_], R[_], A, B](p: Prog[R + E, A], h: TailClauses[E, A, Prog[R, B]]) extends Prog[R, B]
-  final case class HandleState[E[_], S, R[_], A, B](p: Prog[R + E, A], s0: S, h: StatefulTailClauses[E, S, A, Prog[R, B]])
-      extends Prog[R, B]
-  final case class Remap[R1[_], R2[_], A](p: Prog[R1, A], rename: Renaming[R1, R2]) extends Prog[R2, A]
-  final case class HandleStateK[E[_], S, R[_], A, B](p: Prog[R + E, A], s0: S, h: StatefulClauses[E, S, A, Prog[R, B]])
-      extends Prog[R, B]
-  final case class Resume[R[_], X, B](k: K[R, X, B], x: X) extends Prog[R, B]
-  /** a stateful general handler's `k` resumed with the answer and the state to go on from */
-  final case class ResumeWith[R[_], X, S, B](k: KS[R, X, S, B], x: X, s: S) extends Prog[R, B]
+  enum Prog[R[_], +A]:
+    case Done[R[_], A](a: A) extends Prog[R, A]
+    case Bind[R[_], X, A](p: Prog[R, X], f: X => Prog[R, A]) extends Prog[R, A]
+    /** a value through `f`: one step, no program made of it */
+    case Mapping[R[_], X, A](p: Prog[R, X], f: X => A) extends Prog[R, A]
+    case Delay[R[_], A](p: () => Prog[R, A]) extends Prog[R, A]
+    case Perf[R[_], E[_], X](at: Place[E, R, ?], op: E[X]) extends Prog[R, X]
+    /** a handler of `E` installed over `p`: a level of `lv`'s shape, its state made afresh each time */
+    case Handle[E[_], T[_], A, B](p: Prog[T + E, A], lv: Level[E, T, A, B]) extends Prog[T, B]
+    case Remap[R1[_], R2[_], A](p: Prog[R1, A], rename: Renaming[R1, R2]) extends Prog[R2, A]
+    /** `k` resumed with `x`: the frames inside, the levels crossed, the general handler's level put back here */
+    case Resume[T[_], X, B, R0[_], V0, E[_], A](inner: Frames[R0, X, V0], pre: Prefix[R0, V0, T + E, A],
+        lv: Level[E, T, A, B], x: X) extends Prog[T, B]
 
   // -- THE FRAMES: from a value `X` to the value `V` of the nearest level's body, at the row `R`
 
-  sealed abstract class Frames[R[_], -X, +V]
-  final class Last[R[_], V] extends Frames[R, V, V]
-  final class Then[R[_], X, Y, V](val f: X => Prog[R, Y], val rest: Frames[R, Y, V]) extends Frames[R, X, V]
-  /** a map pending: the value through `f`, on into `rest` */
-  final class Mapped[R[_], X, Y, V](val f: X => Y, val rest: Frames[R, Y, V]) extends Frames[R, X, V]
+  enum Frames[R[_], -X, +V]:
+    case End[R[_], V]() extends Frames[R, V, V]
+    case Then[R[_], X, Y, V](f: X => Prog[R, Y], rest: Frames[R, Y, V]) extends Frames[R, X, V]
+    /** a map pending: the value through `f`, on into `rest` */
+    case Mapped[R[_], X, Y, V](f: X => Y, rest: Frames[R, Y, V]) extends Frames[R, X, V]
+
+  // -- THE HANDLERS INSTALLED: of `E`, the row outside `T`, the body's value `A`, the handler's `B`
+
+  /** a stateful handler's state, the cell its clauses write: of its level, made afresh each time it is installed */
+  final class StateCell[S](var state: S) extends Cell[S]:
+    def get: S = state
+    def set(s: S): Unit = state = s
+
+  enum Level[E[_], T[_], A, B]:
+    case General[E[_], T[_], A, B](h: Clauses[E, A, Prog[T, B]]) extends Level[E, T, A, B]
+    /** a general handler with a state of its own: the state of its time, kept as it is */
+    case StateK[E[_], T[_], A, B, S](h: StatefulClauses[E, S, A, Prog[T, B]], state: S) extends Level[E, T, A, B]
+    /** answering in place */
+    case Tail[E[_], T[_], A, B](h: TailClauses[E, A, Prog[T, B]]) extends Level[E, T, A, B]
+    /** answering in place, its state in `cell` */
+    case State[E[_], T[_], A, B, S](h: StatefulTailClauses[E, S, A, Prog[T, B]], cell: StateCell[S])
+        extends Level[E, T, A, B]
+
+    /** an operation found here answered in place, no `k` */
+    inline def answers: Boolean = this match
+      case _: Tail[e, t, a, b] => true
+      case _: State[e, t, a, b, s] => true
+      case _ => false
+
+  /** the level as it is to be installed, or put back by a `k`: a stateful one with a cell of its own, from the
+   * state it has now */
+  inline def fresh[E[_], T[_], A, B](lv: Level[E, T, A, B]): Level[E, T, A, B] = lv match
+    case s: Level.State[e, t, a, b, st] => Level.State(s.h, StateCell(s.cell.state))
+    case _ => lv
+
+  /** the body's value given back through the handler */
+  inline def ret[E[_], T[_], A, B](lv: Level[E, T, A, B], a: A): Prog[T, B] = lv match
+    case g: Level.General[e, t, a2, b] => g.h.ret(a)
+    case s: Level.StateK[e, t, a2, b, st] => s.h.ret(s.state, a)
+    case t: Level.Tail[e, t2, a2, b] => t.h.ret(a)
+    case s: Level.State[e, t, a2, b, st] => s.h.ret(s.cell.state, a)
+
+  /** an operation answered in place, by a level that `answers` */
+  inline def answer[E[_], X](lv: Level[E, ?, ?, ?], op: E[X]): X = lv match
+    case t: Level.Tail[e, t2, a, b] => t.h.answer[X](op)
+    case s: Level.State[e, t2, a, b, st] => s.h.answer[X](s.cell, op)
+    case _ => throw IllegalStateException("not answered in place")
 
   // -- THE LEVELS: the program inside at `R`, its body's value `V`, the run's `Z`
 
-  sealed abstract class Meta[R[_], V, Z]
-  final class Top[Z] extends Meta[PureRow, Z, Z]
+  enum Meta[R[_], V, Z]:
+    case Top[Z]() extends Meta[PureRow, Z, Z]
+    /** a handler of `E`'s level: the program inside at `T + E`, its body's value `A`; the frames outside it from `B`
+     * to `W` at `T`, the levels outside them */
+    case Handler[E[_], T[_], A, B, W, Z](lv: Level[E, T, A, B], outside: Frames[T, B, W], m: Meta[T, W, Z])
+        extends Meta[T + E, A, Z]
+    /** a remapping's level: the program inside at `R1`, its places renamed to `R2`'s outside it */
+    case Remapped[R1[_], R2[_], A, W, Z](rename: Renaming[R1, R2], outside: Frames[R2, A, W], m: Meta[R2, W, Z])
+        extends Meta[R1, A, Z]
 
-  /** a handler of `E`'s level: the program inside at `T + E`, its body's value `A`; the frames outside it from `B`
-   * to `W` at `T`, the levels outside them */
-  sealed abstract class HandlerLevel[E[_], T[_], A, B, W, Z](val outside: Frames[T, B, W], val m: Meta[T, W, Z])
-      extends Meta[T + E, A, Z]:
-    def ret(a: A): Prog[T, B]
-    /** `pre` with this level after it, as it is now: what a `k` taken past it puts back */
-    def crossed[R0[_], V0](pre: Prefix[R0, V0, T + E, A]): Prefix[R0, V0, T, W]
+  /** levels taken off by a `k`, the innermost's body at `RIn` of `VIn`, the outermost's at `ROut` of `VOut`: data,
+   * put back on any levels by `put` */
+  enum Prefix[RIn[_], VIn, ROut[_], VOut]:
+    case Empty[R[_], V]() extends Prefix[R, V, R, V]
+    case Handler[RIn[_], VIn, E[_], T[_], A, B, W](inner: Prefix[RIn, VIn, T + E, A], lv: Level[E, T, A, B],
+        outside: Frames[T, B, W]) extends Prefix[RIn, VIn, T, W]
+    case Remapped[RIn[_], VIn, R1[_], R2[_], A, W](inner: Prefix[RIn, VIn, R1, A], rename: Renaming[R1, R2],
+        outside: Frames[R2, A, W]) extends Prefix[RIn, VIn, R2, W]
 
-  final class GeneralLevel[E[_], T[_], A, B, W, Z](val h: Clauses[E, A, Prog[T, B]], outside: Frames[T, B, W],
-      m: Meta[T, W, Z]) extends HandlerLevel[E, T, A, B, W, Z](outside, m):
-    def ret(a: A): Prog[T, B] = h.ret(a)
-    def crossed[R0[_], V0](pre: Prefix[R0, V0, T + E, A]): Prefix[R0, V0, T, W] = new Prefix[R0, V0, T, W]:
-      def put[Z2](m2: Meta[T, W, Z2]): Meta[R0, V0, Z2] = pre.put(GeneralLevel(h, outside, m2))
-
-  /** a general handler's level with a state of its own: the state of its time, kept as it is — a `k` resumed puts it
-   * back with the state it is given */
-  final class StateKLevel[E[_], S, T[_], A, B, W, Z](val h: StatefulClauses[E, S, A, Prog[T, B]], val state: S,
-      outside: Frames[T, B, W], m: Meta[T, W, Z]) extends HandlerLevel[E, T, A, B, W, Z](outside, m):
-    def ret(a: A): Prog[T, B] = h.ret(state, a)
-    def crossed[R0[_], V0](pre: Prefix[R0, V0, T + E, A]): Prefix[R0, V0, T, W] = new Prefix[R0, V0, T, W]:
-      def put[Z2](m2: Meta[T, W, Z2]): Meta[R0, V0, Z2] = pre.put(StateKLevel(h, state, outside, m2))
-
-  /** answering in place */
-  sealed abstract class InPlace[E[_], T[_], A, B, W, Z](outside: Frames[T, B, W], m: Meta[T, W, Z])
-      extends HandlerLevel[E, T, A, B, W, Z](outside, m):
-    def answer[X](op: E[X]): X
-
-  final class TailLevel[E[_], T[_], A, B, W, Z](val h: TailClauses[E, A, Prog[T, B]], outside: Frames[T, B, W],
-      m: Meta[T, W, Z]) extends InPlace[E, T, A, B, W, Z](outside, m):
-    def ret(a: A): Prog[T, B] = h.ret(a)
-    def answer[X](op: E[X]): X = h.answer[X](op)
-    def crossed[R0[_], V0](pre: Prefix[R0, V0, T + E, A]): Prefix[R0, V0, T, W] = new Prefix[R0, V0, T, W]:
-      def put[Z2](m2: Meta[T, W, Z2]): Meta[R0, V0, Z2] = pre.put(TailLevel(h, outside, m2))
-
-  /** a stateful handler's level: its state the cell its clauses write */
-  final class StateLevel[E[_], S, T[_], A, B, W, Z](val h: StatefulTailClauses[E, S, A, Prog[T, B]], var state: S,
-      outside: Frames[T, B, W], m: Meta[T, W, Z]) extends InPlace[E, T, A, B, W, Z](outside, m) with Cell[S]:
-    def get: S = state
-    def set(s: S): Unit = state = s
-    def ret(a: A): Prog[T, B] = h.ret(state, a)
-    def answer[X](op: E[X]): X = h.answer[X](this, op)
-    /** put back with the state it has now, each time */
-    def crossed[R0[_], V0](pre: Prefix[R0, V0, T + E, A]): Prefix[R0, V0, T, W] =
-      val now = state
-      new Prefix[R0, V0, T, W]:
-        def put[Z2](m2: Meta[T, W, Z2]): Meta[R0, V0, Z2] = pre.put(StateLevel(h, now, outside, m2))
-
-  /** a remapping's level: the program inside at `R1`, its places renamed to `R2`'s outside it */
-  final class RemapLevel[R1[_], R2[_], A, W, Z](val rename: Renaming[R1, R2], val outside: Frames[R2, A, W],
-      val m: Meta[R2, W, Z]) extends Meta[R1, A, Z]:
-    def crossed[R0[_], V0](pre: Prefix[R0, V0, R1, A]): Prefix[R0, V0, R2, W] = new Prefix[R0, V0, R2, W]:
-      def put[Z2](m2: Meta[R2, W, Z2]): Meta[R0, V0, Z2] = pre.put(RemapLevel(rename, outside, m2))
-
-  /** levels taken off, the innermost's body at `RIn` of `VIn`, the outermost's at `ROut` of `VOut`: put back on any */
-  trait Prefix[RIn[_], VIn, ROut[_], VOut]:
-    def put[Z](m: Meta[ROut, VOut, Z]): Meta[RIn, VIn, Z]
-  private def none[R[_], V]: Prefix[R, V, R, V] = new Prefix[R, V, R, V]:
-    def put[Z](m: Meta[R, V, Z]): Meta[R, V, Z] = m
-
-  /** `k`: the frames inside, the levels crossed, the general handler's level — resumed at its outside `T` */
-  final class K[T[_], X, B](val resume: [W, Z] => (X, Frames[T, B, W], Meta[T, W, Z]) => Next[Z])
-  /** the same of a stateful general handler: resumed with the state to go on from */
-  final class KS[T[_], X, S, B](val resume: [W, Z] => (X, S, Frames[T, B, W], Meta[T, W, Z]) => Next[Z])
+  /** the levels of `pre` put back on `m`: each a level of its own, a stateful one from the state it was taken with */
+  @tailrec def put[RIn[_], VIn, ROut[_], VOut, Z](pre: Prefix[RIn, VIn, ROut, VOut], m: Meta[ROut, VOut, Z]): Meta[RIn, VIn, Z] =
+    pre match
+      case _: Prefix.Empty[r, v] => m
+      case h: Prefix.Handler[ri, vi, e, t, a, b, w] => put(h.inner, Meta.Handler(fresh(h.lv), h.outside, m))
+      case r: Prefix.Remapped[ri, vi, r1, r2, a, w] => put(r.inner, Meta.Remapped(r.rename, r.outside, m))
 
   /** where the run goes on, after a cold step */
-  final class Next[Z](val go: Go[?, ?, ?, Z])
   final case class Go[R[_], X, V, Z](c: Prog[R, X], fs: Frames[R, X, V], m: Meta[R, V, Z])
 
   // -- THE LOOP
 
-  /** the handler answering `at` in place, walked by the path; `null`: a general one, or a handler not in place */
-  @tailrec private def inPlace[E[_], R[_], V, Z](at: Place[E, R, ?], m: Meta[R, V, Z]): InPlace[E, ?, ?, ?, ?, ?] | Null =
-    m match
-      case l: HandlerLevel[e, t, a, b, w, z] => (at: @unchecked) match
-        case _: LastPlace[r, e2] => l match
-          case ip: InPlace[e3, t3, a3, b3, w3, z3] => ip
-          case _ => null
-        case ip: InitPlace[e2, r, g, rest] => inPlace[E, t, w, Z](ip.s, l.m)
-      case r: RemapLevel[r1, r2, a, w, z] => inPlace[E, r2, w, Z](r.rename(at), r.m)
-      case _: Top[z] => throw IllegalStateException(s"an operation no handler took, at $at")
+  /** the handler `at` is answered by, walked by the path */
+  @tailrec private def found[E[_], R[_], V, Z](at: Place[E, R, ?], m: Meta[R, V, Z]): Level[E, ?, ?, ?] = m match
+    case l: Meta.Handler[e, t, a, b, w, z] => (at: @unchecked) match
+      case _: Place.Last[r, e2] => l.lv
+      case ip: Place.Init[e2, r, g, rest] => found[E, t, w, Z](ip.s, l.m)
+    case r: Meta.Remapped[r1, r2, a, w, z] => found[E, r2, w, Z](r.rename(at), r.m)
+    case _: Meta.Top[z] => throw IllegalStateException(s"an operation no handler took, at $at")
 
   @tailrec private def loop[R[_], X, V, Z](c: Prog[R, X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Z = c match
-    case d: Done[r, x] => fs match
-      case t: Then[r2, a, y, v] => loop[R, y, V, Z](t.f(d.a), t.rest, m)
-      case t: Mapped[r2, a, y, v] => loop[R, y, V, Z](Done(t.f(d.a)), t.rest, m)
-      case _: Last[r2, v] => m match
-        case _: Top[z] => d.a
+    case d: Prog.Done[r, x] => fs match
+      case t: Frames.Then[r2, a, y, v] => loop[R, y, V, Z](t.f(d.a), t.rest, m)
+      case t: Frames.Mapped[r2, a, y, v] => loop[R, y, V, Z](Prog.Done(t.f(d.a)), t.rest, m)
+      case _: Frames.End[r2, v] => m match
+        case _: Meta.Top[z] => d.a
         case _ =>
-          val g = cold[R, X, V, Z](c, fs, m).go
+          val g = cold[R, X, V, Z](c, fs, m)
           loop(g.c, g.fs, g.m)
-    case b: Bind[r, y, x] => loop[R, y, V, Z](b.p, Then[R, y, x, V](b.f, fs), m)
-    case b: Mapping[r, y, x] => loop[R, y, V, Z](b.p, Mapped[R, y, x, V](b.f, fs), m)
-    case p: Perf[r, e, x] => inPlace[e, R, V, Z](p.at, m) match
-      case h: InPlace[e2, t, a, b, w, z] =>
+    case b: Prog.Bind[r, y, x] => loop[R, y, V, Z](b.p, Frames.Then[R, y, x, V](b.f, fs), m)
+    case b: Prog.Mapping[r, y, x] => loop[R, y, V, Z](b.p, Frames.Mapped[R, y, x, V](b.f, fs), m)
+    case p: Prog.Perf[r, e, x] =>
+      val lv = found[e, R, V, Z](p.at, m)
+      if lv.answers then
         // answered in place, the answer straight into the next frame: no `Done` made
-        val x = h.answer[x](p.op)
+        val x = answer[e, x](lv, p.op)
         fs match
-          case t: Then[r2, a2, y, v] => loop[R, y, V, Z](t.f(x), t.rest, m)
-          case _ => loop[R, X, V, Z](Done(x), fs, m)
-      case null =>
-        val g = walk[e, R, x, V, R, V, Z](p.at, p.op, fs, none[R, V], m).go
+          case t: Frames.Then[r2, a2, y, v] => loop[R, y, V, Z](t.f(x), t.rest, m)
+          case _ => loop[R, X, V, Z](Prog.Done(x), fs, m)
+      else
+        val g = walk[e, R, x, V, R, V, Z](p.at, p.op, fs, Prefix.Empty[R, V](), m)
         loop(g.c, g.fs, g.m)
-    case d: Delay[r, x] => loop[R, X, V, Z](d.p(), fs, m)
+    case d: Prog.Delay[r, x] => loop[R, X, V, Z](d.p(), fs, m)
     case _ =>
-      val g = cold[R, X, V, Z](c, fs, m).go
+      val g = cold[R, X, V, Z](c, fs, m)
       loop(g.c, g.fs, g.m)
 
   /** the loop's cold steps: a level left, a level entered, a `k` resumed */
-  private def cold[R[_], X, V, Z](c: Prog[R, X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Next[Z] = c match
-    case d: Done[r, x] => fs match
-      case t: Then[r2, a, y, v] => Next(Go[R, y, V, Z](t.f(d.a), t.rest, m))
-      case t: Mapped[r2, a, y, v] => Next(Go[R, y, V, Z](Done(t.f(d.a)), t.rest, m))
-      case _: Last[r2, v] => m match
-        case l: HandlerLevel[e, t, a, b, w, z] => Next(Go[t, b, w, Z](l.ret(d.a), l.outside, l.m))
-        case l: RemapLevel[r1, r2, a, w, z] => Next(Go[r2, a, w, Z](Done(d.a), l.outside, l.m))
-        case _: Top[z] => throw IllegalStateException("the top is the loop's")
-    case h: HandleGeneral[e, r, a, b] => Next(Go[R + e, a, a, Z](h.p, Last(), GeneralLevel[e, R, a, b, V, Z](h.h, fs, m)))
-    case h: HandleTail[e, r, a, b] => Next(Go[R + e, a, a, Z](h.p, Last(), TailLevel[e, R, a, b, V, Z](h.h, fs, m)))
-    case h: HandleState[e, s, r, a, b] =>
-      Next(Go[R + e, a, a, Z](h.p, Last(), StateLevel[e, s, R, a, b, V, Z](h.h, h.s0, fs, m)))
-    case r: Remap[r1, r2, a] => Next(Go[r1, a, a, Z](r.p, Last(), RemapLevel[r1, R, a, V, Z](r.rename, fs, m)))
-    case h: HandleStateK[e, s, r, a, b] =>
-      Next(Go[R + e, a, a, Z](h.p, Last(), StateKLevel[e, s, R, a, b, V, Z](h.h, h.s0, fs, m)))
-    case r: Resume[r, x, b] => r.k.resume[V, Z](r.x, fs, m)
-    case r: ResumeWith[r, x, s, b] => r.k.resume[V, Z](r.x, r.s, fs, m)
-    case p: Perf[r, e, x] => walk[e, R, x, V, R, V, Z](p.at, p.op, fs, none[R, V], m)
-    case b: Bind[r, y, x] => Next(Go[R, y, V, Z](b.p, Then[R, y, x, V](b.f, fs), m))
-    case b: Mapping[r, y, x] => Next(Go[R, y, V, Z](b.p, Mapped[R, y, x, V](b.f, fs), m))
-    case d: Delay[r, x] => Next(Go[R, X, V, Z](d.p(), fs, m))
+  private def cold[R[_], X, V, Z](c: Prog[R, X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Go[?, ?, ?, Z] = c match
+    case d: Prog.Done[r, x] => fs match
+      case t: Frames.Then[r2, a, y, v] => Go[R, y, V, Z](t.f(d.a), t.rest, m)
+      case t: Frames.Mapped[r2, a, y, v] => Go[R, y, V, Z](Prog.Done(t.f(d.a)), t.rest, m)
+      case _: Frames.End[r2, v] => m match
+        case l: Meta.Handler[e, t, a, b, w, z] => Go[t, b, w, Z](ret(l.lv, d.a), l.outside, l.m)
+        case l: Meta.Remapped[r1, r2, a, w, z] => Go[r2, a, w, Z](Prog.Done(d.a), l.outside, l.m)
+        case _: Meta.Top[z] => throw IllegalStateException("the top is the loop's")
+    case h: Prog.Handle[e, t, a, b] =>
+      Go[R + e, a, a, Z](h.p, Frames.End(), Meta.Handler[e, R, a, b, V, Z](fresh(h.lv), fs, m))
+    case r: Prog.Remap[r1, r2, a] => Go[r1, a, a, Z](r.p, Frames.End(), Meta.Remapped[r1, R, a, V, Z](r.rename, fs, m))
+    case r: Prog.Resume[t, x, b, r0, v0, e, a] =>
+      Go[r0, x, v0, Z](Prog.Done(r.x), r.inner, put(r.pre, Meta.Handler[e, R, a, b, V, Z](r.lv, fs, m)))
+    case p: Prog.Perf[r, e, x] => walk[e, R, x, V, R, V, Z](p.at, p.op, fs, Prefix.Empty[R, V](), m)
+    case b: Prog.Bind[r, y, x] => Go[R, y, V, Z](b.p, Frames.Then[R, y, x, V](b.f, fs), m)
+    case b: Prog.Mapping[r, y, x] => Go[R, y, V, Z](b.p, Frames.Mapped[R, y, x, V](b.f, fs), m)
+    case d: Prog.Delay[r, x] => Go[R, X, V, Z](d.p(), fs, m)
 
   /** an operation to its general handler: the levels it crosses taken onto `pre`, `k` made, the clause run outside */
   @tailrec private def walk[E[_], R0[_], X, V0, R[_], V, Z](at: Place[E, R, ?], op: E[X], inner: Frames[R0, X, V0],
-      pre: Prefix[R0, V0, R, V], m: Meta[R, V, Z]): Next[Z] = m match
-    case l: HandlerLevel[e, t, a, b, w, z] => (at: @unchecked) match
-      case _: LastPlace[r, e2] => l match
-        case g: GeneralLevel[e3, t3, a3, b3, w3, z3] =>
-          val k = K[t, X, b]([W2, Z2] => (x: X, fs: Frames[t, b, W2], m2: Meta[t, W2, Z2]) =>
-            Next(Go[R0, X, V0, Z2](Done(x), inner, pre.put(GeneralLevel[E, t, a, b, W2, Z2](g.h, fs, m2)))))
-          Next(Go[t, b, w, Z](g.h.op[X](op, (x: X) => Resume(k, x)), g.outside, g.m))
-        case g: StateKLevel[e3, s, t3, a3, b3, w3, z3] =>
-          val k = KS[t, X, s, b]([W2, Z2] => (x: X, s1: s, fs: Frames[t, b, W2], m2: Meta[t, W2, Z2]) =>
-            Next(Go[R0, X, V0, Z2](Done(x), inner, pre.put(StateKLevel[E, s, t, a, b, W2, Z2](g.h, s1, fs, m2)))))
-          Next(Go[t, b, w, Z](g.h.op[X](g.state, op, (x: X, s1: s) => ResumeWith(k, x, s1)), g.outside, g.m))
+      pre: Prefix[R0, V0, R, V], m: Meta[R, V, Z]): Go[?, ?, ?, Z] = m match
+    case l: Meta.Handler[e, t, a, b, w, z] => (at: @unchecked) match
+      case _: Place.Last[r, e2] => l.lv match
+        case g: Level.General[e3, t3, a3, b3] =>
+          Go[t, b, w, Z](g.h.op[X](op, (x: X) => Prog.Resume[t, X, b, R0, V0, E, a](inner, pre, g, x)), l.outside, l.m)
+        case g: Level.StateK[e3, t3, a3, b3, s] =>
+          val k = (x: X, s1: s) => Prog.Resume[t, X, b, R0, V0, E, a](inner, pre, Level.StateK(g.h, s1), x)
+          Go[t, b, w, Z](g.h.op[X](g.state, op, k), l.outside, l.m)
         case _ => throw IllegalStateException("answered in place")
-      case ip: InitPlace[e2, r, g, rest] => walk[E, R0, X, V0, t, w, Z](ip.s, op, inner, l.crossed(pre), l.m)
-    case r: RemapLevel[r1, r2, a, w, z] => walk[E, R0, X, V0, r2, w, Z](r.rename(at), op, inner, r.crossed(pre), r.m)
-    case _: Top[z] => throw IllegalStateException(s"an operation no handler took, at $at")
+      case ip: Place.Init[e2, r, g, rest] =>
+        walk[E, R0, X, V0, t, w, Z](ip.s, op, inner, Prefix.Handler(pre, fresh(l.lv), l.outside), l.m)
+    case r: Meta.Remapped[r1, r2, a, w, z] =>
+      walk[E, R0, X, V0, r2, w, Z](r.rename(at), op, inner, Prefix.Remapped(pre, r.rename, r.outside), r.m)
+    case _: Meta.Top[z] => throw IllegalStateException(s"an operation no handler took, at $at")
 
-  def run[A](p: Prog[PureRow, A]): A = loop[PureRow, A, A, A](p, Last(), Top())
+  inline def run[A](p: Prog[PureRow, A]): A = loop[PureRow, A, A, A](p, Frames.End(), Meta.Top())
 
 /** the interface over the machine: its types the object's, a handler kept as it is given */
 private[simple] class Machine extends Effects:
@@ -258,36 +212,31 @@ private[simple] class Machine extends Effects:
   type In[E[_], R[_]] = Place[E, R, ?]
   type Sub[R[_], S[_]] = Renaming[R, S]
 
-  implicit def splitOne[E[_]]: Split[E, E, Pure] = OnePlace[E]()
-  implicit def splitLast[R[_], E[_]]: Split[E, R + E, R] = LastPlace[R, E]()
+  implicit def splitOne[E[_]]: Split[E, E, Pure] = Place.Only[E]()
+  implicit def splitLast[R[_], E[_]]: Split[E, R + E, R] = Place.Last[R, E]()
   implicit def splitInit[E[_], R[_], G[_], Rest[_]](implicit s: Split[E, R, Rest]): Split[E, R + G, Rest + G] =
-    InitPlace[E, R, G, Rest](s)
-  implicit def subPure[S[_]]: Sub[Pure, S] = new Renaming[PureRow, S]:
-    def apply[E[_]](at: Place[E, PureRow, ?]): Place[E, S, ?] = throw IllegalStateException("no place in Pure")
-  implicit def subOne[E[_], S[_]](implicit e: In[E, S]): Sub[E, S] = new Renaming[E, S]:
-    def apply[E2[_]](at: Place[E2, E, ?]): Place[E2, S, ?] = (at: @unchecked) match
-      case _: OnePlace[e] => e
-  implicit def subMore[R[_], E[_], S[_]](implicit r: Sub[R, S], e: In[E, S]): Sub[R + E, S] = new Renaming[R + E, S]:
-    def apply[E2[_]](at: Place[E2, R + E, ?]): Place[E2, S, ?] = (at: @unchecked) match
-      case _: LastPlace[r1, e1] => e
-      case ip: InitPlace[e2, r2, g, rest] => r(ip.s)
+    Place.Init[E, R, G, Rest](s)
+  implicit def subPure[S[_]]: Sub[Pure, S] = Places.subPure[S]
+  implicit def subOne[E[_], S[_]](implicit e: In[E, S]): Sub[E, S] = Places.subOne(e)
+  implicit def subMore[R[_], E[_], S[_]](implicit r: Sub[R, S], e: In[E, S]): Sub[R + E, S] = Places.subMore(r, e)
 
   // -- THE INTERFACE
 
-  def pure[A, R[_]](a: A): Prog[R, A] = Done(a)
-  def flatMap[A, B, R[_]](p: Prog[R, A])(f: A => Prog[R, B]): Prog[R, B] = Bind(p, f)
-  override def map[A, B, R[_]](p: Prog[R, A])(f: A => B): Prog[R, B] = Mapping(p, f)
-  def delay[A, R[_]](p: => Prog[R, A]): Prog[R, A] = Delay(() => p)
-  override def perform[E[_], R[_], X](op: E[X])(implicit in: In[E, R]): Prog[R, X] = Perf[R, E, X](in, op)
+  def pure[A, R[_]](a: A): Prog[R, A] = Prog.Done(a)
+  def flatMap[A, B, R[_]](p: Prog[R, A])(f: A => Prog[R, B]): Prog[R, B] = Prog.Bind(p, f)
+  override def map[A, B, R[_]](p: Prog[R, A])(f: A => B): Prog[R, B] = Prog.Mapping(p, f)
+  def delay[A, R[_]](p: => Prog[R, A]): Prog[R, A] = Prog.Delay(() => p)
+  override def perform[E[_], R[_], X](op: E[X])(implicit in: In[E, R]): Prog[R, X] = Prog.Perf[R, E, X](in, op)
 
-  def split[E[_], R[_], Rest[_], A](p: Prog[R, A])(implicit s: Split[E, R, Rest]): Prog[Rest + E, A] = s.moved(p)
-  def embed[R[_], S[_], A](p: Prog[R, A])(implicit s: Sub[R, S]): Prog[S, A] = Remap(p, s)
+  def split[E[_], R[_], Rest[_], A](p: Prog[R, A])(implicit s: Split[E, R, Rest]): Prog[Rest + E, A] = moved(s, p)
+  def embed[R[_], S[_], A](p: Prog[R, A])(implicit s: Sub[R, S]): Prog[S, A] = Prog.Remap(p, s)
 
-  def handleLast[E[_], R[_], A, B](p: Prog[R + E, A], h: Handler[E, R, A, B]): Prog[R, B] = HandleGeneral(p, h)
+  def handleLast[E[_], R[_], A, B](p: Prog[R + E, A], h: Handler[E, R, A, B]): Prog[R, B] =
+    Prog.Handle(p, Level.General(h))
   override def handleLast[E[_], R[_], A, B](p: Prog[R + E, A], h: TailHandler[E, R, A, B]): Prog[R, B] =
-    HandleTail(p, h)
+    Prog.Handle(p, Level.Tail(h))
   override def handleLast[E[_], S, R[_], A, B](p: Prog[R + E, A], s0: S, h: StatefulTailHandler[E, S, R, A, B]): Prog[R, B] =
-    HandleState(p, s0, h)
+    Prog.Handle(p, Level.State(h, StateCell(s0)))
   override def handleLast[E[_], S, R[_], A, B](p: Prog[R + E, A], s0: S, h: StatefulHandler[E, S, R, A, B]): Prog[R, B] =
-    HandleStateK(p, s0, h)
+    Prog.Handle(p, Level.StateK(h, s0))
   def run[A](p: Prog[PureRow, A]): A = Machine.run(p)

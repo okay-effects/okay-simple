@@ -59,8 +59,18 @@ lazy val suiteCore = (project in file("suite-core")).dependsOn(core)
     libraryDependencies += munit,
     Test / unmanagedSourceDirectories ++= suiteOf(scala3).map((ThisBuild / baseDirectory).value / _))
 
+/** the interface on THE `Eff` MONAD: Scala 3, a program an `Eff` interpreted by its handlers */
+lazy val eff = (project in file("eff")).dependsOn(effects)
+  .settings(crossScalaVersions := Seq(scala3), name := "okay-effects-eff", libraryDependencies += munit)
+
+/** the interface's suite on the `Eff` monad */
+lazy val suiteEff = (project in file("suite-eff")).dependsOn(eff)
+  .settings(crossScalaVersions := Seq(scala3), name := "okay-effects-suite-eff", publish / skip := true,
+    libraryDependencies += munit,
+    Test / unmanagedSourceDirectories ++= suiteOf(scala3).map((ThisBuild / baseDirectory).value / _))
+
 /** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
-lazy val bench = (project in file("bench")).dependsOn(simple, core, kernel).enablePlugins(JmhPlugin)
+lazy val bench = (project in file("bench")).dependsOn(simple, core, kernel, eff).enablePlugins(JmhPlugin)
   .settings(crossScalaVersions := Seq(scala3), name := "okay-effects-bench", publish / skip := true,
     resolvers += Resolver.mavenLocal, libraryDependencies ++= Seq(
       "dev.okay" %% "okay-kernel-steps" % "0.2.0-SNAPSHOT", "dev.okay" % "okay-java" % "0.2.0-SNAPSHOT"))
@@ -96,8 +106,8 @@ lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
     name := "okay-effects-compat-scala3", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
-lazy val root = (project in file(".")).aggregate(effects, simple, suite, core, suiteCore, kernel, suiteKernel, compat2, compat3, effects213, simple213, compat3on2)
+lazy val root = (project in file(".")).aggregate(effects, simple, suite, core, suiteCore, eff, suiteEff, kernel, suiteKernel, compat2, compat3, effects213, simple213, compat3on2)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
 /** everything: the interface's suites by both compilers, then the two compilers in one application */
-addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteKernel/test ; ++2.13.18 suite/test ; suiteKernel/test ; ++3.9.0 ; suiteCore/test ; compat2/test ; compat3/test ; compat3on2/test")
+addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteKernel/test ; ++2.13.18 suite/test ; suiteKernel/test ; ++3.9.0 ; suiteCore/test ; suiteEff/test ; compat2/test ; compat3/test ; compat3on2/test")

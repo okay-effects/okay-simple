@@ -23,9 +23,9 @@ trait Effects extends Effectful:
 
   /** a program's methods: `p.flatMap(f)`, `p.map(f)`, `p.into[S]` — extensions, no object made for them */
   extension [A, R[_]](p: A ! R)
-    @targetName("programFlatMap") def flatMap[B](f: A => B ! R): B ! R = Effects.this.flatMap[A, B, R](p)(f)
-    @targetName("programMap") def map[B](f: A => B): B ! R = Effects.this.map[A, B, R](p)(f)
-    def as[B](b: B): B ! R = Effects.this.map[A, B, R](p)(_ => b)
-    def andThen[B](q: => B ! R): B ! R = Effects.this.flatMap[A, B, R](p)(_ => q)
+    @targetName("programFlatMap") inline def flatMap[B](f: A => B ! R): B ! R = Effects.this.flatMap[A, B, R](p)(f)
+    @targetName("programMap") inline def map[B](f: A => B): B ! R = Effects.this.map[A, B, R](p)(f)
+    inline def as[B](b: B): B ! R = Effects.this.map[A, B, R](p)(_ => b)
+    inline def andThen[B](inline q: B ! R): B ! R = Effects.this.flatMap[A, B, R](p)(_ => q)
     /** this program in a row of more effects */
-    def into[S[_]](using s: Sub[R, S]): A ! S = embed[R, S, A](p)
+    inline def into[S[_]](using s: Sub[R, S]): A ! S = embed[R, S, A](p)
