@@ -7,8 +7,9 @@ do not clash). The interface is ONE for both compilers, `Effectful`: a row is a 
 constructor in both, and everything over it is one source. Only how a row is written is each compiler's own
 `Effects`: in Scala 3 by type lambdas, `Choose + State % Int`; in Scala 2 by names taken as the constructor they
 make, `(*[Choose] + (State % Int))#L`. The interface fixes no implementation: a program, a row's evidence
-are abstract types, and an implementation makes them what it likes. `machine/` is its own implementation; `core/`
-runs the same programs on okay-core's machine, `kernel/` on okay-kernel's protocol. An implementation knows nothing
+are abstract types, and an implementation makes them what it likes. `machine/` is its own implementation, `free/`
+the `Free` monad's; the bridges to okay-core's machine and to okay-kernel's protocol live in those repositories
+(`okay-effects-core`, `okay-effects-kernel`), checked by this interface's suite, `okay-effects-tck`. An implementation knows nothing
 of the standard effects: they are the trait `Std`, mixed in where an implementation is offered (`Machine`, `Core`,
 `OnKernel.on`).
 
@@ -162,7 +163,7 @@ compilers).
   - **Scala 2's** (`machine/src/main/scala-2`): the same design where Scala 2 can follow it — Scala 2 has no GADT
     inference, so a place is a shared number, three trusted steps where an operation meets its handler, and
     methods each level means for itself (`last`, `top`, `returned`, `stepOut`) where Scala 3 matches.
-- **`core/`, on okay-core's machine** (Scala 3), by okay-core's public API only: a program is okay-core's own
+- **okay-core's bridge, in okay-core's repository** (module `effects/`, `okay-effects-core`; Scala 3), by okay-core's public API only: a program is okay-core's own
   `Cont`, nothing wrapped. An okay-simple place is okay-core's path (the last effect of an okay-simple row is the
   head of okay-core's), `Split` is okay-core's `Removed`, made of the place; a general handler is a `Deep`, one
   answering in place an `Answering`, a stateful one okay-core's `Stateful`, installed by okay-core's `handle` at the
@@ -171,7 +172,7 @@ compilers).
   the effect to the fresh head; an `embed` a handler translating each effect to its place. Built against okay-core's
   artifact (`okay-core::okay-core:0.1.0-SNAPSHOT`, published from okay-core's master: `sbt coreJVM/publishLocal`).
 
-- **`kernel/`, on okay-kernel's protocol** (both compilers, one source: the protocol's part `Protocol`, the
+- **okay-kernel's bridge, in okay-kernel's repository** (module `effects/`, `okay-effects-kernel`; both compilers, one source: the protocol's part `Protocol`, the
   interface over it `OnKernel`): on any implementation of it, given its `Effects` —
   okay-kernel's reference machine (`Steps`), okay-java (`okay.core.Kernel.EFFECTS`), okay-core's bridge
   (`okay.core.kernel.OnCore`): `OnKernel.on(effects)`. The protocol finds a handler by an operation's key, okay-simple
@@ -199,32 +200,30 @@ no allocation, the state written in its level. A `k` taken by a general handler 
 twice it resumes the state of its time. An implementation with no such forms runs them as general handlers (the
 interface's defaults).
 
-Measured (`bench/`, JMH `-f 2 -wi 3 -i 5 -prof gc`, JDK 26, Scala 3.9; `bench.d/2026-10-17_all-typed.csv`; earlier
-runs beside it), one run of each program, n = 1000, µs and allocation. Each program twice: at a row named in it, and
-row-polymorphic (`…In`: its effects asked as `In` evidence, passed on to the recursion — the places made once):
+Measured (`bench/`, JMH `-f 2 -wi 3 -i 5 -prof gc`, JDK 26, Scala 3.9; `bench.d/`), one run of each program,
+n = 1000, µs. Each program twice where it says so: at a row named in it, and row-polymorphic (`…In`: its effects asked
+as `In` evidence, passed on to the recursion):
 
-| Program | `machine` | `core` | protocol: `Steps` | protocol: okay-java | protocol: okay-core |
-|---|---|---|---|---|---|
-| 1000 maps, no operation | 11.7, 142 KB | 10.6, 126 KB | 20.5, 230 KB | 18.0, 166 KB | 17.0, 182 KB |
-| 1000 `ask`s under their handler, a map pending each | 23.2, 303 KB | 19.0, 222 KB | 5428, 24.6 MB | 42.5, 471 KB | 67.0, 630 KB |
-| the same, row-polymorphic | 25.7, 279 KB | 20.1, 222 KB | 5382, 24.6 MB | 44.0, 471 KB | 68.1, 630 KB |
-| across four handlers of other effects | 32.9, 400 KB | 16.0, 207 KB | 5093, 26.1 MB | 114, 1.10 MB | 158, 1.50 MB |
-| the same, row-polymorphic | 28.5, 280 KB | 19.1, 231 KB | 5103, 26.1 MB | 113, 1.10 MB | 287, 1.50 MB |
-| 1000 `get`/`put` pairs under `State` | 23.3, 319 KB | 16.1, 214 KB | 138, 1.38 MB | 70.6, 863 KB | 102, 1.08 MB |
-| the same, row-polymorphic | 22.9, 279 KB | 16.6, 222 KB | 140, 1.38 MB | 71.8, 871 KB | 103, 1.08 MB |
+| Program | `machine` | `Free` |
+|---|---|---|
+| 1000 maps, no operation | 6.9 | 12.0 |
+| 1000 `ask`s under their handler, a map pending each | 15.8 | 35.1 |
+| the same, row-polymorphic | 16.3 | 31.1 |
+| across four handlers of other effects | 22.6 | 74.0 |
+| the same, row-polymorphic | 18.3 | 71.8 |
+| 1000 `get`/`put` pairs under `State` | 18.7 | 32.7 |
+| the same, row-polymorphic | 17.4 | 29.3 |
 
-- `machine` is typed: in Scala 3 a place is a typed path, made at each operation where the row is named in the
-  program — row-polymorphic code makes it once (400 → 280 KB across four handlers). Before the typed places, with a
-  number and a cast, it was 18.9 / 26.4 / 17.4 µs (`bench.d/2026-10-17_machine-typed-final.csv`).
-- okay-core's machine is the fastest: an operation crossing handlers is found at once, its look-up kept on its path.
-- The protocol's reference machine, `Steps`, is quadratic when maps are pending: each operation's `k` is rebuilt
-  from every frame on the stack. Through the protocol an operation is performed again at each okay-simple handler it
-  crosses: across four handlers 2.7 times the cost under its own (okay-java 42 → 114 µs).
+- The machine: a `map` one step (`Mapping`), an answer in place straight into the next frame, a `k` data.
+- `Free`: each handler an interpreter of the tree, an operation passed on by each handler it crosses (`Inject`, one
+  node), so across handlers it costs per handler; in place (`answer`) no `k`.
+- okay-core's machine and the protocol's implementations are measured in their repositories, beside their bridges.
 
 ## Build
 
 ```sh
-sbt testAll        # both compilers, okay-core's machine, okay-kernel's protocol on three implementations, and the three compatibility checks
+sbt testAll        # both compilers: the machine, the Free monad, and the three compatibility checks
+sbt "+effects/publishLocal" "+tck/publishLocal"   # the interface and its suite, for the bridges in okay-core and okay-kernel
 sbt suite/test     # Scala 3
 sbt "++2.13.18 suite/test"
 python3 /tmp/okz/tools/withlock.py sbt "bench/Jmh/run -f 2 -wi 3 -i 5 -prof gc"   # JMH, holding JMH's lock

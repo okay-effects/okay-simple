@@ -36,34 +36,6 @@ lazy val suite = (project in file("suite")).dependsOn(machine, tck)
   .settings(crossBuilt, name := "okay-effects-suite", publish / skip := true,
     Test / unmanagedSourceDirectories ++= Seq("src/test/impl", s"src/test/impl-${major(scalaVersion.value)}").map(baseDirectory.value / _))
 
-/** okay-simple's interface on okay-core's machine: Scala 3, okay-core's artifact (`sbt publishLocal` in okay-core) */
-lazy val core = (project in file("core")).dependsOn(effects)
-  .settings(crossScalaVersions := Seq(scala3), name := "okay-effects-core",
-    resolvers += Resolver.mavenLocal,
-    libraryDependencies ++= Seq("okay-core" %% "okay-core" % "0.1.0-SNAPSHOT", munit))
-
-/** okay-simple's interface on okay-kernel's protocol: any implementation of it, given its `Effects` */
-lazy val kernel = (project in file("kernel")).dependsOn(effects)
-  .settings(crossBuilt, name := "okay-effects-kernel", resolvers += Resolver.mavenLocal,
-    libraryDependencies += "dev.okay" % "okay-kernel-api" % "0.2.0-SNAPSHOT")
-
-/** the interface's suite through the protocol: okay-kernel's reference machine and okay-java on both compilers,
- * okay-core's bridge on Scala 3 */
-lazy val suiteKernel = (project in file("suite-kernel")).dependsOn(kernel, tck)
-  .settings(crossBuilt, name := "okay-effects-suite-kernel", publish / skip := true, resolvers += Resolver.mavenLocal,
-    // the protocol's Java implementations on the classpath: one class loader, not sbt's layers cached across ++
-    Test / classLoaderLayeringStrategy := ClassLoaderLayeringStrategy.Flat,
-    libraryDependencies ++= Seq(
-      "dev.okay" %% "okay-kernel-steps" % "0.2.0-SNAPSHOT" % Test,
-      "dev.okay" % "okay-java" % "0.2.0-SNAPSHOT" % Test) ++
-      (if (scalaVersion.value.startsWith("3")) Seq("okay-core" %% "okay-core" % "0.1.0-SNAPSHOT" % Test) else Nil),
-  )
-
-/** the interface's suite on okay-core's machine */
-lazy val suiteCore = (project in file("suite-core")).dependsOn(core, tck)
-  .settings(crossScalaVersions := Seq(scala3), name := "okay-effects-suite-core", publish / skip := true,
-    libraryDependencies += munit)
-
 /** the interface on THE `Free` MONAD: Scala 3, a program a `Free` interpreted by its handlers */
 lazy val free = (project in file("free")).dependsOn(effects)
   .settings(crossBuilt, name := "okay-effects-free")
@@ -73,10 +45,8 @@ lazy val suiteFree = (project in file("suite-free")).dependsOn(free, tck)
   .settings(crossBuilt, name := "okay-effects-suite-free", publish / skip := true)
 
 /** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
-lazy val bench = (project in file("bench")).dependsOn(machine, core, kernel, free).enablePlugins(JmhPlugin)
-  .settings(crossScalaVersions := Seq(scala3), name := "okay-effects-bench", publish / skip := true,
-    resolvers += Resolver.mavenLocal, libraryDependencies ++= Seq(
-      "dev.okay" %% "okay-kernel-steps" % "0.2.0-SNAPSHOT", "dev.okay" % "okay-java" % "0.2.0-SNAPSHOT"))
+lazy val bench = (project in file("bench")).dependsOn(machine, free).enablePlugins(JmhPlugin)
+  .settings(crossScalaVersions := Seq(scala3), name := "okay-effects-bench", publish / skip := true)
 
 /**
  * COMPATIBILITY. One application has one build of the interface. The interface is one source; how a row is written
@@ -109,8 +79,8 @@ lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
     name := "okay-effects-compat-scala3", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
-lazy val root = (project in file(".")).aggregate(effects, tck, machine, suite, core, suiteCore, free, suiteFree, kernel, suiteKernel, compat2, compat3, effects213, machine213, compat3on2)
+lazy val root = (project in file(".")).aggregate(effects, tck, machine, suite, free, suiteFree, compat2, compat3, effects213, machine213, compat3on2)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
 /** everything: the interface's suites by both compilers, then the two compilers in one application */
-addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteKernel/test ; ++2.13.18 suite/test ; suiteKernel/test ; suiteFree/test ; ++3.9.0 ; suiteCore/test ; suiteFree/test ; compat2/test ; compat3/test ; compat3on2/test")
+addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteFree/test ; ++2.13.18 suite/test ; suiteFree/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test")

@@ -4,8 +4,6 @@ import java.util.concurrent.TimeUnit
 import org.openjdk.jmh.annotations.{Benchmark, BenchmarkMode, Mode, OutputTimeUnit, Param, Scope, Setup, State => JmhState}
 import okay.effects.*
 import okay.effects.simple.Machine
-import okay.effects.core.Core
-import okay.effects.kernel.OnKernel
 
 /** the same programs on each implementation, n = 1000: binds alone; `ask` under its handler; `ask` across four
  * handlers of other effects; a state's get and put */
@@ -50,17 +48,13 @@ class Lanes(val fx: Effects) {
 @BenchmarkMode(Array(Mode.AverageTime))
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 class ImplementationsBenchmark {
-  @Param(Array("machine", "free", "okay-core", "kernel-steps", "kernel-java", "kernel-okay-core"))
+  @Param(Array("machine", "free"))
   var impl: String = ""
   var lanes: Lanes = null
 
   @Setup def setup(): Unit = lanes = new Lanes(impl match {
     case "machine" => Machine
-    case "free" => okay.effects.simple.free.Free
-    case "okay-core" => Core
-    case "kernel-steps" => OnKernel.on(okay.kernel.steps.Steps)
-    case "kernel-java" => OnKernel.on(okay.core.Kernel.EFFECTS)
-    case _ => OnKernel.on(okay.core.kernel.OnCore)
+    case _ => okay.effects.simple.free.Free
   })
 
   @Benchmark def binds: Int = lanes.binds
