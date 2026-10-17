@@ -17,10 +17,6 @@ final abstract class *[F[_]] extends Name[F]
 /** the effect `F` with its parameter `S`, a name: `State % Int`, its operations `State[Int, X]` */
 final abstract class %[F[_, _], S] extends Name[({ type L[x] = F[S, x] })#L]
 
-/** a stateful handler's state where an operation is: read and written by its clause, in place — of no
- * implementation's, so that one's static code takes it as it is */
-trait Cell[S] { def get: S; def set(s: S): Unit }
-
 /**
  * THE INTERFACE: the types of programs and rows and the primitives on them — no machine, no representation. An
  * implementation is seen through this trait only, so its types are abstract to its users: a program, a row, the

@@ -1,9 +1,9 @@
 package okay.api.core
 
-import okay.one.{Cont, !}
+import okay.one.Cont
 import okay.one.handler.{Answering, Deep, Stateful, Translate}
 import okay.one.row.{+:, In, Plain, Pure, Removed, Row}
-import okay.api.{Effect, Effects}
+import okay.api.Effects
 
 /**
  * okay-simple's interface ON OKAY-CORE'S MACHINE, by okay-core's public API: a program is okay-core's own `Cont`,
@@ -19,12 +19,10 @@ private[core] class OnCore extends Effects {
   type Place = okay.one.row.In[AnyOp, Row]
   type Taken = Removed[AnyOp, Row, Row]
 
-  type ![+A, R] = Cont[Row, Nothing, Nothing, A]
-  type Pure = Nothing
-  type +[R, E <: Effect] = Nothing
-  type Split[E <: Effect, R, Rest] = Slot
-  type In[E <: Effect, R] = Slot
-  type Sub[R, S] = Vector[Int]
+  type ![+A, R[_]] = Cont[Row, Nothing, Nothing, A]
+  type Split[E[_], R[_], Rest[_]] = Slot
+  type In[E[_], R[_]] = Slot
+  type Sub[R[_], S[_]] = Vector[Int]
 
   private val plain: Plain[AnyOp] = summon[Plain[AnyOp]]
   /** THE TRUSTED STEPS, the only casts of the implementation: okay-simple's rows are phantom, so okay-core's are all
@@ -33,7 +31,7 @@ private[core] class OnCore extends Effects {
   private def atRow(in: okay.one.row.In[AnyOp, ? <: Row]): Place = in.asInstanceOf[Place]
   private def atRow(rm: Removed[AnyOp, ? <: Row, ? <: Row]): Taken = rm.asInstanceOf[Taken]
   private def atRow[A](p: Cont[? <: Row, Nothing, Nothing, A]): P[A] = p.asInstanceOf[P[A]]
-  private def opOf[E <: Effect, X](op: Any): Op[E, X] = op.asInstanceOf[Op[E, X]]
+  private def opOf[E[_], X](op: Any): E[X] = op.asInstanceOf[E[X]]
 
   private val head: Taken = atRow(Removed.Head[AnyOp, Row]())
   private val here: Place = atRow(okay.one.row.In.Here[AnyOp, Row]())
@@ -57,34 +55,34 @@ private[core] class OnCore extends Effects {
     }
   }
   private def placeAt(i: Int): Place = slot(i).place
-  implicit def splitOne[E <: Effect]: Split[E, E, Pure] = slots(0)
-  implicit def splitLast[R, E <: Effect]: Split[E, R + E, R] = slots(0)
-  implicit def splitInit[E <: Effect, R, G <: Effect, Rest](implicit s: Split[E, R, Rest]): Split[E, R + G, Rest + G] = slot(s.depth + 1)
-  implicit def in[E <: Effect, R, Rest](implicit s: Split[E, R, Rest]): In[E, R] = s
-  implicit def subPure[S]: Sub[Pure, S] = Vector()
-  implicit def subOne[E <: Effect, S](implicit e: In[E, S]): Sub[E, S] = Vector(e.depth)
-  implicit def subMore[R, E <: Effect, S](implicit r: Sub[R, S], e: In[E, S]): Sub[R + E, S] = e.depth +: r
+  implicit def splitOne[E[_]]: Split[E, E, Pure] = slots(0)
+  implicit def splitLast[R[_], E[_]]: Split[E, R + E, R] = slots(0)
+  implicit def splitInit[E[_], R[_], G[_], Rest[_]](implicit s: Split[E, R, Rest]): Split[E, R + G, Rest + G] = slot(s.depth + 1)
+  implicit def in[E[_], R[_], Rest[_]](implicit s: Split[E, R, Rest]): In[E, R] = s
+  implicit def subPure[S[_]]: Sub[Pure, S] = Vector()
+  implicit def subOne[E[_], S[_]](implicit e: In[E, S]): Sub[E, S] = Vector(e.depth)
+  implicit def subMore[R[_], E[_], S[_]](implicit r: Sub[R, S], e: In[E, S]): Sub[R + E, S] = e.depth +: r
 
-  def pure[A, R](a: A): P[A] = Cont.pure(a)
-  def flatMap[A, B, R](p: P[A])(f: A => P[B]): P[B] = p.flatMap(f)
-  def delay[A, R](p: => P[A]): P[A] = Cont.defer(p)
+  def pure[A, R[_]](a: A): P[A] = Cont.pure(a)
+  def flatMap[A, B, R[_]](p: P[A])(f: A => P[B]): P[B] = p.flatMap(f)
+  def delay[A, R[_]](p: => P[A]): P[A] = Cont.defer(p)
   private def performAt[X](op: Any, at: Place): P[X] = Cont.perform[AnyOp, Row, X](op)(using at)
-  protected def performOp[E <: Effect, R, X](op: Op[E, X])(implicit in: In[E, R]): P[X] = performAt[X](op, in.place)
+  protected def performOp[E[_], R[_], X](op: E[X])(implicit in: In[E, R]): P[X] = performAt[X](op, in.place)
 
-  private def deep[E <: Effect, A, B](h: Handler[E, ?, A, B]): Deep[AnyOp, Row, A, B] = new Deep[AnyOp, Row, A, B] {
-    def ret(a: A): B ! Row = h.ret(a)
-    def apply[X](op: Any, k: X => B ! Row): B ! Row = h.op[X](opOf[E, X](op), k)
+  private def deep[E[_], A, B](h: Handler[E, ?, A, B]): Deep[AnyOp, Row, A, B] = new Deep[AnyOp, Row, A, B] {
+    def ret(a: A): P[B] = h.ret(a)
+    def apply[X](op: Any, k: X => P[B]): P[B] = h.op[X](opOf[E, X](op), k)
   }
-  private def answering[E <: Effect, A, B](h: TailHandler[E, ?, A, B]): Answering[AnyOp, Row, A, B] = new Answering[AnyOp, Row, A, B] {
-    def ret(a: A): B ! Row = h.ret(a)
+  private def answering[E[_], A, B](h: TailHandler[E, ?, A, B]): Answering[AnyOp, Row, A, B] = new Answering[AnyOp, Row, A, B] {
+    def ret(a: A): P[B] = h.ret(a)
     def value[X](op: Any): X = h.answer[X](opOf[E, X](op))
   }
   /** okay-core's register: `value` then `next`, of one operation — the cell's answer, then the state it left */
-  private def stateful[E <: Effect, S, A, B](s0: S, h: StatefulHandler[E, S, ?, A, B]): Stateful[AnyOp, Row, S, A, B] =
+  private def stateful[E[_], S, A, B](s0: S, h: StatefulHandler[E, S, ?, A, B]): Stateful[AnyOp, Row, S, A, B] =
     new Stateful[AnyOp, Row, S, A, B] {
       private val cell = new Cell[S] { var s: S = s0; def get: S = s; def set(t: S): Unit = s = t }
       def initial: S = s0
-      def ret(s: S, a: A): B ! Row = h.ret(s, a)
+      def ret(s: S, a: A): P[B] = h.ret(s, a)
       def value[X](s: S, op: Any): X = { cell.set(s); h.answer[X](cell, opOf[E, X](op)) }
       def next[X](s: S, op: Any): S = cell.get
     }
@@ -96,28 +94,28 @@ private[core] class OnCore extends Effects {
 
   /** each operation of the effect taken at `at` performed again at `to`, in the row outside */
   private def moving[A](p: P[A], at: Taken, to: Place): P[A] = translating(p, new Translate[AnyOp, Row, A] {
-    def apply[X](op: Any): X ! Row = performAt[X](op, to)
+    def apply[X](op: Any): P[X] = performAt[X](op, to)
   }, at)
 
   /** a fresh head before the row, then the effect moved from its place, one further in now, to it */
-  def split[E <: Effect, R, Rest, A](p: P[A])(implicit s: Split[E, R, Rest]): P[A] =
+  def split[E[_], R[_], Rest[_], A](p: P[A])(implicit s: Split[E, R, Rest]): P[A] =
     if (s.depth == 0) p else moving(atRow(Cont.widen[AnyOp, Row, A](p)), slot(s.depth + 1).removed, here)
 
   /** each effect of `R`, from the head, translated to its place in `S`: the handlers further out take one off it */
-  def embed[R, S, A](p: P[A])(implicit s: Sub[R, S]): P[A] = {
+  def embed[R[_], S[_], A](p: P[A])(implicit s: Sub[R, S]): P[A] = {
     val n = s.length
     s.indices.foldLeft(p)((q, i) => moving(q, head, placeAt(n - 1 - i + s(i))))
   }
 
-  def handleLast[E <: Effect, R, A, B](p: P[A])(h: Handler[E, R, A, B]): P[B] = taking(p, deep(h), head)
-  override def handleTailLast[E <: Effect, R, A, B](p: P[A])(h: TailHandler[E, R, A, B]): P[B] =
+  def handleLast[E[_], R[_], A, B](p: P[A])(h: Handler[E, R, A, B]): P[B] = taking(p, deep(h), head)
+  override def handleTailLast[E[_], R[_], A, B](p: P[A])(h: TailHandler[E, R, A, B]): P[B] =
     passing(p, answering(h), head)
-  override def handleStatefulLast[E <: Effect, S, R, A, B](p: P[A])(s0: S)(h: StatefulHandler[E, S, R, A, B]): P[B] = keeping(p, stateful(s0, h), head)
+  override def handleStatefulLast[E[_], S, R[_], A, B](p: P[A])(s0: S)(h: StatefulHandler[E, S, R, A, B]): P[B] = keeping(p, stateful(s0, h), head)
 
-  override def handle[E <: Effect, R, Rest, A, B](p: P[A])(h: Handler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): P[B] = taking(p, deep(h), s.removed)
-  override def handleTail[E <: Effect, R, Rest, A, B](p: P[A])(h: TailHandler[E, Rest, A, B])(
+  override def handle[E[_], R[_], Rest[_], A, B](p: P[A])(h: Handler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): P[B] = taking(p, deep(h), s.removed)
+  override def handleTail[E[_], R[_], Rest[_], A, B](p: P[A])(h: TailHandler[E, Rest, A, B])(
       implicit s: Split[E, R, Rest]): P[B] = passing(p, answering(h), s.removed)
-  override def handleStateful[E <: Effect, S, R, Rest, A, B](p: P[A])(s0: S)(h: StatefulHandler[E, S, Rest, A, B])(
+  override def handleStateful[E[_], S, R[_], Rest[_], A, B](p: P[A])(s0: S)(h: StatefulHandler[E, S, Rest, A, B])(
       implicit s: Split[E, R, Rest]): P[B] = keeping(p, stateful(s0, h), s.removed)
 
   def run[A](p: P[A]): A = p.asInstanceOf[Cont[okay.one.row.Pure, Nothing, Nothing, A]].run

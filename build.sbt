@@ -6,6 +6,11 @@ ThisBuild / organization := "dev.okay"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / scalaVersion := scala3
 
+/** the compiler's major version, for the sources only its own */
+def major(v: String): String = if (v.startsWith("3")) "3" else "2"
+/** the interface's suite: its shared part, and the programs written in the compiler's interface */
+def suiteOf(v: String): Seq[String] = Seq("suite/src/test/scala", s"suite/src/test/scala-${major(v)}")
+
 /** one source for both compilers, and each its own convenience in scala-2/ and scala-3/ */
 def crossBuilt: Seq[Def.Setting[?]] = Seq(
   crossScalaVersions := Seq(scala3, scala2),
@@ -27,7 +32,7 @@ lazy val simple = (project in file("simple")).dependsOn(std).settings(crossBuilt
 /** the interface's suites, on each implementation, by both compilers */
 lazy val suite = (project in file("suite")).dependsOn(simple, std)
   .settings(crossBuilt, name := "okay-api-suite", publish / skip := true,
-    Test / unmanagedSourceDirectories += baseDirectory.value / "src/test/impl")
+    Test / unmanagedSourceDirectories ++= Seq("src/test/impl", s"src/test/impl-${major(scalaVersion.value)}").map(baseDirectory.value / _))
 
 /** okay-simple's interface on okay-core's machine: Scala 3, okay-core's artifact (`sbt publishLocal` in okay-core) */
 lazy val core = (project in file("core")).dependsOn(std)
@@ -50,13 +55,13 @@ lazy val suiteKernel = (project in file("suite-kernel")).dependsOn(kernel, std)
       "dev.okay" %% "okay-kernel-steps" % "0.2.0-SNAPSHOT" % Test,
       "dev.okay" % "okay-java" % "0.2.0-SNAPSHOT" % Test) ++
       (if (scalaVersion.value.startsWith("3")) Seq("okay-core" %% "okay-core" % "0.1.0-SNAPSHOT" % Test) else Nil),
-    Test / unmanagedSourceDirectories += (ThisBuild / baseDirectory).value / "suite/src/test/scala")
+    Test / unmanagedSourceDirectories ++= suiteOf(scalaVersion.value).map((ThisBuild / baseDirectory).value / _))
 
 /** the interface's suite on okay-core's machine */
 lazy val suiteCore = (project in file("suite-core")).dependsOn(core, std)
   .settings(crossScalaVersions := Seq(scala3), name := "okay-api-suite-core", publish / skip := true,
     libraryDependencies += munit,
-    Test / unmanagedSourceDirectories += (ThisBuild / baseDirectory).value / "suite/src/test/scala")
+    Test / unmanagedSourceDirectories ++= suiteOf(scala3).map((ThisBuild / baseDirectory).value / _))
 
 /** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
 lazy val bench = (project in file("bench")).dependsOn(simple, core, kernel, std).enablePlugins(JmhPlugin)
@@ -65,8 +70,9 @@ lazy val bench = (project in file("bench")).dependsOn(simple, core, kernel, std)
       "dev.okay" %% "okay-kernel-steps" % "0.2.0-SNAPSHOT", "dev.okay" % "okay-java" % "0.2.0-SNAPSHOT"))
 
 /**
- * COMPATIBILITY. One application has one build of the interface. A Scala 3 build's `Op` is a match type, which Scala
- * 2 cannot read; so an application with Scala 2 code in it takes the Scala 2.13 build, which Scala 3 reads. Below:
+ * COMPATIBILITY. One application has one build of the interface. Scala 3's interface has rows of type constructors,
+ * which Scala 2 cannot write; so an application with Scala 2 code in it takes the Scala 2.13 build, which Scala 3
+ * reads. Below:
  * the interface and its implementations as Scala 2.13 builds them; the interface's suite compiled by Scala 3 against
  * that build; an effect, its handler and a program written in Scala 2.13, used by Scala 3 code beside its own
  */
@@ -75,7 +81,7 @@ lazy val api213 = (project in file("compat/api-2.13"))
     Compile / unmanagedSourceDirectories := Seq("api/src/main/scala", "api/src/main/scala-2").map((ThisBuild / baseDirectory).value / _))
 lazy val std213 = (project in file("compat/std-2.13")).dependsOn(api213)
   .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), name := "okay-std-213", publish / skip := true,
-    Compile / unmanagedSourceDirectories := Seq((ThisBuild / baseDirectory).value / "std/src/main/scala"))
+    Compile / unmanagedSourceDirectories := Seq("std/src/main/scala", "std/src/main/scala-2").map((ThisBuild / baseDirectory).value / _))
 lazy val simple213 = (project in file("compat/simple-2.13")).dependsOn(std213)
   .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), name := "okay-simple-213", publish / skip := true,
     scalacOptions += "-Wconf:msg=outer reference in this type test:s",
@@ -84,7 +90,7 @@ lazy val compat3on2 = (project in file("compat/scala3-on-2.13")).dependsOn(simpl
   .settings(scalaVersion := scala3, crossScalaVersions := Seq(scala3), libraryDependencies += munit,
     name := "okay-api-compat-scala3-on-213", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))),
-    Test / unmanagedSourceDirectories := Seq("suite/src/test/scala", "suite/src/test/impl").map((ThisBuild / baseDirectory).value / _))
+    Test / unmanagedSourceDirectories := (suiteOf(scala2) ++ Seq("suite/src/test/impl", "suite/src/test/impl-2")).map((ThisBuild / baseDirectory).value / _))
 
 /** an effect, its handler and a program written in Scala 2.13, on the Scala 2.13 build */
 lazy val compat2 = (project in file("compat/scala2")).dependsOn(simple213, std213)
