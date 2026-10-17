@@ -18,7 +18,7 @@ machine and to okay-kernel's protocol, all checked by one suite.
 | `core/machine/` | `okay-effects-machine` | `okay.effects.machine` | THE MACHINE, one per compiler: `okay.effects.machine.Machine` |
 | `core/free/` | `okay-effects-free` | `okay.effects.free` | THE `Free` MONAD, one per compiler: `okay.effects.free.Free` (through the interface), `OnFree` (as it is) |
 | `tagless/` | `okay-effects-tagless` | `okay.effects.tagless` | TAGLESS: `Tagless`, an `Effects` of no implementation — a program a value, run on the `Runner` in the implicit context |
-| `modules/`: `concurrent`, `resource`, `io`, `probability`, `parsing`, `logic`, `transaction`, `resilience` | `okay-effects-concurrent`, ... | `okay.effects.concurrent`, ... | MORE EFFECTS, each over the interface: see below |
+| `modules/`: `concurrent`, `resource`, `io`, `probability`, `parsing`, `logic`, `transaction`, `resilience`, `stream` | `okay-effects-concurrent`, ... | `okay.effects.concurrent`, ... | MORE EFFECTS, each over the interface: see below |
 | `tck/` | `okay-effects-tck` | `okay.effects` | the interface's suite, a library: `InterfaceSuite(fx)` for any implementation |
 | `interop/cats`, `interop/zio`, `interop/tofu` | `okay-effects-cats`, `-zio`, `-tofu` | `okay.effects.cats`, `.zio`, `.tofu` | interop with cats (and cats-effect 3), ZIO, tofu |
 | `examples/` | — | `okay.effects.examples` | examples over `Effects` alone, run on the machine and on `Free` |
@@ -222,6 +222,7 @@ over an implementation, `Concurrent(fx)`, `Io(fx)`, ...:
 | `logic` | terms, logic variables (`Fresh`), `unify` (bindings a `State`), `either`; `solutions(p)` every answer — a relation runs either way; `fair(n)(p)` a breadth-first search, so a way that never ends does not hide the others |
 | `transaction` | `read`, `write` and `atomically(p)` on the standard `Store` outside: a log written at the end; an error handled outside drops it — rolled back |
 | `resilience` | `retry[E](n)(p)`, `retryIf[E](n)(worth)(p)`, `fallback[E](p)(q)` |
+| `stream` | `Stream[O, R]`: elements pulled one at a time, each pull a program of `R` — lazy, endless if need be; sources `emits`, `range`, `iterate`, `unfold`, `eval`, `repeatEval`; `map`, `evalMap`, `filter`, `take`, `drop`, `takeWhile`, `scan`, `zip`, `interleave`, `++`, `flatMap`; sinks `toList`, `fold`, `foreach`, `drain`; with the standard generators, `fromGenerator(p)` and `s.emitAll` |
 
 Not here: a timeout (a runtime's: ZIO's, cats-effect's, through interop).
 
