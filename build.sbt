@@ -22,27 +22,27 @@ lazy val std = (project in file("std")).dependsOn(api).settings(crossBuilt, name
 
 
 /** the fast implementation: a machine of an explicit stack, an operation finding its handler in one walk */
-lazy val simple = (project in file("simple")).dependsOn(std).settings(crossBuilt, name := "okay-simple")
+lazy val simple = (project in file("simple")).dependsOn(api).settings(crossBuilt, name := "okay-simple")
 
 /** the interface's suites, on each implementation, by both compilers */
-lazy val suite = (project in file("suite")).dependsOn(simple)
+lazy val suite = (project in file("suite")).dependsOn(simple, std)
   .settings(crossBuilt, name := "okay-api-suite", publish / skip := true,
     Test / unmanagedSourceDirectories += baseDirectory.value / "src/test/impl")
 
 /** okay-simple's interface on okay-core's machine: Scala 3, okay-core's artifact (`sbt publishLocal` in okay-core) */
-lazy val core = (project in file("core")).dependsOn(std)
+lazy val core = (project in file("core")).dependsOn(api)
   .settings(crossScalaVersions := Seq(scala3), name := "okay-api-core",
     resolvers += Resolver.mavenLocal,
     libraryDependencies ++= Seq("okay-core" %% "okay-core" % "0.1.0-SNAPSHOT", munit))
 
 /** okay-simple's interface on okay-kernel's protocol: any implementation of it, given its `Effects` */
-lazy val kernel = (project in file("kernel")).dependsOn(std)
+lazy val kernel = (project in file("kernel")).dependsOn(api)
   .settings(crossBuilt, name := "okay-api-kernel", resolvers += Resolver.mavenLocal,
     libraryDependencies += "dev.okay" % "okay-kernel-api" % "0.2.0-SNAPSHOT")
 
 /** the interface's suite through the protocol: okay-kernel's reference machine and okay-java on both compilers,
  * okay-core's bridge on Scala 3 */
-lazy val suiteKernel = (project in file("suite-kernel")).dependsOn(kernel)
+lazy val suiteKernel = (project in file("suite-kernel")).dependsOn(kernel, std)
   .settings(crossBuilt, name := "okay-api-suite-kernel", publish / skip := true, resolvers += Resolver.mavenLocal,
     libraryDependencies ++= Seq(
       "dev.okay" %% "okay-kernel-steps" % "0.2.0-SNAPSHOT" % Test,
@@ -51,13 +51,13 @@ lazy val suiteKernel = (project in file("suite-kernel")).dependsOn(kernel)
     Test / unmanagedSourceDirectories += (ThisBuild / baseDirectory).value / "suite/src/test/scala")
 
 /** the interface's suite on okay-core's machine */
-lazy val suiteCore = (project in file("suite-core")).dependsOn(core)
+lazy val suiteCore = (project in file("suite-core")).dependsOn(core, std)
   .settings(crossScalaVersions := Seq(scala3), name := "okay-api-suite-core", publish / skip := true,
     libraryDependencies += munit,
     Test / unmanagedSourceDirectories += (ThisBuild / baseDirectory).value / "suite/src/test/scala")
 
 /** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
-lazy val bench = (project in file("bench")).dependsOn(simple, core, kernel).enablePlugins(JmhPlugin)
+lazy val bench = (project in file("bench")).dependsOn(simple, core, kernel, std).enablePlugins(JmhPlugin)
   .settings(crossScalaVersions := Seq(scala3), name := "okay-api-bench", publish / skip := true,
     resolvers += Resolver.mavenLocal, libraryDependencies ++= Seq(
       "dev.okay" %% "okay-kernel-steps" % "0.2.0-SNAPSHOT", "dev.okay" % "okay-java" % "0.2.0-SNAPSHOT"))
@@ -74,18 +74,18 @@ lazy val api213 = (project in file("compat/api-2.13"))
 lazy val std213 = (project in file("compat/std-2.13")).dependsOn(api213)
   .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), name := "okay-std-213", publish / skip := true,
     Compile / unmanagedSourceDirectories := Seq((ThisBuild / baseDirectory).value / "std/src/main/scala"))
-lazy val simple213 = (project in file("compat/simple-2.13")).dependsOn(std213)
+lazy val simple213 = (project in file("compat/simple-2.13")).dependsOn(api213)
   .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), name := "okay-simple-213", publish / skip := true,
     scalacOptions += "-Wconf:msg=outer reference in this type test:s",
     Compile / unmanagedSourceDirectories := Seq("simple/src/main/scala", "simple/src/main/scala-2").map((ThisBuild / baseDirectory).value / _))
-lazy val compat3on2 = (project in file("compat/scala3-on-2.13")).dependsOn(simple213)
+lazy val compat3on2 = (project in file("compat/scala3-on-2.13")).dependsOn(simple213, std213)
   .settings(scalaVersion := scala3, crossScalaVersions := Seq(scala3), libraryDependencies += munit,
     name := "okay-api-compat-scala3-on-213", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))),
     Test / unmanagedSourceDirectories := Seq("suite/src/test/scala", "suite/src/test/impl").map((ThisBuild / baseDirectory).value / _))
 
 /** an effect, its handler and a program written in Scala 2.13, on the Scala 2.13 build */
-lazy val compat2 = (project in file("compat/scala2")).dependsOn(simple213)
+lazy val compat2 = (project in file("compat/scala2")).dependsOn(simple213, std213)
   .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), libraryDependencies += munit,
     name := "okay-api-compat-scala2", publish / skip := true)
 

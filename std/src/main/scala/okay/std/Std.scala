@@ -31,9 +31,13 @@ object Choose {
   final case class Among[X](xs: List[X]) extends Choose[X]
 }
 
-/** THE STANDARD EFFECTS' OPERATIONS AND HANDLERS, written once on the interface: any implementation has them. Each
- * handler takes its effect from anywhere in the row; the parameter named, the rest inferred: `writer[String](p)` */
-trait Std extends Effects {
+/** THE STANDARD EFFECTS' OPERATIONS AND HANDLERS, written once on the interface, over any implementation of it —
+ * which knows nothing of them: `val std = Std(fx); import fx._, std._`, the types `fx`'s. Each handler takes its
+ * effect from anywhere in the row; the parameter named, the rest inferred: `writer[String](p)`. A handler answering
+ * in place is `fx`'s `handleTail` / `handleStateful`: an implementation answers it its own way */
+final class Std[F <: Effects](val fx: F) {
+  import fx._
+
   def get[S, R](implicit in: In[State % S, R]): S ! R = perform[State % S].apply[R, S](State.Get(s => s))
   def put[S, R](s: S)(implicit in: In[State % S, R]): Unit ! R = perform[State % S].apply[R, Unit](State.Put(s, u => u))
   def modify[S, R](f: S => S)(implicit in: In[State % S, R]): Unit ! R = get[S, R].flatMap(s => put[S, R](f(s)))
@@ -97,4 +101,9 @@ trait Std extends Effects {
         case Choose.Among(xs) => xs.foldLeft(pure[List[A], Rest](Nil))((acc, x) => acc.flatMap(l => k(x).map(l ++ _)))
       }
     })
+}
+
+object Std {
+  /** the standard effects on `fx`: their programs `fx`'s */
+  def apply(fx: Effects): Std[fx.type] = new Std[fx.type](fx)
 }

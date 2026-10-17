@@ -3,15 +3,17 @@ package okay.api.bench
 import java.util.concurrent.TimeUnit
 import org.openjdk.jmh.annotations.{Benchmark, BenchmarkMode, Mode, OutputTimeUnit, Param, Scope, Setup, State => JmhState}
 import okay.api.*
-import okay.simple.machine.MachineEffects
+import okay.simple.machine.Simple
 import okay.api.core.OnCoreEffects
 import okay.api.kernel.OnKernel
 import okay.std.*
 
 /** the same programs on each implementation, n = 1000: binds alone; `ask` under its handler; `ask` across four
  * handlers of other effects; a state's get and put */
-class Lanes(val fx: Std) {
+class Lanes(val fx: Effects) {
+  val std = Std(fx)
   import fx.*
+  import std.*
   val n = 1000
 
   def binds: Int = run((1 to n).foldLeft(pure[Int, Pure](0))((p, _) => p.map(_ + 1)))
@@ -55,7 +57,7 @@ class ImplementationsBenchmark {
   var lanes: Lanes = null
 
   @Setup def setup(): Unit = lanes = new Lanes(impl match {
-    case "machine" => MachineEffects.effects
+    case "machine" => Simple.effects
     case "okay-core" => OnCoreEffects.effects
     case "kernel-steps" => OnKernel.on(okay.kernel.steps.Steps)
     case "kernel-java" => OnKernel.on(okay.core.Kernel.EFFECTS)

@@ -1,7 +1,6 @@
 package okay.simple.machine
 
-import okay.api.Effect
-import okay.std.Std
+import okay.api.{Effect, Effects}
 import scala.annotation.tailrec
 
 /**
@@ -20,7 +19,7 @@ import scala.annotation.tailrec
  * matched against the levels — the handler found is the operation's own by the types, no cast; in Scala 2 a number,
  * the levels walked by it — Scala 2 cannot refine types by a match, so one cast where the operation meets its handler.
  */
-private[machine] trait MachineTypes extends Std {
+private[machine] trait MachineTypes extends Effects {
   final abstract class PureRow
   final abstract class Plus[R, E]
   type Pure = PureRow
@@ -271,6 +270,6 @@ private[machine] object Machine extends Places {
 }
 
 /** the implementation, seen through the interface only */
-object MachineEffects {
-  val effects: Std = Machine
+object Simple {
+  val effects: Effects = Machine
 }

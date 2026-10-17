@@ -1,5 +1,5 @@
 package okay.api
 
-import okay.simple.machine.MachineEffects
+import okay.simple.machine.Simple
 
-class MachineSuite extends InterfaceSuite(MachineEffects.effects)
+class MachineSuite extends InterfaceSuite(Simple.effects)

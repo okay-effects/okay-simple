@@ -1,13 +1,15 @@
 package okay.api
 
 import okay.std.*
-import okay.simple.machine.MachineEffects
+import okay.simple.machine.Simple
 
 /** Scala 3's conveniences over the same interface: no parentheses in a row, context bounds, a handler of `F Of S`,
  * an effect of one's own whose clauses Scala 3's GADT inference types with no `answer` */
 class Scala3Suite extends munit.FunSuite {
-  val fx = MachineEffects.effects
+  val fx = Simple.effects
+  val std = Std(fx)
   import fx.*
+  import std.*
 
   type Row = Reader % String + State % Int
 

@@ -2,13 +2,14 @@ package okay.api.compat
 
 import okay.api.*
 import okay.std.*
-import okay.simple.machine.MachineEffects
+import okay.simple.machine.Simple
 
 /** ONE APPLICATION OF TWO COMPILERS: Scala 3 code takes the effect, the handler and the program Scala 2.13 compiled,
  * as they are, beside its own — the types at the boundary the same */
 class MixedSuite extends munit.FunSuite {
-  val counting = new Counting(MachineEffects.effects)
+  val counting = new Counting(Simple.effects)
   import counting.fx.*
+  import counting.std.*
 
   /** a Scala 3 program over Scala 2's effect: context bounds, no parentheses */
   def countedState[R: {Has[*[Counter]]#L, Has[State % Int]#L}]: Int ! R =

@@ -3,8 +3,7 @@ package okay.api.core
 import okay.one.{Cont, !}
 import okay.one.handler.{Answering, Deep, Stateful, Translate}
 import okay.one.row.{+:, In, Plain, Pure, Removed, Row}
-import okay.api.Effect
-import okay.std.Std
+import okay.api.{Effect, Effects}
 
 /**
  * okay-simple's interface ON OKAY-CORE'S MACHINE, by okay-core's public API: a program is okay-core's own `Cont`,
@@ -14,7 +13,7 @@ import okay.std.Std
  * `Stateful` (the machine's register), installed by okay-core's `handle` at its `Removed` — the effect taken from
  * its place at once. A `split` on its own, or an `embed`, is a handler translating each operation to its new place.
  */
-private[core] object OnCore extends Std {
+private[core] object OnCore extends Effects {
   type AnyOp[X] = Any
   type P[A] = Cont[Row, Nothing, Nothing, A]
   type Place = okay.one.row.In[AnyOp, Row]
@@ -126,5 +125,5 @@ private[core] object OnCore extends Std {
 
 /** okay-simple's interface on okay-core's machine, seen through the interface only */
 object OnCoreEffects {
-  val effects: Std = OnCore
+  val effects: Effects = OnCore
 }

@@ -11,8 +11,10 @@ object Counter {
 }
 
 /** its operations, its handler and a program — on the interface, compiled by scalac 2.13 against Scala 3's build */
-class Counting(val fx: Std) {
+class Counting(val fx: Effects) {
+  val std = Std(fx)
   import fx._
+  import std._
 
   def tick[R](implicit in: In[*[Counter], R]): Unit ! R = perform[*[Counter]].apply[R, Unit](Counter.Tick(u => u))
   def peek[R](implicit in: In[*[Counter], R]): Int ! R = perform[*[Counter]].apply[R, Int](Counter.Peek(n => n))

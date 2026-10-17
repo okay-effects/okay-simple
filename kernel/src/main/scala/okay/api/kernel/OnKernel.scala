@@ -1,8 +1,7 @@
 package okay.api.kernel
 
 import okay.kernel.{Answers, Effects => KEffects, Fn, General, Key, Op => KOp, Prog, Program, Step, Thunk, Translating, Type}
-import okay.api.Effect
-import okay.std.Std
+import okay.api.{Effect, Effects}
 import scala.annotation.unchecked.uncheckedVariance
 
 /**
@@ -18,7 +17,7 @@ import scala.annotation.unchecked.uncheckedVariance
  * `embed`) a `Translating` renaming every place. The price of the exactness: an operation is performed again at
  * each handler of okay-simple's it crosses.
  */
-final class OnKernel private (e: KEffects) extends Std {
+final class OnKernel private (e: KEffects) extends Effects {
   import OnKernel._
 
   type ![+A, R] = Prog[A @uncheckedVariance]
@@ -112,5 +111,5 @@ object OnKernel {
   }
 
   /** okay-simple's interface on the implementation `e` of the protocol, seen through the interface only */
-  def on(e: KEffects): Std = new OnKernel(e)
+  def on(e: KEffects): Effects = new OnKernel(e)
 }
