@@ -1,6 +1,6 @@
 package okay.api.compat
 
-import okay.api.machine.MachineEffects
+import okay.simple.machine.MachineEffects
 
 /** Scala 2.13's effect, handler and program, on the Scala 2.13 build of the machine */
 class Scala2Suite extends munit.FunSuite {

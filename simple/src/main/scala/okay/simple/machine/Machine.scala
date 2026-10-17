@@ -1,4 +1,4 @@
-package okay.api.machine
+package okay.simple.machine
 
 import okay.api.{Effect, Std}
 import scala.annotation.tailrec

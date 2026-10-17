@@ -19,10 +19,10 @@ lazy val api = (project in file("api")).settings(crossBuilt, name := "okay-api")
 
 
 /** the fast implementation: a machine of an explicit stack, an operation finding its handler in one walk */
-lazy val machine = (project in file("machine")).dependsOn(api).settings(crossBuilt, name := "okay-api-machine")
+lazy val simple = (project in file("simple")).dependsOn(api).settings(crossBuilt, name := "okay-simple")
 
 /** the interface's suites, on each implementation, by both compilers */
-lazy val suite = (project in file("suite")).dependsOn(machine)
+lazy val suite = (project in file("suite")).dependsOn(simple)
   .settings(crossBuilt, name := "okay-api-suite", publish / skip := true,
     Test / unmanagedSourceDirectories += baseDirectory.value / "src/test/impl")
 
@@ -54,7 +54,7 @@ lazy val suiteCore = (project in file("suite-core")).dependsOn(core)
     Test / unmanagedSourceDirectories += (ThisBuild / baseDirectory).value / "suite/src/test/scala")
 
 /** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
-lazy val bench = (project in file("bench")).dependsOn(machine, core, kernel).enablePlugins(JmhPlugin)
+lazy val bench = (project in file("bench")).dependsOn(simple, core, kernel).enablePlugins(JmhPlugin)
   .settings(crossScalaVersions := Seq(scala3), name := "okay-api-bench", publish / skip := true,
     resolvers += Resolver.mavenLocal, libraryDependencies ++= Seq(
       "dev.okay" %% "okay-kernel-steps" % "0.2.0-SNAPSHOT", "dev.okay" % "okay-java" % "0.2.0-SNAPSHOT"))
@@ -68,18 +68,18 @@ lazy val bench = (project in file("bench")).dependsOn(machine, core, kernel).ena
 lazy val api213 = (project in file("compat/api-2.13"))
   .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), name := "okay-api-213", publish / skip := true,
     Compile / unmanagedSourceDirectories := Seq("api/src/main/scala", "api/src/main/scala-2").map((ThisBuild / baseDirectory).value / _))
-lazy val machine213 = (project in file("compat/machine-2.13")).dependsOn(api213)
-  .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), name := "okay-api-machine-213", publish / skip := true,
+lazy val simple213 = (project in file("compat/simple-2.13")).dependsOn(api213)
+  .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), name := "okay-simple-213", publish / skip := true,
     scalacOptions += "-Wconf:msg=outer reference in this type test:s",
-    Compile / unmanagedSourceDirectories := Seq("machine/src/main/scala", "machine/src/main/scala-2").map((ThisBuild / baseDirectory).value / _))
-lazy val compat3on2 = (project in file("compat/scala3-on-2.13")).dependsOn(machine213)
+    Compile / unmanagedSourceDirectories := Seq("simple/src/main/scala", "simple/src/main/scala-2").map((ThisBuild / baseDirectory).value / _))
+lazy val compat3on2 = (project in file("compat/scala3-on-2.13")).dependsOn(simple213)
   .settings(scalaVersion := scala3, crossScalaVersions := Seq(scala3), libraryDependencies += munit,
     name := "okay-api-compat-scala3-on-213", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))),
     Test / unmanagedSourceDirectories := Seq("suite/src/test/scala", "suite/src/test/impl").map((ThisBuild / baseDirectory).value / _))
 
 /** an effect, its handler and a program written in Scala 2.13, on the Scala 2.13 build */
-lazy val compat2 = (project in file("compat/scala2")).dependsOn(machine213)
+lazy val compat2 = (project in file("compat/scala2")).dependsOn(simple213)
   .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), libraryDependencies += munit,
     name := "okay-api-compat-scala2", publish / skip := true)
 
@@ -89,7 +89,7 @@ lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
     name := "okay-api-compat-scala3", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
-lazy val root = (project in file(".")).aggregate(api, machine, suite, core, suiteCore, kernel, suiteKernel, compat2, compat3, api213, machine213, compat3on2)
+lazy val root = (project in file(".")).aggregate(api, simple, suite, core, suiteCore, kernel, suiteKernel, compat2, compat3, api213, simple213, compat3on2)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
 /** everything: the interface's suites by both compilers, then the two compilers in one application */

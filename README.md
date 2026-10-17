@@ -3,14 +3,14 @@
 One simple interface for effect systems, for Scala 3 and Scala 2.13: the types `!`, `+`, `%`, the functions
 `perform`, `handle`, `split`, `run`, and the standard effects written once on them. The interface fixes no
 implementation: a program, a row and the evidence that an effect is in a row are abstract types, and an
-implementation makes them what it likes. `machine/` is its own implementation; `core/` runs the same programs
+implementation makes them what it likes. `simple/` is its own implementation; `core/` runs the same programs
 on okay-core's machine, `kernel/` on okay-kernel's protocol.
 
 ## A program
 
 ```scala
 import okay.api._
-val fx: Simple = okay.api.machine.MachineEffects.effects
+val fx: Simple = okay.simple.machine.MachineEffects.effects
 import fx._
 
 // in any row that has these three, at any place
@@ -109,14 +109,14 @@ Everything else is shared under the same names (`Has[E]#L` for a context bound i
 All behind the same interface, all run by the same suites (`suite/`; `machine` and the protocol's bridge by both
 compilers).
 
-- **`machine/`, the fast one, typed by the row**: a program is `Prog[R, A]`, of its row; an operation
+- **`simple/`, the fast one, typed by the row**: a program is `Prog[R, A]`, of its row; an operation
   `Perf(at: At[E, R], op: Op[E, X])`, its place in the row typed, the operation of the type its name says. A
   `@tailrec` loop over the program, the frames `Frames[R, X, V]` (the binds from `X` to the value `V` of the nearest
   level's body, aligned) and the levels `Meta[R, V, Z]`, indexed by the row the program inside them is at — a
   handler of `E` at `T + E`, its outside at `T`; a remapping of places from a row to another (`split`, `embed`). An
   answer in place goes straight into the next frame; a general handler's clause gets `k`, the frames inside and the
   levels crossed as a typed `Prefix`, put back where it is resumed. The place is each compiler's own
-  (`machine/src/main/scala-2`, `scala-3`): in Scala 3 a typed path, matched against the levels — the handler found is
+  (`simple/src/main/scala-2`, `scala-3`): in Scala 3 a typed path, matched against the levels — the handler found is
   the operation's own by the types, NO CAST; in Scala 2 a number, one object per depth — Scala 2 cannot refine types
   by a match, so three trusted steps (the handler found by the number is the operation's, its operation of its
   handler's, a row whose last effect is taken is that effect after the rest).

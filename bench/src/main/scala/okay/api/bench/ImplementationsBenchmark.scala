@@ -3,7 +3,7 @@ package okay.api.bench
 import java.util.concurrent.TimeUnit
 import org.openjdk.jmh.annotations.{Benchmark, BenchmarkMode, Mode, OutputTimeUnit, Param, Scope, Setup, State => JmhState}
 import okay.api.*
-import okay.api.machine.MachineEffects
+import okay.simple.machine.MachineEffects
 import okay.api.core.OnCoreEffects
 import okay.api.kernel.OnKernel
 

@@ -1,6 +1,6 @@
 package okay.api
 
-import okay.api.machine.MachineEffects
+import okay.simple.machine.MachineEffects
 
 /** Scala 3's conveniences over the same interface: no parentheses in a row, context bounds, a handler of `F Of S`,
  * an effect of one's own whose clauses Scala 3's GADT inference types with no `answer` */
