@@ -29,14 +29,22 @@ trait StatefulTailClauses[O[_], S, A, P] {
 /** the sum of the row `R` and the effect `E`: a phantom, of no operation of its own. The row `R + E` is the
  * constructor `[X] Sum[R, E, X]` */
 final abstract class Sum[R[_], E[_], X]
-/** the row of no effect: no operation */
-sealed trait Void[X]
+/** the row of no effect: no operation — `Void` has no value, so an operation of it is absurd: it is anything */
+sealed trait Void[X] { def absurd: Nothing }
 
 /** a stateful handler's state where an operation is: read and written by its clause, in place — of no
  * implementation's, so that one's static code takes it as it is */
 trait Cell[S] {
   def get: S
   def set(s: S): Unit
+}
+
+object Cell {
+  /** a cell of its own variable: the one every implementation keeps a state in */
+  final class Var[S](var state: S) extends Cell[S] {
+    def get: S = state
+    def set(s: S): Unit = state = s
+  }
 }
 
 /** `perform[E]`'s rest: the operation, its answer `X` inferred from it, the row `R` from what is expected or given */
@@ -128,11 +136,7 @@ trait Effectful {
     flatMap(handleLast[E, R, A, S => B ! R](p, new Clauses[E, A, (S => B ! R) ! R] {
       def ret(a: A): (S => B ! R) ! R = pure((s: S) => h.ret(s, a))
       def op[X](op: E[X], k: X => (S => B ! R) ! R): (S => B ! R) ! R = pure { (s: S) =>
-        var now = s
-        val cell = new Cell[S] {
-          def get: S = now
-          def set(t: S): Unit = now = t
-        }
+        val cell = new okay.effects.Cell.Var[S](s)
         val x = h.answer(cell, op)
         flatMap(k(x))((f: S => B ! R) => f(cell.get))
       }

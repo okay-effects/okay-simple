@@ -79,7 +79,7 @@ private[core] class OnCore extends Effects {
   /** okay-core's register: `value` then `next`, of one operation — the cell's answer, then the state it left */
   private def stateful[E[_], S, A, B](s0: S, h: okay.effects.StatefulTailClauses[E, S, A, P[B]]): Stateful[AnyOp, Row, S, A, B] =
     new Stateful[AnyOp, Row, S, A, B] {
-      private val cell = new Cell[S] { var s: S = s0; def get: S = s; def set(t: S): Unit = s = t }
+      private val cell = new okay.effects.Cell.Var[S](s0)
       def initial: S = s0
       def ret(s: S, a: A): P[B] = h.ret(s, a)
       def value[X](s: S, op: Any): X = { cell.set(s); h.answer[X](cell, opOf[E, X](op)) }

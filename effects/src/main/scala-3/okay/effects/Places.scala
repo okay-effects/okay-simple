@@ -4,7 +4,7 @@ package okay.effects
  * TYPED PLACES, for an implementation's evidence (Scala 3): the place of an effect in a row as a path, typed by the
  * row — `Last` the last effect of `R + E`, `Init` one further in, `Only` a row of one — so that an implementation
  * matching a place against its handlers learns, by Scala 3's GADT inference, that an operation is its handler's:
- * no cast. Of no implementation: the machine and the `Eff` monad's interpreter both take their `Split` to be a
+ * no cast. Of no implementation: the machine and the `Free` monad's interpreter both take their `Split` to be a
  * `Place`, their `Sub` a `Renaming`.
  *
  * The matches over places are `@unchecked`: the checker cannot rule out an effect that is itself a row — `E` an

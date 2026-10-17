@@ -56,19 +56,14 @@ private[simple] object Machine:
 
   // -- THE HANDLERS INSTALLED: of `E`, the row outside `T`, the body's value `A`, the handler's `B`
 
-  /** a stateful handler's state, the cell its clauses write: of its level, made afresh each time it is installed */
-  final class StateCell[S](var state: S) extends Cell[S]:
-    def get: S = state
-    def set(s: S): Unit = state = s
-
   enum Level[E[_], T[_], A, B]:
     case General[E[_], T[_], A, B](h: Clauses[E, A, Prog[T, B]]) extends Level[E, T, A, B]
     /** a general handler with a state of its own: the state of its time, kept as it is */
     case StateK[E[_], T[_], A, B, S](h: StatefulClauses[E, S, A, Prog[T, B]], state: S) extends Level[E, T, A, B]
     /** answering in place */
     case Tail[E[_], T[_], A, B](h: TailClauses[E, A, Prog[T, B]]) extends Level[E, T, A, B]
-    /** answering in place, its state in `cell` */
-    case State[E[_], T[_], A, B, S](h: StatefulTailClauses[E, S, A, Prog[T, B]], cell: StateCell[S])
+    /** answering in place, its state in `cell`: of its level, made afresh each time it is installed */
+    case State[E[_], T[_], A, B, S](h: StatefulTailClauses[E, S, A, Prog[T, B]], cell: Cell.Var[S])
         extends Level[E, T, A, B]
 
     /** an operation found here answered in place, no `k` */
@@ -80,7 +75,7 @@ private[simple] object Machine:
   /** the level as it is to be installed, or put back by a `k`: a stateful one with a cell of its own, from the
    * state it has now */
   inline def fresh[E[_], T[_], A, B](lv: Level[E, T, A, B]): Level[E, T, A, B] = lv match
-    case s: Level.State[e, t, a, b, st] => Level.State(s.h, StateCell(s.cell.state))
+    case s: Level.State[e, t, a, b, st] => Level.State(s.h, Cell.Var(s.cell.state))
     case _ => lv
 
   /** the body's value given back through the handler */
@@ -236,7 +231,7 @@ private[simple] class Machine extends Effects:
   override def handleLast[E[_], R[_], A, B](p: Prog[R + E, A], h: TailHandler[E, R, A, B]): Prog[R, B] =
     Prog.Handle(p, Level.Tail(h))
   override def handleLast[E[_], S, R[_], A, B](p: Prog[R + E, A], s0: S, h: StatefulTailHandler[E, S, R, A, B]): Prog[R, B] =
-    Prog.Handle(p, Level.State(h, StateCell(s0)))
+    Prog.Handle(p, Level.State(h, Cell.Var(s0)))
   override def handleLast[E[_], S, R[_], A, B](p: Prog[R + E, A], s0: S, h: StatefulHandler[E, S, R, A, B]): Prog[R, B] =
     Prog.Handle(p, Level.StateK(h, s0))
   def run[A](p: Prog[PureRow, A]): A = Machine.run(p)

@@ -7,7 +7,7 @@ do not clash). The interface is ONE for both compilers, `Effectful`: a row is a 
 constructor in both, and everything over it is one source. Only how a row is written is each compiler's own
 `Effects`: in Scala 3 by type lambdas, `Choose + State % Int`; in Scala 2 by names taken as the constructor they
 make, `(*[Choose] + (State % Int))#L`. The interface fixes no implementation: a program, a row's evidence
-are abstract types, and an implementation makes them what it likes. `simple/` is its own implementation; `core/`
+are abstract types, and an implementation makes them what it likes. `machine/` is its own implementation; `core/`
 runs the same programs on okay-core's machine, `kernel/` on okay-kernel's protocol. An implementation knows nothing
 of the standard effects: they are the trait `Std`, mixed in where an implementation is offered (`Machine`, `Core`,
 `OnKernel.on`).
@@ -151,15 +151,15 @@ writes rows as Scala 2 does. An application of Scala 3 alone takes the Scala 3 b
 All behind the same interface, all run by the same suites (`suite/`; `machine` and the protocol's bridge by both
 compilers).
 
-- **`simple/`, the machine, one per compiler** — the same interface, the same suites, `okay.effects.simple.Machine`:
-  - **Scala 3's own** (`simple/src/main/scala-3`): typed by Scala 3's GADT inference throughout, NO CAST. A program
+- **`machine/`, the machine, one per compiler** — the same interface, the same suites, `okay.effects.simple.Machine`:
+  - **Scala 3's own** (`machine/src/main/scala-3`): typed by Scala 3's GADT inference throughout, NO CAST. A program
     is `Prog[R, A]`, of its row, a type constructor; an operation `Perf(at, op)`, its place a typed path
     (`LastPlace`, `InitPlace`, `OnePlace` — the `Split` evidence itself), its operation an `E[X]`. The frames `Frames[R, X, V]` aligned, the
     levels `Meta[R, V, Z]` indexed by the row; a path matched against a handler's level is, by the types, that
     handler's operation. The machine's data and loop live in an object, static: no outer pointer in a node, no
     outer test in a match (in a class they cost 8 B an object and a test a step); a handler is kept as it is
     given, the shared `Clauses`, no wrapper.
-  - **Scala 2's** (`simple/src/main/scala-2`): the same design where Scala 2 can follow it — Scala 2 has no GADT
+  - **Scala 2's** (`machine/src/main/scala-2`): the same design where Scala 2 can follow it — Scala 2 has no GADT
     inference, so a place is a shared number, three trusted steps where an operation meets its handler, and
     methods each level means for itself (`last`, `top`, `returned`, `stepOut`) where Scala 3 matches.
 - **`core/`, on okay-core's machine** (Scala 3), by okay-core's public API only: a program is okay-core's own

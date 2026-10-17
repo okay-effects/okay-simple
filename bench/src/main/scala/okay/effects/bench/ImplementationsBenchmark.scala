@@ -50,13 +50,13 @@ class Lanes(val fx: Std) {
 @BenchmarkMode(Array(Mode.AverageTime))
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 class ImplementationsBenchmark {
-  @Param(Array("machine", "eff", "okay-core", "kernel-steps", "kernel-java", "kernel-okay-core"))
+  @Param(Array("machine", "free", "okay-core", "kernel-steps", "kernel-java", "kernel-okay-core"))
   var impl: String = ""
   var lanes: Lanes = null
 
   @Setup def setup(): Unit = lanes = new Lanes(impl match {
     case "machine" => Machine
-    case "eff" => okay.effects.eff.Eff
+    case "free" => okay.effects.simple.free.Free
     case "okay-core" => Core
     case "kernel-steps" => OnKernel.on(okay.kernel.steps.Steps)
     case "kernel-java" => OnKernel.on(okay.core.Kernel.EFFECTS)
