@@ -44,14 +44,10 @@ private[machine] trait MachineTypes extends Simple {
   final case class Resume[R, X, B](k: K[R, X, B], x: X) extends Prog[R, B]
 
   /** the binds at the row `R` from a value `X` to the value `V` of the nearest level's body */
-  sealed abstract class Frames[R, -X, +V] {
-    /** the value at the end of the frames: of `Last` only */
-    def last(x: X): V
-  }
+  sealed abstract class Frames[R, -X, +V]
+  /** the end of the frames: its value the level's body's — typed by the bounds a match on it gives, `X <: V` */
   final class Last[R, V] extends Frames[R, V, V] { def last(x: V): V = x }
-  final class Then[R, X, Y, V](val f: X => Prog[R, Y], val rest: Frames[R, Y, V]) extends Frames[R, X, V] {
-    def last(x: X): V = throw new IllegalStateException("not the last frame")
-  }
+  final class Then[R, X, Y, V](val f: X => Prog[R, Y], val rest: Frames[R, Y, V]) extends Frames[R, X, V]
 
   /** a level, by its fields: its kind, the one further out (`null` at the top), a remapping's numbers — read by a walk
    * with no call */
@@ -209,7 +205,7 @@ private[machine] object Machine extends Places {
     case d: Done[r, x] => fs match {
       case t: Then[r2, a, y, v] => loop[R, y, V, Z](t.f(d.a), t.rest, m)
       case _ =>
-        if (m.kind == TopKind) m.top(fs.last(d.a))
+        if (m.kind == TopKind) finish[R, X, V, Z](c, fs, m)
         else {
           val n = cold[R, X, V, Z](c, fs, m)
           loop[n.R, n.X, n.V, Z](n.c, n.fs, n.m)
@@ -235,9 +231,22 @@ private[machine] object Machine extends Places {
       loop[n.R, n.X, n.V, Z](n.c, n.fs, n.m)
   }
 
-  /** the loop's cold steps: a level entered or left, a `k` resumed */
+  /** the run's end at the top: the value at the end of the frames, the run's — a frame left goes on into it */
+  private def finish[R, X, V, Z](c: Prog[R, X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Z = c match {
+    case d: Done[r, x] => fs match {
+      case l: Last[r2, v] => m.top(l.last(d.a))
+      case t: Then[r2, a, y, v] => loop[R, y, V, Z](t.f(d.a), t.rest, m)
+    }
+    case _ => loop[R, X, V, Z](c, fs, m)
+  }
+
+  /** the loop's cold steps: a level left, a level entered, a `k` resumed */
   private def cold[R, X, V, Z](c: Prog[R, X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Next[Z] = c match {
-    case d: Done[r, x] => m.returned(fs.last(d.a))
+    case d: Done[r, x] => fs match {
+      case t: Then[r2, a, y, v] => next[R, y, V, Z](t.f(d.a), t.rest, m)
+      // the body's value given back through its level
+      case l: Last[r2, v] => m.returned(l.last(d.a))
+    }
     case h: HandleGeneral[e, r, a, b] => next[Plus[R, e], a, a, Z](h.p, new Last[Plus[R, e], a], new GeneralLevel[e, R, a, b, V, Z](h.h, fs, m))
     case h: HandleTail[e, r, a, b] => next[Plus[R, e], a, a, Z](h.p, new Last[Plus[R, e], a], new TailLevel[e, R, a, b, V, Z](h.h, fs, m))
     case h: HandleState[e, s, r, a, b] =>
