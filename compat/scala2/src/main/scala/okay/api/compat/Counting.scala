@@ -14,25 +14,25 @@ object Counter {
 class Counting(val fx: Std) {
   import fx._
 
-  def tick[R](implicit in: In[*[Counter], R]): Unit ! R = perform[*[Counter]].apply[R, Unit](Counter.Tick(u => u))
-  def peek[R](implicit in: In[*[Counter], R]): Int ! R = perform[*[Counter]].apply[R, Int](Counter.Peek(n => n))
+  def tick[R[_]](implicit in: In[Counter, R]): Unit ! R = perform[Counter].apply[R, Unit](Counter.Tick(u => u))
+  def peek[R[_]](implicit in: In[Counter, R]): Int ! R = perform[Counter].apply[R, Int](Counter.Peek(n => n))
 
   /** the count and the value */
-  def counting[R, Rest, A](p: A ! R)(implicit s: Split[*[Counter], R, Rest]): (Int, A) ! Rest =
-    handle[*[Counter], R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[*[Counter], Rest, A, Int => (Int, A) ! Rest] {
+  def counting[R[_], Rest[_], A](p: A ! R)(implicit s: Split[Counter, R, Rest]): (Int, A) ! Rest =
+    handle[Counter, R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[Counter, Rest, A, Int => (Int, A) ! Rest] {
       def ret(a: A) = pure(n => pure((n, a)))
-      def op[X](op: Op[*[Counter], X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match {
+      def op[X](op: Counter[X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match {
         case Counter.Tick(answer) => pure(n => k(answer(())).flatMap(f => f(n + 1)))
         case Counter.Peek(answer) => pure(n => k(answer(n)).flatMap(f => f(n)))
       }
     }).flatMap(f => f(0))
 
   /** row-polymorphic, by Scala 2's context bounds: ticks once per name told */
-  def greetAll[R: Has[*[Counter]]#L: Has[Writer % String]#L](names: List[String]): Int ! R =
+  def greetAll[R[_]: Has[Counter]#L: Has[(Writer % String)#L]#L](names: List[String]): Int ! R =
     names.foldLeft(pure[Unit, R](()))((p, n) => p.andThen(tell[String, R](s"hello, $n")).andThen(tick[R]))
       .andThen(peek[R])
 
-  /** a row named in Scala 2: each `%` in parentheses */
-  type Row = *[Counter] + (Writer % String)
+  /** a row named in Scala 2: by names, each `%` in parentheses, taken as its constructor */
+  type Row[X] = (*[Counter] + (Writer % String))#L[X]
   def greeted(names: List[String]): (List[String], (Int, Int)) = run(writer[String](counting(greetAll[Row](names))))
 }

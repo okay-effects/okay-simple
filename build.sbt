@@ -70,9 +70,9 @@ lazy val bench = (project in file("bench")).dependsOn(simple, core, kernel, std)
       "dev.okay" %% "okay-kernel-steps" % "0.2.0-SNAPSHOT", "dev.okay" % "okay-java" % "0.2.0-SNAPSHOT"))
 
 /**
- * COMPATIBILITY. One application has one build of the interface. Scala 3's interface has rows of type constructors,
- * which Scala 2 cannot write; so an application with Scala 2 code in it takes the Scala 2.13 build, which Scala 3
- * reads. Below:
+ * COMPATIBILITY. One application has one build of the interface. The interface is one source; how a row is written
+ * is each build's own — Scala 3's `%` a type lambda, Scala 2's a name with its constructor `#L`, which Scala 2 code
+ * needs — so an application with Scala 2 code in it takes the Scala 2.13 build, which Scala 3 reads. Below:
  * the interface and its implementations as Scala 2.13 builds them; the interface's suite compiled by Scala 3 against
  * that build; an effect, its handler and a program written in Scala 2.13, used by Scala 3 code beside its own
  */

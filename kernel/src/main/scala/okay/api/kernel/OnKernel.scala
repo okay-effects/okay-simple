@@ -5,10 +5,10 @@ import okay.api.Effects
 import okay.std.Std
 import scala.annotation.unchecked.uncheckedVariance
 
-/** okay-api's interface, Scala 3's, on okay-kernel's protocol (`Protocol`): its rows' places numbers */
-class OnKernel private (e: KEffects) extends Effects:
-  import Protocol.*
-  private val k = Protocol(e)
+/** okay-api's interface on okay-kernel's protocol (`Protocol`), for both compilers: its rows' places numbers */
+class OnKernel private (e: KEffects) extends Effects {
+  import Protocol._
+  private val k = new Protocol(e)
 
   type ![+A, R[_]] = Prog[A @uncheckedVariance]
   type Split[E[_], R[_], Rest[_]] = Place
@@ -35,15 +35,17 @@ class OnKernel private (e: KEffects) extends Effects:
   def embed[R[_], S[_], A](p: Prog[A])(implicit s: Vector[Int]): Prog[A] = k.remap[A](p, s)
 
   def handleLast[E[_], R[_], A, B](p: Prog[A])(h: Handler[E, R, A, B]): Prog[B] =
-    k.general[A, B](p, a => h.ret(a), new Clause[B]:
-      def apply[X](op: Any, kx: X => Prog[B]): Prog[B] = h.op[X](opOf[E, X](op), kx))
+    k.general[A, B](p, a => h.ret(a), new Clause[B] {
+      def apply[X](op: Any, kx: X => Prog[B]): Prog[B] = h.op[X](opOf[E, X](op), kx)
+    })
   override def handleTailLast[E[_], R[_], A, B](p: Prog[A])(h: TailHandler[E, R, A, B]): Prog[B] =
-    k.answering[A, B](p, a => h.ret(a), new Answer:
-      def apply[X](op: Any): X = h.answer[X](opOf[E, X](op)))
+    k.answering[A, B](p, a => h.ret(a), new Answer { def apply[X](op: Any): X = h.answer[X](opOf[E, X](op)) })
 
   def run[A](p: Prog[A]): A = k.run(p)
+}
 
-object OnKernel:
+object OnKernel {
   /** okay-api's interface on the implementation `e` of the protocol, with the standard effects, seen through the
    * interface only */
   def on(e: KEffects): Std = new OnKernel(e) with Std
+}

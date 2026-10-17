@@ -3,9 +3,9 @@ package okay.api.kernel
 import okay.kernel.{Answers, Effects => KEffects, Fn, General, Key, Op => KOp, Prog, Program, Step, Thunk, Translating, Type}
 
 /**
- * okay-api's interface ON OKAY-KERNEL'S PROTOCOL, the part the same for both compilers: on any implementation of it —
+ * okay-api's interface ON OKAY-KERNEL'S PROTOCOL, on any implementation of it —
  * okay-kernel's reference machine, okay-java, okay-core — given its `Effects`. A program is the implementation's own
- * `Prog`. `OnKernel` (each compiler its own: its rows' kinds) is the interface over it.
+ * `Prog`. `OnKernel` is the interface over it.
  *
  * The protocol finds a handler by an operation's KEY, the nearest of it; okay-api by the operation's PLACE in its
  * row. The bridge keeps okay-api's meaning exactly: every operation of okay-api's is of ONE key, carrying its
