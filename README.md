@@ -1,24 +1,42 @@
 # okay-simple
 
 One simple interface for effect systems, for Scala 3 and Scala 2.13: the types `!`, `+`, `%`, the functions
-`perform`, `handle`, `split`, `run`, and the standard effects written once on them, `Std` (module `effects`, package
-`okay.effects`; the standard effects' definitions inside the object `Std`, so that other effects of the same names
-do not clash). The interface is ONE for both compilers, `Effectful`: a row is a type
-constructor in both, and everything over it is one source. Only how a row is written is each compiler's own
-`Effects`: in Scala 3 by type lambdas, `Choose + State % Int`; in Scala 2 by names taken as the constructor they
-make, `(*[Choose] + (State % Int))#L`. The interface fixes no implementation: a program, a row's evidence
-are abstract types, and an implementation makes them what it likes. `machine/` is its own implementation, `free/`
-the `Free` monad's; the bridges to okay-core's machine and to okay-kernel's protocol live in those repositories
-(`okay-effects-core`, `okay-effects-kernel`), checked by this interface's suite, `okay-effects-tck`. An implementation knows nothing
-of the standard effects: they are the trait `Std`, mixed in where an implementation is offered (`Machine`, `Core`,
-`OnKernel.on`).
+`perform`, `handle`, `split`, `run`, and the standard effects written once on them. The interface is ONE for both
+compilers, `Effectful`: a program, a row, the evidence that an effect is in a row are abstract types, and an
+implementation makes them what it likes. Only how a row is written is each compiler's own `Effects`: in Scala 3 by
+type lambdas, `Choose + State % Int`; in Scala 2 by names taken as the constructor they make,
+`(*[Choose] + (State % Int))#L`.
+
+Two implementations here — a machine, and the `Free` monad — and two bridges in other repositories, to okay-core's
+machine and to okay-kernel's protocol, all checked by one suite.
+
+## Modules and packages
+
+| Module | Artifact | Package | What it is |
+|---|---|---|---|
+| `effects/` | `okay-effects` | `okay.effects` | the interface (`Effectful`, each compiler's `Effects`), the standard effects (`Std`), delimited control changing answer types (`Delimited`); typed places for Scala 3 implementations (`Places`) |
+| `machine/` | `okay-effects-machine` | `okay.effects.machine` | THE MACHINE, one per compiler: `okay.effects.machine.Machine` |
+| `free/` | `okay-effects-free` | `okay.effects.free` | THE `Free` MONAD, one per compiler: `okay.effects.free.Free` (through the interface), `OnFree` (as it is) |
+| `tck/` | `okay-effects-tck` | `okay.effects` | the interface's suite, a library: `InterfaceSuite(fx)` for any implementation |
+| `interop/cats`, `interop/zio`, `interop/tofu` | `okay-effects-cats`, `-zio`, `-tofu` | `okay.effects.cats`, `.zio`, `.tofu` | interop with cats (and cats-effect 3), ZIO, tofu |
+| `examples/` | — | `okay.effects.examples` | examples over `Effects` alone, run on the machine and on `Free` |
+| `suite/`, `suite-free/`, `compat/`, `bench/` | — | — | the suite on each implementation, the compatibility checks, the benchmark |
+
+In okay-core's repository, module `effects/` (`okay-effects-core`): the interface on okay-core's machine,
+`okay.effects.core.Core`. In okay-kernel's repository, module `effects/` (`okay-effects-kernel`): the interface on
+okay-kernel's protocol, `okay.effects.kernel.OnKernel.on(effects)`. Both need `okay-effects` and `okay-effects-tck`
+published locally from here.
 
 ## A program
+
+An implementation is a value of type `Effects`: its types and primitives one import, its standard effects
+another, from its `std`.
 
 Scala 3:
 
 ```scala
-import okay.effects.machine.Machine.*          // everything: the types, the primitives, the effects and their handlers
+import okay.effects.machine.Machine.*
+import okay.effects.machine.Machine.std.*
 
 // in any row that has these three, at any place
 def greet[R[_]: {Has[Reader % String], Has[Writer % String], Has[State % Int]}]: Int ! R =
@@ -37,6 +55,7 @@ Scala 2:
 
 ```scala
 import okay.effects.machine.Machine._
+import okay.effects.machine.Machine.std._
 
 def greet[R[_]](implicit r: In[(Reader % String)#L, R], w: In[(Writer % String)#L, R], s: In[(State % Int)#L, R]): Int ! R =
   for {
@@ -50,6 +69,9 @@ type Row[X] = ((Reader % String) + (Writer % String) + (State % Int))#L[X]    //
 run(reader("Ann")(state(10)(writer[String](greet[Row]))))
 ```
 
+Code over any implementation takes it as a value, `class Greeting(implicit val fx: Effects) { import fx._, fx.std._
+... }`, and runs on whichever it is given: `Machine`, `Free`, okay-core's `Core`, `OnKernel.on(...)`.
+
 ## The types
 
 | | Scala 3 | Scala 2 |
@@ -62,22 +84,36 @@ run(reader("Ann")(state(10)(writer[String](greet[Row]))))
 | an effect of the operations `F[S, X]`, with its parameter | `F % S`: `State % Int` | `(F % S)#L`; among names `F % S` |
 | the operation of `E` answered by an `X` | `E[X]` | the same |
 | `E` is in `R`; a context bound of it | `In[E, R]`; `Has[E]` | `In[E, R]`; `Has[E]#L` |
-| `E` is in `R`, at any place, and `R` without it is `Rest` | `Split[E, R, Rest]` | the same |
+| `E` is in `R`, at any place, and `R` without it is `Rest` | `Split[E, R, Rest]` (an `In`) | the same |
 | every effect of `R` is in `S` | `Sub[R, S]` | the same |
 
-A row is a type constructor: `R + E` is the phantom `Sum[R, E, X]`, `Pure` the empty `Void`, and an effect is in
-a row as it is. Scala 3 writes it with type lambdas. Scala 2 has no type alias whose result is a type constructor,
-so it writes a row with names, the proper types `*[F]`, `F % S`, `R + E`, each with its constructor as the member
-`L`; `*[F]` is `F` in Scala 3 too, so that code written alike for both compilers compiles. The shared source writes
-a row as both read it, `({ type L[x] = Sum[R, E, x] })#L`.
+A row is a type constructor: `R + E` is the phantom `Sum[R, E, X]`, `Pure` the empty `Void` (of no value: an
+operation of it is `absurd`). Scala 3 writes a row with type lambdas. Scala 2 has no type alias whose result is a
+type constructor, so it writes one with names, the proper types `*[F]`, `F % S`, `R + E`, each with its constructor
+as the member `L`; `*[F]` is `F` in Scala 3 too, so that code written alike for both compilers compiles. The shared
+source writes a row as both read it, `({ type L[x] = Sum[R, E, x] })#L`, or by aliases, `type Desk[X] = Sum[...]`.
 
-The evidence is found by implicit search, the same in both, from `splitOne`, `splitLast`, `splitInit` (`E`
-further in). `handle` takes `E` from wherever it is in the row: by default `split(p)`, moving `E` to the end of the
-row, then `handleLast`, taking the last effect; an implementation may take it from its place at once. Both take a
-handler of any of the four shapes: `handle(p, h)`, `handle(p, s0, h)` for a stateful one.
-`p.into[S]` puts a program in a row of more effects.
+The evidence is found by implicit search, the same in both, from `splitOne`, `splitLast`, `splitInit` (`E` further
+in). `handle` takes `E` from wherever it is in the row: by default `split(p)`, moving `E` to the end, then
+`handleLast`, taking the last effect; an implementation may take it from its place at once. `p.into[S]` puts a
+program in a row of more effects. `map` is a primitive: an implementation may do it in one step.
 
-## An effect and its handler
+## Handlers
+
+Five shapes, each a trait of clauses of no implementation (`Clauses`, `TailClauses`, …); `Handler[E, R, A, B]` is
+`Clauses[E, A, B ! R]`. `handle(p, h)` and `handleLast(p, h)` take each shape, `handle(p, s0, h)` the stateful ones:
+
+| | its clause gets `k` | answered in place, every clause resuming `k` once, at once | never resuming `k` |
+|---|---|---|---|
+| no state | `Handler` | `TailHandler` (`Reader`) | `AbortHandler` (`Error`) |
+| a state of its own | `StatefulHandler`: the state of its time, `k(x, s)` resumed with the next | `StatefulTailHandler`, the state in a `Cell` (`State`, `Writer`) | |
+
+A handler is deep: `k` is the rest of the program under the same handler, resumable any number of times. A stateful
+general handler is a handler with a parameter: a `k` resumed twice runs each branch from its own state. The two
+answered in place need no `k`: an implementation answers them where the operation finds them. An implementation
+with no form of its own for a shape runs it as a general handler (the interface's defaults).
+
+## An effect of one's own
 
 An effect is a GADT of its operations, `F[S, X]` with a parameter, `F[X]` with none, the same type for both
 compilers. In Scala 3 its operations may be an `enum`, its clauses typed by GADT inference:
@@ -90,12 +126,11 @@ enum Counter[X]:
 def tick[R[_]: Has[Counter]]: Unit ! R = perform[Counter](Counter.Tick)
 
 def counting[R[_], Rest[_], A](p: A ! R)(using Split[Counter, R, Rest]): (Int, A) ! Rest =
-  handle[Counter, R, Rest, A, Int => (Int, A) ! Rest](p, new Handler[Counter, Rest, A, Int => (Int, A) ! Rest]:
-    def ret(a: A) = pure(n => pure((n, a)))
-    def op[X](op: Counter[X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match
-      case Counter.Tick => pure(n => k(()).flatMap(f => f(n + 1)))
-      case Counter.Peek => pure(n => k(n).flatMap(f => f(n)))
-  ).flatMap(f => f(0))
+  handle(p, 0, new StatefulTailHandler[Counter, Int, Rest, A, (Int, A)]:
+    def ret(n: Int, a: A) = pure((n, a))
+    def answer[X](cell: Cell[Int], op: Counter[X]): X = op match
+      case Counter.Tick => cell.set(cell.get + 1)
+      case Counter.Peek => cell.get)
 ```
 
 Scala 2 has no GADT inference for a method's type parameter, so each operation says how its answer is made,
@@ -111,151 +146,138 @@ object Counter {
 def tick[R[_]](implicit in: In[Counter, R]): Unit ! R = perform[Counter].apply[R, Unit](Counter.Tick(u => u))
 
 def counting[R[_], Rest[_], A](p: A ! R)(implicit s: Split[Counter, R, Rest]): (Int, A) ! Rest =
-  handle[Counter, R, Rest, A, Int => (Int, A) ! Rest](p, new Handler[Counter, Rest, A, Int => (Int, A) ! Rest] {
-    def ret(a: A) = pure(n => pure((n, a)))
-    def op[X](op: Counter[X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match {
-      case Counter.Tick(answer) => pure(n => k(answer(())).flatMap(f => f(n + 1)))
-      case Counter.Peek(answer) => pure(n => k(answer(n)).flatMap(f => f(n)))
+  handle[Counter, Int, R, Rest, A, (Int, A)](p, 0, new StatefulTailHandler[Counter, Int, Rest, A, (Int, A)] {
+    def ret(n: Int, a: A) = pure((n, a))
+    def answer[X](cell: Cell[Int], op: Counter[X]): X = op match {
+      case Counter.Tick(answer) => cell.set(cell.get + 1); answer(())
+      case Counter.Peek(answer) => answer(cell.get)
     }
-  }).flatMap(f => f(0))
+  })
 ```
 
-A handler is deep: `k` is the rest of the program under the same handler, and it can be resumed any number of
-times (`Choose`'s `all` resumes it once per choice).
+## The standard effects
 
-The standard effects, each handled from anywhere in the row: `State` (`state(s0)`), `Reader` (`reader(e)`),
-`Writer` (`writer[W]`), `Error` (`attempt[E]`), `Choose` (`all`): one source for both compilers, their
-definitions the object `okay.effects.Std`, their operations and handlers the trait `Std`.
+`fx.std`, one source for both compilers, their definitions in the object `okay.effects.Std` (so that other effects of
+the same names do not clash). Each handler takes its effect from anywhere in the row. `Std` is a class over the
+implementation, made by `newStd`: an implementation may offer its own with better handlers.
+
+| Effect | Operations | Handlers |
+|---|---|---|
+| `State % S` | `get`, `put`, `modify` | `state(s0)`, in place |
+| `Reader % E` | `ask` | `reader(e)`, in place |
+| `Writer % W` | `tell` | `writer[W]`, in place |
+| `Error % E` | `raise` | `attempt[E]` (aborting), `recover[E](p)(h)` |
+| `Choose` | `among`, `fail` | `all` (every way, `k` resumed per choice), `first` (the first way with no `fail`) |
+| `Yield % O` | `emit` | `collect[O]`, `take[O](n)`, `each[O](p)(f)` |
+| `Lift % G` | `lift(ga)`: a program of another monad `G` | `lower[G](p)`, given a `Lowering[G]` (cats, ZIO) |
+| `Control % (B ! R)` | `shift(f)` | `reset(p)`: delimited control, the answer type fixed |
+
+Delimited control CHANGING ANSWER TYPES is its own type, `Cps[A, B, C, R]` (`fx.delimited`, the trait `Delimited`):
+`shift`, `reset`, `pure`, `map`, `flatMap`, `lift`. By default continuation-passing over any implementation, in
+constant stack; okay-core's bridge has it native, on okay-core's own `shift0` and `$`.
 
 ## Scala 2 and Scala 3: one interface, compatible
 
-The interface is one source, `Effectful` (`effects/src/main/scala`): the program, the row's evidence, the primitives,
-the handlers' shapes (`Clauses`, `TailClauses`, `StatefulClauses`, `StatefulTailClauses`; `Handler[E, R, A, B]` is
-`Clauses[E, A, B ! R]`),
-`Cell`, the defaults. Each compiler's `Effects` (`scala-2/`, `scala-3/`) adds only how a row is written. So the
-standard effects, the protocol's bridge and the suite's checks are one source too; the machines are each
-compiler's, as Scala 2 has no GADT inference to type the walk to a handler.
+The interface is one source, `Effectful` (`effects/src/main/scala`): the program, the row's evidence, the
+primitives, the handlers' shapes, `Cell`, the defaults. Each compiler's `Effects` (`scala-2/`, `scala-3/`) adds only
+how a row is written, and the program's methods (Scala 3's inline extensions, Scala 2's implicit class). So the
+standard effects, the protocol's bridge, the interop and the suite's checks are one source too; the machines and
+`Free` are each compiler's, as Scala 2 has no GADT inference to type the walk to a handler.
 
-Compatible means: one application has one build of the interface, and code of the other compiler takes it as it
-is. An application with Scala 2 code in it takes the Scala 2.13 build, which Scala 3 reads: its Scala 3 code
-writes rows as Scala 2 does. An application of Scala 3 alone takes the Scala 3 build. Proven by:
+Compatible means: one application has one build of the interface, and code of the other compiler takes it as it is.
+An application with Scala 2 code in it takes the Scala 2.13 build, which Scala 3 reads: its Scala 3 code writes rows
+as Scala 2 does. An application of Scala 3 alone takes the Scala 3 build. Proven by:
 
 | Module | What it shows |
 |---|---|
-| `suite` test, both compilers | the interface's suite on each implementation: its checks shared, its programs each compiler's rows |
+| `suite`, `suite-free`, both compilers | the interface's suite (`tck`) on each implementation |
 | `compat/scala3-on-2.13` | Scala 2's programs and suite compiled by Scala 3 against the build Scala 2.13 made |
-| `compat/scala2` | an effect, its handler and a program written in Scala 2.13, on the Scala 2.13 build |
-| `compat/scala3` | Scala 3 code using that Scala 2.13 library beside its own, in one row, one run |
+| `compat/scala2`, `compat/scala3` | an effect, its handler and a program written in Scala 2.13, used by Scala 3 code beside its own |
+| `examples/mixed` | the same as an example, on the machine and on `Free` |
+
+## Implementations
+
+- **The machine** (`machine/`), one per compiler, `okay.effects.machine.Machine`; its classes `Engine`, in an
+  object — no outer pointer in a node or a level. A program is data, `Prog[R, A]`; the run a `@tailrec` loop over it,
+  its FRAMES (`Frames[R, X, V]`, the binds from `X` to the value `V` of the nearest level's body, aligned) and its
+  LEVELS (`Meta[R, V, Z]`, a handler of `E` at `T + E`, a remapping of places). An answer in place goes straight into
+  the next frame; a `map` is one step; a `k` taken is data, the levels crossed a `Prefix` put back where it is
+  resumed. The loop holds the hot cases, `cold` the rest. No exception: an operation past every handler is of
+  `Void`, absurd.
+  - **Scala 3's**: its data enums, typed by GADT inference throughout, NO CAST. A place is a typed path
+    (`Places.Place`: `Last`, `Init`, `Only`, `Absurd` — the `Split` evidence itself); a path matched against a
+    handler's level is, by the types, that handler's operation.
+  - **Scala 2's**: a place a number, the walk to a handler over the levels' fields (`kind`, `outer`) with no call;
+    each level does for itself what needs its types (`returned`, `stepOut`, `found`), as a match refines none. Three
+    trusted steps, named: an operation at its handler of its effect, an answer in place of its type, `split` at the
+    last place no move.
+- **The `Free` monad** (`free/`), one per compiler: `Free[F, A]` — `Return`, `Perform`, `Bind`, `Inject` (an
+  operation and its rest, one node), `Delay` — covariant in its value; `F` a row's operations, each carrying its
+  place (`At`). A handler interprets the tree (`Free.handle`, `Free.answer` in place, each with or without a state),
+  an operation passed on by each handler it crosses, one place nearer; `k` a trampoline. Scala 3's typed by
+  `Places`, no cast; Scala 2's places numbers, one trusted step.
+- **okay-core's bridge** (okay-core's `effects/`): a program okay-core's own `Cont`, nothing wrapped; a place okay-core's
+  path, `Split` its `Removed`; a handler one of okay-core's forms (`Deep`, `Answering`, `Stateful`), installed by its
+  `handle` at the `Removed`; `Delimited` native.
+- **okay-kernel's bridge** (okay-kernel's `effects/`): on any implementation of the protocol — its reference machine,
+  okay-java, okay-core's bridge. Every operation of one key carrying its place, each handler a handler of that key
+  answering place 0 and passing any other on, one place in: two effects of one type in a row stay two places.
+
+All run in constant stack: 100 000 operations under three handlers, 100 000 binds.
 
 ## Interop
 
-Over any implementation, both compilers; another monad's programs inside a program are the standard `Lift[G, *]`
+Over any implementation, both compilers; another monad's programs inside a program are the standard `Lift % G`
 (`std.lift(ga)`), and a program of it given back as a `G[A]` by `std.lower(p)`, given a `Lowering[G]`:
 
 | Module | What it gives |
 |---|---|
-| `interop/cats` (`okay-effects-cats`) | `Cats(fx).monad[R]`, cats' `Monad` of the programs (stack safe); a `Lowering` of any cats monad — `IO` of cats-effect 3, `Either`, `Option` |
-| `interop/zio` (`okay-effects-zio`) | `ZioEffects(fx)`: `fromZIO(task)`, `toZIO(p)` — a ZIO task a `Lift[Task, *]`, a program a `Task` |
-| `interop/tofu` (`okay-effects-tofu`) | `Tofu(Cats(fx))`: `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row named |
+| `interop/cats` | `Cats(fx).monad[R]`, cats' `Monad` of the programs (stack safe); a `Lowering` of any cats monad — `IO` of cats-effect 3, `Either`, `Option` |
+| `interop/zio` | `ZioEffects(fx)`: `fromZIO(task)`, `toZIO(p)` — a ZIO task a `Lift % Task`, a program a `Task` |
+| `interop/tofu` | `Tofu(Cats(fx))`: `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row named |
 
 ## Examples
 
-`examples/`, written over `Effects` alone — of no implementation — and run on each, `OnMachine` and `OnFree`:
+`examples/`, written over `Effects` alone and run on each implementation, `OnMachine` and `OnFree`:
 
 | File | What it shows |
 |---|---|
 | `scala/.../Shared.scala` | code written once for both compilers: an effect, its handler, a row by aliases |
 | `scala-3/.../Basics3.scala` | Scala 3's rows and context bounds, an effect of one's own an `enum`, a handler in place, a general one resuming `k` twice |
-| `scala-3/.../Control3.scala` | generators (`Yield`: `collect`, `take`, `each`), a search (`first`), `recover`, `shift`/`reset`, the answer type changed (`delimited`) |
+| `scala-3/.../Control3.scala` | generators (`collect`, `take`, `each`), a search (`first`), `recover`, `shift`/`reset`, the answer type changed |
 | `scala-2/.../Basics2.scala` | Scala 2's rows by names (`#L`), an effect's operations with their answers, a search |
 | `mixed/.../Mixed.scala` | one application of two compilers: Scala 3 code using Scala 2.13's effect, handler and program, one row, one run |
-
-Their values are checked over `Effects` (`Checks`) on each implementation, and run on each, in the same module:
 
 ```sh
 sbt "examples/runMain okay.effects.examples.OnMachine"   # the examples on the machine
 sbt "examples/runMain okay.effects.examples.OnFree"      # on the Free monad
-sbt examples/test examplesMixed/test
 ```
 
-## Implementations
+## Measured
 
-All behind the same interface, all run by the same suites (`suite/`; `machine` and the protocol's bridge by both
-compilers).
+`bench/`, both compilers (JMH `-f 2 -wi 5 -i 5 -w 1 -r 1`, JDK 26; `bench.d/`), one run of each program, n = 1000,
+µs. Each program twice where it says so: at a row named in it, and row-polymorphic (`…In`: its effects asked as `In`
+evidence, passed on to the recursion):
 
-- **`machine/`, the machine, one per compiler** — the same interface, the same suites, `okay.effects.machine.Machine`:
-  - **Scala 3's own** (`machine/src/main/scala-3`): typed by Scala 3's GADT inference throughout, NO CAST. A program
-    is `Prog[R, A]`, of its row, a type constructor; an operation `Perf(at, op)`, its place a typed path
-    (`LastPlace`, `InitPlace`, `OnePlace` — the `Split` evidence itself), its operation an `E[X]`. The frames `Frames[R, X, V]` aligned, the
-    levels `Meta[R, V, Z]` indexed by the row; a path matched against a handler's level is, by the types, that
-    handler's operation. The machine's data and loop live in an object, static: no outer pointer in a node, no
-    outer test in a match (in a class they cost 8 B an object and a test a step); a handler is kept as it is
-    given, the shared `Clauses`, no wrapper.
-  - **Scala 2's** (`machine/src/main/scala-2`): the same design where Scala 2 can follow it — Scala 2 has no GADT
-    inference, so a place is a shared number, three trusted steps where an operation meets its handler, and
-    methods each level means for itself (`last`, `top`, `returned`, `stepOut`) where Scala 3 matches.
-- **okay-core's bridge, in okay-core's repository** (module `effects/`, `okay-effects-core`; Scala 3), by okay-core's public API only: a program is okay-core's own
-  `Cont`, nothing wrapped. An okay-simple place is okay-core's path (the last effect of an okay-simple row is the
-  head of okay-core's), `Split` is okay-core's `Removed`, made of the place; a general handler is a `Deep`, one
-  answering in place an `Answering`, a stateful one okay-core's `Stateful`, installed by okay-core's `handle` at the
-  `Removed` — the effect taken from its place at once (the interface's `handle`, of each shape, which the
-  standard handlers use). A `split` on its own is `widen` and a handler translating
-  the effect to the fresh head; an `embed` a handler translating each effect to its place. Built against okay-core's
-  artifact (`okay-core::okay-core:0.1.0-SNAPSHOT`, published from okay-core's master: `sbt coreJVM/publishLocal`).
+| Program | machine, Scala 3 | machine, Scala 2 | `Free`, Scala 3 | `Free`, Scala 2 |
+|---|---|---|---|---|
+| 1000 maps, no operation | 6.9 | 6.9 | 12.0 | 11.7 |
+| 1000 `ask`s under their handler, a map pending each | 17.1 | 20.6 | 34.8 | 32.3 |
+| the same, row-polymorphic | 16.5 | 21.5 | 31.1 | 32.0 |
+| across four handlers of other effects | 23.9 | 18.1 | 73.6 | 67.8 |
+| the same, row-polymorphic | 19.5 | 16.9 | 70.3 | 68.2 |
+| 1000 `get`/`put` pairs under `State` | 18.9 | 18.5 | 32.5 | 23.7 |
+| the same, row-polymorphic | 17.8 | 16.6 | 29.4 | 22.8 |
 
-- **okay-kernel's bridge, in okay-kernel's repository** (module `effects/`, `okay-effects-kernel`; both compilers, one source: the protocol's part `Protocol`, the
-  interface over it `OnKernel`): on any implementation of it, given its `Effects` —
-  okay-kernel's reference machine (`Steps`), okay-java (`okay.core.Kernel.EFFECTS`), okay-core's bridge
-  (`okay.core.kernel.OnCore`): `OnKernel.on(effects)`. The protocol finds a handler by an operation's key, okay-simple
-  by its place; the bridge keeps okay-simple's meaning exactly: every okay-simple operation is of one key and carries
-  its place, each okay-simple handler is a handler of that key answering place 0 and passing any other on, one place
-  in. So two effects of one type in a row stay two places. A general handler is the protocol's `General`, one
-  answering in place its `Translating` (no `k`), a stateful one the interface's default, a remapping a `Translating`.
-  The price of the exactness: an operation is performed again at each okay-simple handler it crosses.
-
-All of them share a place's evidence, one object per depth: an operation allocates nothing for its place, and
-okay-core's look-up, kept on its path, is found again the next time.
-
-Both run in constant stack: 100 000 operations under three handlers, 100 000 binds.
-
-Four shapes of handler, general or answering in place, with a state of its own or without:
-
-| | its clause gets `k` | answered in place, every clause resuming `k` once, at once |
-|---|---|---|
-| no state | `Handler` | `TailHandler` (`Reader`) |
-| a state of its own | `StatefulHandler`: the state of its time, `k` resumed with the next | `StatefulTailHandler`, the state in a `Cell` (`State`, `Writer`) |
-
-A stateful general handler is a handler with a parameter: `k(x, s)` goes on from the state `s`, so a `k` resumed
-twice runs each branch from its own. The machine answers the two in place where the operation finds them: no `k`,
-no allocation, the state written in its level. A `k` taken by a general handler across a stateful level copies its state, so resumed
-twice it resumes the state of its time. An implementation with no such forms runs them as general handlers (the
-interface's defaults).
-
-Measured (`bench/`, JMH `-f 2 -wi 3 -i 5 -prof gc`, JDK 26, Scala 3.9; `bench.d/`), one run of each program,
-n = 1000, µs. Each program twice where it says so: at a row named in it, and row-polymorphic (`…In`: its effects asked
-as `In` evidence, passed on to the recursion):
-
-| Program | `machine` | `Free` |
-|---|---|---|
-| 1000 maps, no operation | 6.9 | 12.0 |
-| 1000 `ask`s under their handler, a map pending each | 15.8 | 35.1 |
-| the same, row-polymorphic | 16.3 | 31.1 |
-| across four handlers of other effects | 22.6 | 74.0 |
-| the same, row-polymorphic | 18.3 | 71.8 |
-| 1000 `get`/`put` pairs under `State` | 18.7 | 32.7 |
-| the same, row-polymorphic | 17.4 | 29.3 |
-
-- The machine: a `map` one step (`Mapping`), an answer in place straight into the next frame, a `k` data.
-- `Free`: each handler an interpreter of the tree, an operation passed on by each handler it crosses (`Inject`, one
-  node), so across handlers it costs per handler; in place (`answer`) no `k`.
+- Scala 3's places are typed paths, made where a row is named and matched by type; Scala 2's are numbers, walked by
+  the levels' fields — across handlers Scala 2's machine is the faster, its trusted steps the price.
+- `Free` interprets the tree by each handler in turn, so an operation across handlers costs per handler.
 - okay-core's machine and the protocol's implementations are measured in their repositories, beside their bridges.
 
 ## Build
 
 ```sh
-sbt testAll        # both compilers: the machine, the Free monad, the examples, and the compatibility checks
-sbt "+effects/publishLocal" "+tck/publishLocal"   # the interface and its suite, for the bridges in okay-core and okay-kernel
-sbt suite/test     # Scala 3
-sbt "++2.13.18 suite/test"
-python3 /tmp/okz/tools/withlock.py sbt "bench/Jmh/run -f 2 -wi 3 -i 5 -prof gc"   # JMH, holding JMH's lock
+sbt testAll                                      # both compilers: everything here
+sbt "+effects/publishLocal" "+tck/publishLocal"  # the interface and its suite, for okay-core's and okay-kernel's bridges
+python3 /tmp/okz/tools/withlock.py sbt "bench/Jmh/run -f 2 -wi 5 -i 5 -w 1 -r 1 -prof gc"   # JMH, holding JMH's lock
 ```
