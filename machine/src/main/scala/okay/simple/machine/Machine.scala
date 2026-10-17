@@ -105,13 +105,16 @@ private[machine] object Machine extends Simple {
   type Pure = Nothing
   type +[R, E] = Nothing
   final case class Place(at: Int)
+  /** the places, one per depth, shared: no allocation where an operation is performed */
+  private val places: Array[Place] = Array.tabulate(64)(Place(_))
+  private def placeAt(i: Int): Place = if (i < places.length) places(i) else Place(i)
   type Split[E, R, Rest] = Place
   type In[E, R] = Place
   type Sub[R, S] = Vector[Int]
 
-  implicit def splitOne[E]: Place = Place(0)
-  implicit def splitLast[R, E]: Place = Place(0)
-  implicit def splitInit[E, R, G, Rest](implicit s: Place): Place = Place(s.at + 1)
+  implicit def splitOne[E]: Place = places(0)
+  implicit def splitLast[R, E]: Place = places(0)
+  implicit def splitInit[E, R, G, Rest](implicit s: Place): Place = placeAt(s.at + 1)
   implicit def in[E, R, Rest](implicit s: Place): Place = s
   implicit def subPure[S]: Vector[Int] = Vector()
   implicit def subOne[E, S](implicit e: Place): Vector[Int] = Vector(e.at)

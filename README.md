@@ -99,9 +99,10 @@ compiler's `Syntax` (`core/src/main/scala-2`, `scala-3`) only adds what the othe
 | `compat/scala3` | Scala 3 code using that Scala 2.13 library beside its own, in one row, one run |
 | `compat/scala3-on-2.13` | the interface's suite compiled by Scala 3 against the build Scala 2.13 made |
 
-## Three implementations
+## Implementations
 
-All behind the same interface, all run by the same suites (`suite/`; `free` and `machine` by both compilers).
+All behind the same interface, all run by the same suites (`suite/`; `free`, `machine` and the protocol's bridge by both
+compilers).
 
 - **`free/`, the reference**: a free monad. A row is an ordered list and an operation carries its place in it,
   counted from the end. `handle` answers place 0, and passes any other operation on: it makes a new node of it, one
@@ -123,6 +124,18 @@ All behind the same interface, all run by the same suites (`suite/`; `free` and 
   the effect to the fresh head; an `embed` a handler translating each effect to its place. Built against okay-core's
   artifact (`okay-core::okay-core:0.1.0-SNAPSHOT`, published from okay-core's master: `sbt coreJVM/publishLocal`).
 
+- **`kernel/`, on okay-kernel's protocol** (both compilers): on any implementation of it, given its `Effects` —
+  okay-kernel's reference machine (`Steps`), okay-java (`okay.core.Kernel.EFFECTS`), okay-core's bridge
+  (`okay.core.kernel.OnCore`): `OnKernel.on(effects)`. The protocol finds a handler by an operation's key, okay-simple
+  by its place; the bridge keeps okay-simple's meaning exactly: every okay-simple operation is of one key and carries
+  its place, each okay-simple handler is a handler of that key answering place 0 and passing any other on, one place
+  in. So two effects of one type in a row stay two places. A general handler is the protocol's `General`, one
+  answering in place its `Translating` (no `k`), a stateful one the interface's default, a remapping a `Translating`.
+  The price of the exactness: an operation is performed again at each okay-simple handler it crosses.
+
+All of them share a place's evidence, one object per depth: an operation allocates nothing for its place, and
+okay-core's look-up, kept on its path, is found again the next time.
+
 Both run in constant stack: 100 000 operations under three handlers, 100 000 binds.
 
 Three shapes of handler: a general one, `Handler`, whose clause gets `k`; one answering in place, `TailHandler`, every
@@ -131,25 +144,29 @@ clause resuming `k` once, at once (`Reader`); and the same with a state of its o
 state written in its level. A `k` taken by a general handler across a stateful level copies its state, so resumed
 twice it resumes the state of its time. `free` runs them as general handlers (the interface's defaults).
 
-Measured (`bench/`, JMH `-f 2 -wi 3 -i 5 -prof gc`, JDK 26, Scala 3.9; `bench.d/2026-10-17_three.csv`; the
-machine before its in-place handlers in `bench.d/2026-10-17_free-vs-machine.csv`), one run of each program, n = 1000:
+Measured (`bench/`, JMH `-f 2 -wi 3 -i 5 -prof gc`, JDK 26, Scala 3.9; `bench.d/2026-10-17_shared-places.csv`; earlier
+runs beside it), one run of each program, n = 1000, µs and allocation:
 
-| Program | `free` | `machine` | `okaycore` |
-|---|---|---|---|
-| 1000 maps, no operation | 10.1 µs, 126 KB | 10.4 µs, 126 KB | 10.7 µs, 126 KB |
-| 1000 `ask`s under their handler, each with a map pending | 2272 µs, 24.7 MB | 23.9 µs, 270 KB | 16.0 µs, 206 KB |
-| the same across four handlers of other effects | 2448 µs, 26.7 MB | 26.1 µs, 271 KB | 31.0 µs, 375 KB |
-| 1000 `get`/`put` pairs under `State` | 105 µs, 1.36 MB | 23.9 µs, 286 KB | 14.7 µs, 198 KB |
+| Program | `free` | `machine` | `okaycore` | protocol: `Steps` | protocol: okay-java | protocol: okay-core |
+|---|---|---|---|---|---|---|
+| 1000 maps, no operation | 10.1, 126 KB | 10.5, 126 KB | 10.6, 126 KB | 20.4, 230 KB | 17.2, 166 KB | 16.7, 182 KB |
+| 1000 `ask`s under their handler, a map pending each | 2223, 24.7 MB | 23.5, 270 KB | 18.4, 222 KB | 5412, 24.6 MB | 42.1, 471 KB | 67.2, 631 KB |
+| the same across four handlers of other effects | 2394, 26.7 MB | 26.3, 271 KB | 15.9, 207 KB | 5122, 26.1 MB | 113, 1.10 MB | 159, 1.50 MB |
+| 1000 `get`/`put` pairs under `State` | 106, 1.36 MB | 23.3, 286 KB | 15.9, 214 KB | 139, 1.38 MB | 74.2, 863 KB | 103, 1.08 MB |
 
-`free` is quadratic when maps are pending: at each operation it rebuilds `k` from every frame on its stack. In the
-machine an operation answered in place costs the same however many handlers it crosses (23.9 against 26.1 µs);
-okay-core's is faster at its handler and pays more for each handler crossed (16.0 against 31.0 µs, 206 against
-375 KB).
+- `free` (and the protocol's reference machine, `Steps`) are quadratic when maps are pending: each operation's `k` is
+  rebuilt from every frame on the stack.
+- okay-core's machine is the fastest: an operation crossing handlers is found at once, its look-up kept on its path
+  (15.9 across four handlers, 18.4 under its own). Before the places were shared, the bridge made a new path for each
+  operation, and okay-core seemed to pay for each handler crossed (34.9 µs, 383 KB; `bench.d/2026-10-17_six.csv`):
+  it was the bridge's cost, not okay-core's.
+- Through the protocol an operation is performed again at each okay-simple handler it crosses: across four handlers
+  2.7 times the cost under its own (okay-java 42 → 113 µs).
 
 ## Build
 
 ```sh
-sbt testAll        # both compilers, okay-core's machine, and the three compatibility checks
+sbt testAll        # both compilers, okay-core's machine, okay-kernel's protocol on three implementations, and the three compatibility checks
 sbt suite/test     # Scala 3
 sbt "++2.13.18 suite/test"
 python3 /tmp/okz/tools/withlock.py sbt "bench/Jmh/run -f 2 -wi 3 -i 5 -prof gc"   # JMH, holding JMH's lock

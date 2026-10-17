@@ -33,6 +33,21 @@ lazy val okaycore = (project in file("okaycore")).dependsOn(core)
     resolvers += Resolver.mavenLocal,
     libraryDependencies ++= Seq("okay-core" %% "okay-core" % "0.1.0-SNAPSHOT", munit))
 
+/** okay-simple's interface on okay-kernel's protocol: any implementation of it, given its `Effects` */
+lazy val kernel = (project in file("kernel")).dependsOn(core)
+  .settings(crossBuilt, name := "okay-simple-kernel", resolvers += Resolver.mavenLocal,
+    libraryDependencies += "dev.okay" % "okay-kernel-api" % "0.2.0-SNAPSHOT")
+
+/** the interface's suite through the protocol: okay-kernel's reference machine and okay-java on both compilers,
+ * okay-core's bridge on Scala 3 */
+lazy val suiteKernel = (project in file("suite-kernel")).dependsOn(kernel)
+  .settings(crossBuilt, name := "okay-simple-suite-kernel", publish / skip := true, resolvers += Resolver.mavenLocal,
+    libraryDependencies ++= Seq(
+      "dev.okay" %% "okay-kernel-steps" % "0.2.0-SNAPSHOT" % Test,
+      "dev.okay" % "okay-java" % "0.2.0-SNAPSHOT" % Test) ++
+      (if (scalaVersion.value.startsWith("3")) Seq("okay-core" %% "okay-core" % "0.1.0-SNAPSHOT" % Test) else Nil),
+    Test / unmanagedSourceDirectories += (ThisBuild / baseDirectory).value / "suite/src/test/scala")
+
 /** the interface's suite on okay-core's machine */
 lazy val suiteOkaycore = (project in file("suite-okaycore")).dependsOn(okaycore)
   .settings(crossScalaVersions := Seq(scala3), name := "okay-simple-suite-okay-core", publish / skip := true,
@@ -40,8 +55,10 @@ lazy val suiteOkaycore = (project in file("suite-okaycore")).dependsOn(okaycore)
     Test / unmanagedSourceDirectories += (ThisBuild / baseDirectory).value / "suite/src/test/scala")
 
 /** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
-lazy val bench = (project in file("bench")).dependsOn(free, machine, okaycore).enablePlugins(JmhPlugin)
-  .settings(crossScalaVersions := Seq(scala3), name := "okay-simple-bench", publish / skip := true)
+lazy val bench = (project in file("bench")).dependsOn(free, machine, okaycore, kernel).enablePlugins(JmhPlugin)
+  .settings(crossScalaVersions := Seq(scala3), name := "okay-simple-bench", publish / skip := true,
+    resolvers += Resolver.mavenLocal, libraryDependencies ++= Seq(
+      "dev.okay" %% "okay-kernel-steps" % "0.2.0-SNAPSHOT", "dev.okay" % "okay-java" % "0.2.0-SNAPSHOT"))
 
 /** Scala 3's standard library for a Scala 2.13 project, resolved here and put BEHIND 2.13's by hand (okay-core's
  * finding: 2.13's first, to compile — Scala 3's carries TASTy, not Scala 2 pickles — and Scala 3's after it, to run) */
@@ -85,8 +102,8 @@ lazy val compat3on2 = (project in file("compat/scala3-on-2.13")).dependsOn(free2
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))),
     Test / unmanagedSourceDirectories := Seq("suite/src/test/scala", "suite/src/test/impl").map((ThisBuild / baseDirectory).value / _))
 
-lazy val root = (project in file(".")).aggregate(core, free, machine, suite, okaycore, suiteOkaycore, compat2, compat3, core213, free213, compat3on2)
+lazy val root = (project in file(".")).aggregate(core, free, machine, suite, okaycore, suiteOkaycore, kernel, suiteKernel, compat2, compat3, core213, free213, compat3on2)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
 /** everything: the interface's suites by both compilers, then the two compilers in one application */
-addCommandAlias("testAll", "; ++3.9.0 suite/test ; ++2.13.18 suite/test ; ++3.9.0 ; suiteOkaycore/test ; compat2/test ; compat3/test ; compat3on2/test")
+addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteKernel/test ; ++2.13.18 suite/test ; suiteKernel/test ; ++3.9.0 ; suiteOkaycore/test ; compat2/test ; compat3/test ; compat3on2/test")

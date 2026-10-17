@@ -22,41 +22,46 @@ private[okaycore] object OnCore extends Simple {
   type ![+A, R] = Cont[Row, Nothing, Nothing, A]
   type Pure = Nothing
   type +[R, E] = Nothing
-  type Split[E, R, Rest] = Taken
-  type In[E, R] = Place
+  type Split[E, R, Rest] = Slot
+  type In[E, R] = Slot
   type Sub[R, S] = Vector[Int]
 
   private val plain: Plain[AnyOp] = summon[Plain[AnyOp]]
   private val head: Taken = Removed.Head[AnyOp, Row]().asInstanceOf[Taken]
   private val here: Place = okay.one.row.In.Here[AnyOp, Row]().asInstanceOf[Place]
 
-  private def place(rm: Taken): Place = rm match {
-    case Removed.Head() => here
-    case Removed.Next(rm1) => okay.one.row.In.There[AnyOp, AnyOp, Row](place(rm1.asInstanceOf[Taken])).asInstanceOf[Place]
-    case other => throw new IllegalStateException(s"not a place: $other")
+  /** a place, ONE PER DEPTH, shared: okay-core's path and its `Removed` made once — no allocation where an operation
+   * is performed, and okay-core's look-up kept on the path (its cache) found again the next time */
+  final class Slot(val depth: Int, val removed: Taken, val place: Place)
+  @volatile private var slots: Array[Slot] = Array(new Slot(0, head, here))
+  private def slot(i: Int): Slot = {
+    val ss = slots
+    if (i < ss.length) ss(i)
+    else synchronized {
+      var grown = slots
+      while (grown.length <= i) {
+        val last = grown(grown.length - 1)
+        grown = grown :+ new Slot(last.depth + 1, Removed.Next[AnyOp, AnyOp, Row, Row](last.removed).asInstanceOf[Taken],
+          okay.one.row.In.There[AnyOp, AnyOp, Row](last.place).asInstanceOf[Place])
+      }
+      slots = grown
+      grown(i)
+    }
   }
-  private def placeAt(i: Int): Place =
-    if (i == 0) here else okay.one.row.In.There[AnyOp, AnyOp, Row](placeAt(i - 1)).asInstanceOf[Place]
-  private def depth(in: Place): Int = in match {
-    case okay.one.row.In.Here() => 0
-    case okay.one.row.In.There(in1) => 1 + depth(in1.asInstanceOf[Place])
-    case other => throw new IllegalStateException(s"not a place: $other")
-  }
-
-  implicit def splitOne[E]: Split[E, E, Pure] = head
-  implicit def splitLast[R, E]: Split[E, R + E, R] = head
-  implicit def splitInit[E, R, G, Rest](implicit s: Split[E, R, Rest]): Split[E, R + G, Rest + G] =
-    Removed.Next[AnyOp, AnyOp, Row, Row](s).asInstanceOf[Taken]
-  implicit def in[E, R, Rest](implicit s: Split[E, R, Rest]): In[E, R] = place(s)
+  private def placeAt(i: Int): Place = slot(i).place
+  implicit def splitOne[E]: Split[E, E, Pure] = slots(0)
+  implicit def splitLast[R, E]: Split[E, R + E, R] = slots(0)
+  implicit def splitInit[E, R, G, Rest](implicit s: Split[E, R, Rest]): Split[E, R + G, Rest + G] = slot(s.depth + 1)
+  implicit def in[E, R, Rest](implicit s: Split[E, R, Rest]): In[E, R] = s
   implicit def subPure[S]: Sub[Pure, S] = Vector()
-  implicit def subOne[E, S](implicit e: In[E, S]): Sub[E, S] = Vector(depth(e))
-  implicit def subMore[R, E, S](implicit r: Sub[R, S], e: In[E, S]): Sub[R + E, S] = depth(e) +: r
+  implicit def subOne[E, S](implicit e: In[E, S]): Sub[E, S] = Vector(e.depth)
+  implicit def subMore[R, E, S](implicit r: Sub[R, S], e: In[E, S]): Sub[R + E, S] = e.depth +: r
 
   def pure[A, R](a: A): P[A] = Cont.pure(a)
   def flatMap[A, B, R](p: P[A])(f: A => P[B]): P[B] = p.flatMap(f)
   def delay[A, R](p: => P[A]): P[A] = Cont.defer(p)
   private def performAt[X](op: Any, at: Place): P[X] = Cont.perform[AnyOp, Row, X](op)(using at)
-  protected def performOp[E, F[_], R, X](op: F[X])(implicit in: In[E, R]): P[X] = performAt[X](op, in)
+  protected def performOp[E, F[_], R, X](op: F[X])(implicit in: In[E, R]): P[X] = performAt[X](op, in.place)
 
   private def deep[F[_], A, B](h: Handler[F, ?, A, B]): Deep[AnyOp, Row, A, B] = new Deep[AnyOp, Row, A, B] {
     def ret(a: A): B ! Row = h.ret(a)
@@ -87,10 +92,8 @@ private[okaycore] object OnCore extends Simple {
   }, at)
 
   /** a fresh head before the row, then the effect moved from its place, one further in now, to it */
-  def split[E, R, Rest, A](p: P[A])(implicit s: Split[E, R, Rest]): P[A] = s match {
-    case Removed.Head() => p
-    case _ => moving(Cont.widen[AnyOp, Row, A](p).asInstanceOf[P[A]], Removed.Next[AnyOp, AnyOp, Row, Row](s).asInstanceOf[Taken], here)
-  }
+  def split[E, R, Rest, A](p: P[A])(implicit s: Split[E, R, Rest]): P[A] =
+    if (s.depth == 0) p else moving(Cont.widen[AnyOp, Row, A](p).asInstanceOf[P[A]], slot(s.depth + 1).removed, here)
 
   /** each effect of `R`, from the head, translated to its place in `S`: the handlers further out take one off it */
   def embed[R, S, A](p: P[A])(implicit s: Sub[R, S]): P[A] = {
@@ -105,11 +108,11 @@ private[okaycore] object OnCore extends Simple {
       implicit o: Ops.Aux[E, F]): P[B] = keeping(p, stateful(s0, h), head)
 
   override def handleAny[E, F[_], R, Rest, A, B](p: P[A])(h: Handler[F, Rest, A, B])(implicit s: Split[E, R, Rest],
-      o: Ops.Aux[E, F]): P[B] = taking(p, deep(h), s)
+      o: Ops.Aux[E, F]): P[B] = taking(p, deep(h), s.removed)
   override def handleTailAny[E, F[_], R, Rest, A, B](p: P[A])(h: TailHandler[F, Rest, A, B])(
-      implicit s: Split[E, R, Rest], o: Ops.Aux[E, F]): P[B] = passing(p, answering(h), s)
+      implicit s: Split[E, R, Rest], o: Ops.Aux[E, F]): P[B] = passing(p, answering(h), s.removed)
   override def handleStatefulAny[E, F[_], S, R, Rest, A, B](p: P[A])(s0: S)(h: StatefulHandler[F, S, Rest, A, B])(
-      implicit s: Split[E, R, Rest], o: Ops.Aux[E, F]): P[B] = keeping(p, stateful(s0, h), s)
+      implicit s: Split[E, R, Rest], o: Ops.Aux[E, F]): P[B] = keeping(p, stateful(s0, h), s.removed)
 
   def run[A](p: P[A]): A = p.asInstanceOf[Cont[okay.one.row.Pure, Nothing, Nothing, A]].run
 }

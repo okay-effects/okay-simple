@@ -6,6 +6,7 @@ import okay.simple.*
 import okay.simple.free.FreeEffects
 import okay.simple.machine.MachineEffects
 import okay.simple.okaycore.OnCoreEffects
+import okay.simple.kernel.OnKernel
 
 /** the same programs on each implementation, n = 1000: binds alone; `ask` under its handler; `ask` across four
  * handlers of other effects; a state's get and put */
@@ -35,14 +36,17 @@ class Lanes(val fx: Simple) {
 @BenchmarkMode(Array(Mode.AverageTime))
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 class ImplementationsBenchmark {
-  @Param(Array("free", "machine", "okay-core"))
+  @Param(Array("free", "machine", "okay-core", "kernel-steps", "kernel-java", "kernel-okay-core"))
   var impl: String = ""
   var lanes: Lanes = null
 
   @Setup def setup(): Unit = lanes = new Lanes(impl match {
     case "free" => FreeEffects.effects
     case "machine" => MachineEffects.effects
-    case _ => OnCoreEffects.effects
+    case "okay-core" => OnCoreEffects.effects
+    case "kernel-steps" => OnKernel.on(okay.kernel.steps.Steps)
+    case "kernel-java" => OnKernel.on(okay.core.Kernel.EFFECTS)
+    case _ => OnKernel.on(okay.core.kernel.OnCore)
   })
 
   @Benchmark def binds: Int = lanes.binds
