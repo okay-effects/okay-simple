@@ -81,3 +81,27 @@ object Places:
       case _: Place.Last[r1, e1] => e
       case ip: Place.Init[e2, r2, g, rest] => r(ip.s)
       case _: Place.Absurd[r] => Place.Absurd[S]()
+
+  /** an operation at `at` in `R`, met by the handler of `E` at its place `s` in `R`: `E`'s own (`Mine`, so `E2` is
+   * `E`), or another's, `Theirs(at)` its place in `Rest`, the row without `E` — typed, so a handler takes its effect
+   * from its place at once: no `split`, no program renamed */
+  enum Taken[E[_], E2[_], Rest[_]]:
+    case Mine[E[_], Rest[_]]() extends Taken[E, E, Rest]
+    case Theirs[E[_], E2[_], Rest[_]](at: Place[E2, Rest, ?]) extends Taken[E, E2, Rest]
+
+  def take[E[_], R[_], Rest[_], E2[_]](s: Place[E, R, Rest], at: Place[E2, R, ?]): Taken[E, E2, Rest] =
+    (s: @unchecked) match
+      case _: Place.Last[r, e] => (at: @unchecked) match
+        case _: Place.Last[r2, e2] => Taken.Mine()
+        case i: Place.Init[e2, r2, g, rest] => Taken.Theirs(i.s)
+        case _: Place.Absurd[r2] => Taken.Theirs(Place.Absurd())
+      case _: Place.Only[e] => (at: @unchecked) match
+        case _: Place.Only[e2] => Taken.Mine()
+        case _: Place.Absurd[r2] => Taken.Theirs(Place.Absurd())
+      case i: Place.Init[e, r, g, rest] => (at: @unchecked) match
+        case _: Place.Last[r2, e2] => Taken.Theirs(Place.Last())
+        case j: Place.Init[e2, r2, g2, rest2] => take(i.s, j.s) match
+          case _: Taken.Mine[e3, r3] => Taken.Mine()
+          case t: Taken.Theirs[e3, e4, r4] => Taken.Theirs(Place.Init(t.at))
+        case _: Place.Absurd[r2] => Taken.Theirs(Place.Absurd())
+      case _: Place.Absurd[r] => Taken.Theirs(at)
