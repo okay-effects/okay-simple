@@ -1,6 +1,6 @@
 package okay.simple.machine
 
-import okay.api.{Cell, Effects, Sum, Void}
+import okay.api.{Cell, Clauses, Effects, StatefulClauses, Sum, Void, TailClauses}
 import scala.annotation.tailrec
 
 /**
@@ -65,18 +65,6 @@ private[machine] object Machine:
   trait Renaming[R1[_], R2[_]]:
     def apply[E[_]](at: Place[E, R1, ?]): Place[E, R2, ?]
 
-  // -- THE HANDLERS, as the machine keeps them: of no implementation's instance, so static
-
-  trait GH[E[_], T[_], A, B]:
-    def ret(a: A): Prog[T, B]
-    def op[X](op: E[X], k: X => Prog[T, B]): Prog[T, B]
-  trait TH[E[_], T[_], A, B]:
-    def ret(a: A): Prog[T, B]
-    def answer[X](op: E[X]): X
-  trait SH[E[_], S, T[_], A, B]:
-    def ret(s: S, a: A): Prog[T, B]
-    def answer[X](cell: Cell[S], op: E[X]): X
-
   // -- PROGRAMS
 
   sealed abstract class Prog[R[_], +A]
@@ -84,9 +72,9 @@ private[machine] object Machine:
   final case class Bind[R[_], X, A](p: Prog[R, X], f: X => Prog[R, A]) extends Prog[R, A]
   final case class Delay[R[_], A](p: () => Prog[R, A]) extends Prog[R, A]
   final case class Perf[R[_], E[_], X](at: Place[E, R, ?], op: E[X]) extends Prog[R, X]
-  final case class HandleGeneral[E[_], R[_], A, B](p: Prog[R + E, A], h: GH[E, R, A, B]) extends Prog[R, B]
-  final case class HandleTail[E[_], R[_], A, B](p: Prog[R + E, A], h: TH[E, R, A, B]) extends Prog[R, B]
-  final case class HandleState[E[_], S, R[_], A, B](p: Prog[R + E, A], s0: S, h: SH[E, S, R, A, B])
+  final case class HandleGeneral[E[_], R[_], A, B](p: Prog[R + E, A], h: Clauses[E, A, Prog[R, B]]) extends Prog[R, B]
+  final case class HandleTail[E[_], R[_], A, B](p: Prog[R + E, A], h: TailClauses[E, A, Prog[R, B]]) extends Prog[R, B]
+  final case class HandleState[E[_], S, R[_], A, B](p: Prog[R + E, A], s0: S, h: StatefulClauses[E, S, A, Prog[R, B]])
       extends Prog[R, B]
   final case class Remap[R1[_], R2[_], A](p: Prog[R1, A], rename: Renaming[R1, R2]) extends Prog[R2, A]
   final case class Resume[R[_], X, B](k: K[R, X, B], x: X) extends Prog[R, B]
@@ -110,7 +98,7 @@ private[machine] object Machine:
     /** `pre` with this level after it, as it is now: what a `k` taken past it puts back */
     def crossed[R0[_], V0](pre: Prefix[R0, V0, T + E, A]): Prefix[R0, V0, T, W]
 
-  final class GeneralLevel[E[_], T[_], A, B, W, Z](val h: GH[E, T, A, B], outside: Frames[T, B, W],
+  final class GeneralLevel[E[_], T[_], A, B, W, Z](val h: Clauses[E, A, Prog[T, B]], outside: Frames[T, B, W],
       m: Meta[T, W, Z]) extends HandlerLevel[E, T, A, B, W, Z](outside, m):
     def ret(a: A): Prog[T, B] = h.ret(a)
     def crossed[R0[_], V0](pre: Prefix[R0, V0, T + E, A]): Prefix[R0, V0, T, W] = new Prefix[R0, V0, T, W]:
@@ -121,7 +109,7 @@ private[machine] object Machine:
       extends HandlerLevel[E, T, A, B, W, Z](outside, m):
     def answer[X](op: E[X]): X
 
-  final class TailLevel[E[_], T[_], A, B, W, Z](val h: TH[E, T, A, B], outside: Frames[T, B, W],
+  final class TailLevel[E[_], T[_], A, B, W, Z](val h: TailClauses[E, A, Prog[T, B]], outside: Frames[T, B, W],
       m: Meta[T, W, Z]) extends InPlace[E, T, A, B, W, Z](outside, m):
     def ret(a: A): Prog[T, B] = h.ret(a)
     def answer[X](op: E[X]): X = h.answer[X](op)
@@ -129,7 +117,7 @@ private[machine] object Machine:
       def put[Z2](m2: Meta[T, W, Z2]): Meta[R0, V0, Z2] = pre.put(TailLevel(h, outside, m2))
 
   /** a stateful handler's level: its state the cell its clauses write */
-  final class StateLevel[E[_], S, T[_], A, B, W, Z](val h: SH[E, S, T, A, B], var state: S,
+  final class StateLevel[E[_], S, T[_], A, B, W, Z](val h: StatefulClauses[E, S, A, Prog[T, B]], var state: S,
       outside: Frames[T, B, W], m: Meta[T, W, Z]) extends InPlace[E, T, A, B, W, Z](outside, m) with Cell[S]:
     def get: S = state
     def set(s: S): Unit = state = s
@@ -231,7 +219,7 @@ private[machine] object Machine:
 
   def run[A](p: Prog[PureRow, A]): A = loop[PureRow, A, A, A](p, Last(), Top())
 
-/** the interface over the machine: its types the object's, a handler kept as the object's shape of it */
+/** the interface over the machine: its types the object's, a handler kept as it is given */
 private[machine] class Machine extends Effects:
   import Machine.*
 
@@ -266,16 +254,9 @@ private[machine] class Machine extends Effects:
   def split[E[_], R[_], Rest[_], A](p: Prog[R, A])(implicit s: Split[E, R, Rest]): Prog[Rest + E, A] = s.moved(p)
   def embed[R[_], S[_], A](p: Prog[R, A])(implicit s: Sub[R, S]): Prog[S, A] = Remap(p, s)
 
-  def handleLast[E[_], R[_], A, B](p: Prog[R + E, A])(h: Handler[E, R, A, B]): Prog[R, B] =
-    HandleGeneral(p, new GH[E, R, A, B]:
-      def ret(a: A): Prog[R, B] = h.ret(a)
-      def op[X](op: E[X], k: X => Prog[R, B]): Prog[R, B] = h.op[X](op, k))
+  def handleLast[E[_], R[_], A, B](p: Prog[R + E, A])(h: Handler[E, R, A, B]): Prog[R, B] = HandleGeneral(p, h)
   override def handleTailLast[E[_], R[_], A, B](p: Prog[R + E, A])(h: TailHandler[E, R, A, B]): Prog[R, B] =
-    HandleTail(p, new TH[E, R, A, B]:
-      def ret(a: A): Prog[R, B] = h.ret(a)
-      def answer[X](op: E[X]): X = h.answer[X](op))
+    HandleTail(p, h)
   override def handleStatefulLast[E[_], S, R[_], A, B](p: Prog[R + E, A])(s0: S)(h: StatefulHandler[E, S, R, A, B]): Prog[R, B] =
-    HandleState(p, s0, new SH[E, S, R, A, B]:
-      def ret(s: S, a: A): Prog[R, B] = h.ret(s, a)
-      def answer[X](cell: Cell[S], op: E[X]): X = h.answer[X](cell, op))
+    HandleState(p, s0, h)
   def run[A](p: Prog[PureRow, A]): A = Machine.run(p)

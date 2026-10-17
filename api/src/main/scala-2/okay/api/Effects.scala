@@ -34,7 +34,7 @@ final abstract class %[F[_, _], S] extends Name[({ type L[x] = F[S, x] })#L]
  * by one of the two compilers — Scala 2.13 reads Scala 3's (`-Ytasty-reader`), Scala 3 reads Scala 2.13's — so
  * everything Scala 2 code needs is here, in the source both compile, under the same names; `Syntax` only adds.
  */
-trait Effects extends Syntax {
+trait Effects extends Effectful with Syntax {
   /** the names of effects, here too: an implementation imported gives them (`import Simple._`) */
   type %[F[_, _], S] = okay.api.%[F, S]
   type *[F[_]] = okay.api.*[F]
@@ -87,48 +87,21 @@ trait Effects extends Syntax {
 
   /** a handler of the effect `E`: its value's clause, and its operations' clause — each operation of `E`'s,
    * `Op[E, X]`, the type the name says — over the row outside, `R` */
-  trait Handler[E <: Effect, R, A, B] {
-    def ret(a: A): B ! R
-    def op[X](op: Op[E, X], k: X => B ! R): B ! R
-  }
-
-  /** a stateful handler's state where an operation is: read and written by its clause, in place */
-  /** a stateful handler's state where an operation is (`okay.api.Cell`) */
-  type Cell[S] = okay.api.Cell[S]
-  private final class VarCell[S](private var s: S) extends Cell[S] {
-    def get: S = s
-    def set(t: S): Unit = s = t
-  }
-
+  type Handler[E <: Effect, R, A, B] = Clauses[E#Ops, A, B ! R]
   /** a handler whose every clause resumes `k` once, at once, with its answer: an operation ANSWERED IN PLACE — an
    * implementation needs no `k` for it (`Reader`) */
-  trait TailHandler[E <: Effect, R, A, B] {
-    def ret(a: A): B ! R
-    def answer[X](op: Op[E, X]): X
-  }
+  type TailHandler[E <: Effect, R, A, B] = TailClauses[E#Ops, A, B ! R]
   /** the same with a state of its own, `cell` (`State`, `Writer`): a `k` taken by another handler and resumed twice
    * resumes the state of its time */
-  trait StatefulHandler[E <: Effect, S, R, A, B] {
-    def ret(s: S, a: A): B ! R
-    def answer[X](cell: Cell[S], op: Op[E, X]): X
-  }
+  type StatefulHandler[E <: Effect, S, R, A, B] = StatefulClauses[E#Ops, S, A, B ! R]
 
   /** `E`, the last, handled by a handler answering in place. By default a `handleLast`; an implementation may do better */
   def handleTailLast[E <: Effect, R, A, B](p: A ! (R + E))(h: TailHandler[E, R, A, B]): B ! R =
-    handleLast[E, R, A, B](p)(new Handler[E, R, A, B] {
-      def ret(a: A) = h.ret(a)
-      def op[X](op: Op[E, X], k: X => B ! R) = delay(k(h.answer(op)))
-    })
+    handleLast[E, R, A, B](p)(tailAsGeneral(h)(q => delay(q)))
   /** `E`, the last, handled by a stateful handler answering in place, from the state `s0`. By default a `handleLast` */
   def handleStatefulLast[E <: Effect, S, R, A, B](p: A ! (R + E))(s0: S)(h: StatefulHandler[E, S, R, A, B]): B ! R =
-    flatMap(handleLast[E, R, A, S => B ! R](p)(new Handler[E, R, A, S => B ! R] {
-      def ret(a: A) = pure((s: S) => h.ret(s, a))
-      def op[X](op: Op[E, X], k: X => (S => B ! R) ! R) = pure { (s: S) =>
-        val cell = new VarCell[S](s)
-        val x = h.answer(cell, op)
-        flatMap(k(x))((f: S => B ! R) => f(cell.get))
-      }
-    }))((f: S => B ! R) => f(s0))
+    flatMap(handleLast[E, R, A, S => B ! R](p)(statefulAsGeneral[E#Ops, S, A, B ! R, (S => B ! R) ! R](h)(
+      f => pure(f), (q, g) => flatMap(q)(g))))((f: S => B ! R) => f(s0))
 
   /** `E` handled from wherever it is in the row: by default `split`, then `handleLast`; an implementation may take it
    * from its place at once */

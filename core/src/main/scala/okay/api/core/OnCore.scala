@@ -69,16 +69,16 @@ private[core] class OnCore extends Effects {
   private def performAt[X](op: Any, at: Place): P[X] = Cont.perform[AnyOp, Row, X](op)(using at)
   protected def performOp[E[_], R[_], X](op: E[X])(implicit in: In[E, R]): P[X] = performAt[X](op, in.place)
 
-  private def deep[E[_], A, B](h: Handler[E, ?, A, B]): Deep[AnyOp, Row, A, B] = new Deep[AnyOp, Row, A, B] {
+  private def deep[E[_], A, B](h: okay.api.Clauses[E, A, P[B]]): Deep[AnyOp, Row, A, B] = new Deep[AnyOp, Row, A, B] {
     def ret(a: A): P[B] = h.ret(a)
     def apply[X](op: Any, k: X => P[B]): P[B] = h.op[X](opOf[E, X](op), k)
   }
-  private def answering[E[_], A, B](h: TailHandler[E, ?, A, B]): Answering[AnyOp, Row, A, B] = new Answering[AnyOp, Row, A, B] {
+  private def answering[E[_], A, B](h: okay.api.TailClauses[E, A, P[B]]): Answering[AnyOp, Row, A, B] = new Answering[AnyOp, Row, A, B] {
     def ret(a: A): P[B] = h.ret(a)
     def value[X](op: Any): X = h.answer[X](opOf[E, X](op))
   }
   /** okay-core's register: `value` then `next`, of one operation — the cell's answer, then the state it left */
-  private def stateful[E[_], S, A, B](s0: S, h: StatefulHandler[E, S, ?, A, B]): Stateful[AnyOp, Row, S, A, B] =
+  private def stateful[E[_], S, A, B](s0: S, h: okay.api.StatefulClauses[E, S, A, P[B]]): Stateful[AnyOp, Row, S, A, B] =
     new Stateful[AnyOp, Row, S, A, B] {
       private val cell = new Cell[S] { var s: S = s0; def get: S = s; def set(t: S): Unit = s = t }
       def initial: S = s0

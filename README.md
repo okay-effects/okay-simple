@@ -125,9 +125,13 @@ shared; their operations and handlers, the trait `Std`, are each compiler's (`st
 
 ## Scala 2 and Scala 3: two interfaces, compatible
 
-Each compiler's interface is its own (`api/src/main/scala-2`, `scala-3`): Scala 3's rows are of type constructors,
-which Scala 2 cannot write. What is shared is everything else: the names, the meaning, the effects themselves (a
-GADT is the same type to both), the standard effects' definitions, the protocol's bridge.
+Each compiler's interface is its own (`api/src/main/scala-2`, `scala-3`): every type over a row and every primitive
+taking one, as a row is a proper type in one and a type constructor in the other. What names no row is one source,
+`Effectful`, which both extend: a handler's three shapes (`Clauses`, `TailClauses`, `StatefulClauses`, of the
+operations `O[_]`, the value `A`, the programs `P`; each `Effects`'s `Handler[E, R, A, B]` is `Clauses` named by
+its own effects and rows), a stateful handler's `Cell`, and how a handler answering in place is a general one (the
+defaults). Shared besides: the names, the meaning, the effects themselves (a GADT is the same type to both), the
+standard effects' definitions, the protocol's bridge.
 
 Compatible means: one application has one build of the interface, and code of the other compiler takes it as it
 is. An application with Scala 2 code in it takes the Scala 2.13 build, which Scala 3 reads: its Scala 3 code
@@ -151,8 +155,8 @@ compilers).
     (`LastPlace`, `InitPlace`, `OnePlace` — the `Split` evidence itself), its operation an `E[X]`. The frames `Frames[R, X, V]` aligned, the
     levels `Meta[R, V, Z]` indexed by the row; a path matched against a handler's level is, by the types, that
     handler's operation. The machine's data and loop live in an object, static: no outer pointer in a node, no
-    outer test in a match (in a class they cost 8 B an object and a test a step); a handler is kept as the
-    object's own shape of it, wrapped once where it is installed.
+    outer test in a match (in a class they cost 8 B an object and a test a step); a handler is kept as it is
+    given, the shared `Clauses`, no wrapper.
   - **Scala 2's** (`simple/src/main/scala-2`): the same design where Scala 2 can follow it — Scala 2 has no GADT
     inference, so a place is a shared number, three trusted steps where an operation meets its handler, and
     methods each level means for itself (`last`, `top`, `returned`, `stepOut`) where Scala 3 matches.

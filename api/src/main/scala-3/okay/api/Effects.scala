@@ -22,7 +22,7 @@ type *[F[_]] = [X] =>> F[X]
  * Scala 2's interface (`scala-2/`) is the same in meaning and in names; its rows name their effects by proper types
  * (`*[F]`, `F % S`), as Scala 2 has no type alias whose result is a type constructor.
  */
-trait Effects:
+trait Effects extends Effectful:
   /** a program of value `A` over the row `R` */
   type ![+A, R[_]]
   /** the row of no effect */
@@ -73,41 +73,21 @@ trait Effects:
   def run[A](p: A ! Pure): A
 
   /** a handler of `E`: its value's clause, and its operations' clause — each an `E[X]` — over the row outside, `R` */
-  trait Handler[E[_], R[_], A, B]:
-    def ret(a: A): B ! R
-    def op[X](op: E[X], k: X => B ! R): B ! R
-
-  /** a stateful handler's state where an operation is (`okay.api.Cell`) */
-  type Cell[S] = okay.api.Cell[S]
-  private final class VarCell[S](private var s: S) extends Cell[S]:
-    def get: S = s
-    def set(t: S): Unit = s = t
-
+  type Handler[E[_], R[_], A, B] = Clauses[E, A, B ! R]
   /** a handler whose every clause resumes `k` once, at once, with its answer: an operation ANSWERED IN PLACE — an
    * implementation needs no `k` for it (`Reader`) */
-  trait TailHandler[E[_], R[_], A, B]:
-    def ret(a: A): B ! R
-    def answer[X](op: E[X]): X
+  type TailHandler[E[_], R[_], A, B] = TailClauses[E, A, B ! R]
   /** the same with a state of its own, `cell` (`State`, `Writer`): a `k` taken by another handler and resumed twice
    * resumes the state of its time */
-  trait StatefulHandler[E[_], S, R[_], A, B]:
-    def ret(s: S, a: A): B ! R
-    def answer[X](cell: Cell[S], op: E[X]): X
+  type StatefulHandler[E[_], S, R[_], A, B] = StatefulClauses[E, S, A, B ! R]
 
   /** `E`, the last, handled by a handler answering in place. By default a `handleLast`; an implementation may do better */
   def handleTailLast[E[_], R[_], A, B](p: A ! (R + E))(h: TailHandler[E, R, A, B]): B ! R =
-    handleLast[E, R, A, B](p)(new Handler[E, R, A, B]:
-      def ret(a: A) = h.ret(a)
-      def op[X](op: E[X], k: X => B ! R) = delay(k(h.answer(op))))
+    handleLast[E, R, A, B](p)(tailAsGeneral(h)(q => delay(q)))
   /** `E`, the last, handled by a stateful handler answering in place, from the state `s0`. By default a `handleLast` */
   def handleStatefulLast[E[_], S, R[_], A, B](p: A ! (R + E))(s0: S)(h: StatefulHandler[E, S, R, A, B]): B ! R =
-    flatMap(handleLast[E, R, A, S => B ! R](p)(new Handler[E, R, A, S => B ! R]:
-      def ret(a: A) = pure((s: S) => h.ret(s, a))
-      def op[X](op: E[X], k: X => (S => B ! R) ! R) = pure { (s: S) =>
-        val cell = new VarCell[S](s)
-        val x = h.answer(cell, op)
-        flatMap(k(x))((f: S => B ! R) => f(cell.get))
-      }))((f: S => B ! R) => f(s0))
+    flatMap(handleLast[E, R, A, S => B ! R](p)(statefulAsGeneral[E, S, A, B ! R, (S => B ! R) ! R](h)(
+      f => pure(f), (q, g) => flatMap(q)(g))))((f: S => B ! R) => f(s0))
 
   /** `E` handled from wherever it is in the row: by default `split`, then `handleLast`; an implementation may take it
    * from its place at once */
