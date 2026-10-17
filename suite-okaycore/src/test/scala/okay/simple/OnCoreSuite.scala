@@ -1,6 +1,6 @@
 package okay.simple
 
-import okay.one.simple.OnCoreEffects
+import okay.simple.okaycore.OnCoreEffects
 
 /** the interface's suite on okay-core's machine */
 class OnCoreSuite extends InterfaceSuite(OnCoreEffects.effects)

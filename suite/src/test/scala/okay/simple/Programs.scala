@@ -39,6 +39,16 @@ class Programs(val fx: Simple) {
   def divided(b: Int) = run(state(0)(attempt[String](safeDiv(10, b))))
   def stateKeptOnRaise = run(attempt[String](state(0)(safeDiv(10, 0))))
 
+  /** a split on its own, then a general handler of the effect now last; the rest of a row of two, one taken, is
+   * `Pure + E` */
+  type RS = (Reader % String) + (State % Int)
+  def asked: Int ! RS = ask[String, RS].flatMap(n => get[Int, RS].map(_ + n.length))
+  def splitThenHandle = run(state(1)(handle(split[Reader % String, RS, Pure + (State % Int), Int](asked))(
+    new HandlerOf[Reader, String, Pure + (State % Int), Int, Int] {
+      def ret(a: Int) = pure(a * 10)
+      def op[X](op: Reader[String, X], k: X => Int ! (Pure + (State % Int))) = op match { case Reader.Ask(answer) => k(answer("abc")) }
+    })))
+
   /** constant stack: n operations under two handlers, n binds */
   def loop(n: Int): Unit ! Row =
     if (n == 0) pure(()) else ask[String, Row].flatMap(_ => modify[Int, Row](_ + 1)).andThen(loop(n - 1))

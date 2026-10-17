@@ -5,7 +5,7 @@ import org.openjdk.jmh.annotations.{Benchmark, BenchmarkMode, Mode, OutputTimeUn
 import okay.simple.*
 import okay.simple.free.FreeEffects
 import okay.simple.machine.MachineEffects
-import okay.one.simple.OnCoreEffects
+import okay.simple.okaycore.OnCoreEffects
 
 /** the same programs on each implementation, n = 1000: binds alone; `ask` under its handler; `ask` across four
  * handlers of other effects; a state's get and put */

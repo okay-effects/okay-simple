@@ -113,9 +113,17 @@ trait Effects extends Syntax {
       }
     }))((f: S => B ! R) => f(s0))
 
-  /** `E` handled from wherever it is in the row: `split`, then `handle` */
+  /** `E` handled from wherever it is in the row: by default `split`, then `handle`; an implementation may take it
+   * from its place at once */
   def handleAny[E, F[_], R, Rest, A, B](p: A ! R)(h: Handler[F, Rest, A, B])(implicit s: Split[E, R, Rest],
       o: Ops.Aux[E, F]): B ! Rest = handle[E, F, Rest, A, B](split[E, R, Rest, A](p))(h)
+  /** the same, a handler answering in place */
+  def handleTailAny[E, F[_], R, Rest, A, B](p: A ! R)(h: TailHandler[F, Rest, A, B])(implicit s: Split[E, R, Rest],
+      o: Ops.Aux[E, F]): B ! Rest = handleTail[E, F, Rest, A, B](split[E, R, Rest, A](p))(h)
+  /** the same, a stateful handler answering in place, from `s0` */
+  def handleStatefulAny[E, F[_], S, R, Rest, A, B](p: A ! R)(s0: S)(h: StatefulHandler[F, S, Rest, A, B])(
+      implicit s: Split[E, R, Rest], o: Ops.Aux[E, F]): B ! Rest =
+    handleStateful[E, F, S, Rest, A, B](split[E, R, Rest, A](p))(s0)(h)
 
   implicit final class ProgramOps[A, R](p: A ! R) {
     def flatMap[B](f: A => B ! R): B ! R = Effects.this.flatMap(p)(f)

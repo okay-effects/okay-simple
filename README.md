@@ -114,13 +114,14 @@ All behind the same interface, all run by the same suites (`suite/`; `free` and 
   frames inside and the levels crossed, immutable, so `k` is resumed any number of times; resumed, they are put back
   on the stack where the resumption is.
 
-- **`okaycore/`, on okay-core's machine** (Scala 3): a program is okay-core's own `Cont`, nothing wrapped. An
-  okay-simple place is okay-core's path (the last effect of an okay-simple row is the head of okay-core's), `Split`
-  is okay-core's `Removed`, made of the place; a general handler is a `Deep`, one answering in place an `Answering`,
-  a stateful one okay-core's `Stateful`. It lives in the package `okay.one` for the kernel's nodes okay-core's API
-  keeps to itself (`View`, `Handle`, `HandleK`, `HandleState`, `Perform`); a public `Cont.view` and handler
-  constructors in okay-core would take it out. It builds against okay-core's published artifact
-  (`okay-core::okay-core:0.1.0-SNAPSHOT`, `sbt publishLocal` in okay-core).
+- **`okaycore/`, on okay-core's machine** (Scala 3), by okay-core's public API only: a program is okay-core's own
+  `Cont`, nothing wrapped. An okay-simple place is okay-core's path (the last effect of an okay-simple row is the
+  head of okay-core's), `Split` is okay-core's `Removed`, made of the place; a general handler is a `Deep`, one
+  answering in place an `Answering`, a stateful one okay-core's `Stateful`, installed by okay-core's `handle` at the
+  `Removed` — the effect taken from its place at once (the interface's `handleAny`, `handleTailAny`,
+  `handleStatefulAny`, which the standard handlers use). A `split` on its own is `widen` and a handler translating
+  the effect to the fresh head; an `embed` a handler translating each effect to its place. Built against okay-core's
+  artifact (`okay-core::okay-core:0.1.0-SNAPSHOT`, published from okay-core's master: `sbt coreJVM/publishLocal`).
 
 Both run in constant stack: 100 000 operations under three handlers, 100 000 binds.
 
