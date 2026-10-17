@@ -214,7 +214,8 @@ as Scala 2 does. An application of Scala 3 alone takes the Scala 3 build. Proven
 - **The `Free` monad** (`free/`), one per compiler: `Free[F, A]` — `Return`, `Perform`, `Bind`, `Inject` (an
   operation and its rest, one node), `Delay` — covariant in its value; `F` a row's operations, each carrying its
   place (`At`). A handler interprets the tree (`Free.handle`, `Free.answer` in place, each with or without a state),
-  an operation passed on by each handler it crosses, one place nearer; `k` a trampoline. Scala 3's typed by
+  an operation passed on by each handler it crosses, one place nearer; `k` a trampoline. A handler takes its effect
+  from its place in the row at once (`handleAt`, `answerAt`): no `split`, no program renamed. Scala 3's typed by
   `Places`, no cast; Scala 2's places numbers, one trusted step.
 - **okay-core's bridge** (okay-core's `effects/`): a program okay-core's own `Cont`, nothing wrapped; a place okay-core's
   path, `Split` its `Removed`; a handler one of okay-core's forms (`Deep`, `Answering`, `Stateful`), installed by its
@@ -261,17 +262,18 @@ evidence, passed on to the recursion):
 
 | Program | machine, Scala 3 | machine, Scala 2 | `Free`, Scala 3 | `Free`, Scala 2 |
 |---|---|---|---|---|
-| 1000 maps, no operation | 6.9 | 6.9 | 12.0 | 11.7 |
-| 1000 `ask`s under their handler, a map pending each | 17.1 | 20.6 | 34.8 | 32.3 |
-| the same, row-polymorphic | 16.5 | 21.5 | 31.1 | 32.0 |
-| across four handlers of other effects | 23.9 | 18.1 | 73.6 | 67.8 |
-| the same, row-polymorphic | 19.5 | 16.9 | 70.3 | 68.2 |
-| 1000 `get`/`put` pairs under `State` | 18.9 | 18.5 | 32.5 | 23.7 |
-| the same, row-polymorphic | 17.8 | 16.6 | 29.4 | 22.8 |
+| 1000 maps, no operation | 6.9 | 6.9 | 11.9 | 11.8 |
+| 1000 `ask`s under their handler, a map pending each | 17.3 | 20.8 | 34.0 | 32.1 |
+| the same, row-polymorphic | 17.3 | 21.6 | 31.5 | 31.9 |
+| across four handlers of other effects | 23.6 | 17.2 | 70.7 | 70.4 |
+| the same, row-polymorphic | 19.0 | 16.7 | 64.6 | 68.5 |
+| 1000 `get`/`put` pairs under `State` | 18.6 | 16.3 | 20.6 | 23.6 |
+| the same, row-polymorphic | 17.6 | 16.6 | 18.7 | 22.4 |
 
 - Scala 3's places are typed paths, made where a row is named and matched by type; Scala 2's are numbers, walked by
   the levels' fields — across handlers Scala 2's machine is the faster, its trusted steps the price.
-- `Free` interprets the tree by each handler in turn, so an operation across handlers costs per handler.
+- `Free` interprets the tree by each handler in turn, so an operation across handlers costs per handler. A handler
+  taking its effect from its place, with no remap of the program, made `State` under Scala 3's `Free` 31.2 → 20.6.
 - okay-core's machine and the protocol's implementations are measured in their repositories, beside their bridges.
 
 ## Build
