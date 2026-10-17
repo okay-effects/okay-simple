@@ -115,18 +115,24 @@ Both behind the same interface, both run by the same suites (`suite/`), by both 
 
 Both run in constant stack: 100 000 operations under three handlers, 100 000 binds.
 
-Measured (`bench/`, JMH `-f 2 -wi 3 -i 5 -prof gc`, JDK 26, Scala 3.9; `bench.d/2026-10-17_free-vs-machine.csv`),
-one run of each program, n = 1000:
+Three shapes of handler: a general one, `Handler`, whose clause gets `k`; one answering in place, `TailHandler`, every
+clause resuming `k` once, at once (`Reader`); and the same with a state of its own in a `Cell`, `StatefulHandler`
+(`State`, `Writer`). The machine answers the last two where the operation finds them: no `k`, no allocation, the
+state written in its level. A `k` taken by a general handler across a stateful level copies its state, so resumed
+twice it resumes the state of its time. `free` runs them as general handlers (the interface's defaults).
 
-| Program | `free` | `machine` |
-|---|---|---|
-| 1000 maps, no operation | 10.1 µs, 126 KB | 10.3 µs, 126 KB |
-| 1000 `ask`s under their handler, each with a map pending | 2241 µs, 24.6 MB | 40.4 µs, 438 KB |
-| the same across four handlers of other effects | 2594 µs, 26.6 MB | 105 µs, 823 KB |
-| 1000 `get`/`put` pairs under `State` | 103 µs, 1.33 MB | 79.9 µs, 870 KB |
+Measured (`bench/`, JMH `-f 2 -wi 3 -i 5 -prof gc`, JDK 26, Scala 3.9; `bench.d/2026-10-17_free-vs-machine.csv`
+before the in-place handlers, `bench.d/2026-10-17_in-place.csv` after), one run of each program, n = 1000:
 
-`free` is quadratic when maps are pending: at each operation it rebuilds `k` from every frame on its stack. The
-machine keeps the frames as they are, and its `k` is only them and the levels crossed.
+| Program | `free` | `machine`, general handlers | `machine`, in place |
+|---|---|---|---|
+| 1000 maps, no operation | 10.1 µs, 126 KB | 10.3 µs, 126 KB | 10.3 µs, 126 KB |
+| 1000 `ask`s under their handler, each with a map pending | 2191 µs, 24.7 MB | 40.4 µs, 438 KB | 23.6 µs, 270 KB |
+| the same across four handlers of other effects | 2388 µs, 26.7 MB | 105 µs, 823 KB | 25.5 µs, 271 KB |
+| 1000 `get`/`put` pairs under `State` | 103 µs, 1.36 MB | 79.9 µs, 870 KB | 23.1 µs, 286 KB |
+
+`free` is quadratic when maps are pending: at each operation it rebuilds `k` from every frame on its stack. An
+operation answered in place costs the same however many handlers it crosses (23.6 against 25.5 µs).
 
 ## Build
 

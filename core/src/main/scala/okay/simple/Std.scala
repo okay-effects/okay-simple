@@ -43,38 +43,40 @@ trait Simple extends Effects {
   def among[X, R](xs: List[X])(implicit in: In[Choose, R]): X ! R = perform[Choose].apply[R, X](Choose.Among(xs))
   def fail[X, R](implicit in: In[Choose, R]): X ! R = among[X, R](Nil)
 
-  /** the final state and the value; a `k` resumed twice resumes the state of its time */
+  /** the final state and the value; a `k` resumed twice resumes the state of its time. Answered in place */
   def state[S](s0: S): StateHandler[S] = new StateHandler(s0)
   final class StateHandler[S](s0: S) {
     def apply[R, Rest, A](p: A ! R)(implicit sp: Split[State % S, R, Rest]): (S, A) ! Rest =
-      handleAny[State % S, ({ type L[x] = State[S, x] })#L, R, Rest, A, S => (S, A) ! Rest](p)(
-        new HandlerOf[State, S, Rest, A, S => (S, A) ! Rest] {
-          def ret(a: A) = pure(s => pure((s, a)))
-          def op[X](op: State[S, X], k: X => (S => (S, A) ! Rest) ! Rest) = op match {
-            case State.Get(answer) => pure(s => k(answer(s)).flatMap(f => f(s)))
-            case State.Put(s1, answer) => pure(_ => k(answer(())).flatMap(f => f(s1)))
+      handleStateful[State % S, ({ type L[x] = State[S, x] })#L, S, Rest, A, (S, A)](split[State % S, R, Rest, A](p))(s0)(
+        new StatefulHandlerOf[State, S, S, Rest, A, (S, A)] {
+          def ret(s: S, a: A) = pure((s, a))
+          def answer[X](cell: Cell[S], op: State[S, X]): X = op match {
+            case State.Get(answer) => answer(cell.get)
+            case State.Put(s1, answer) => cell.set(s1); answer(())
           }
-        }).flatMap(f => f(s0))
+        })
   }
 
+  /** answered in place */
   def reader[E](e: E): ReaderHandler[E] = new ReaderHandler(e)
   final class ReaderHandler[E](e: E) {
     def apply[R, Rest, A](p: A ! R)(implicit sp: Split[Reader % E, R, Rest]): A ! Rest =
-      handleAny[Reader % E, ({ type L[x] = Reader[E, x] })#L, R, Rest, A, A](p)(new HandlerOf[Reader, E, Rest, A, A] {
-        def ret(a: A) = pure(a)
-        def op[X](op: Reader[E, X], k: X => A ! Rest) = op match { case Reader.Ask(answer) => k(answer(e)) }
-      })
+      handleTail[Reader % E, ({ type L[x] = Reader[E, x] })#L, Rest, A, A](split[Reader % E, R, Rest, A](p))(
+        new TailHandlerOf[Reader, E, Rest, A, A] {
+          def ret(a: A) = pure(a)
+          def answer[X](op: Reader[E, X]): X = op match { case Reader.Ask(answer) => answer(e) }
+        })
   }
 
-  /** what was told, in order, and the value */
+  /** what was told, in order, and the value. Answered in place */
   def writer[W]: WriterHandler[W] = new WriterHandler[W]
   final class WriterHandler[W] {
     def apply[R, Rest, A](p: A ! R)(implicit sp: Split[Writer % W, R, Rest]): (List[W], A) ! Rest =
-      handleAny[Writer % W, ({ type L[x] = Writer[W, x] })#L, R, Rest, A, (List[W], A)](p)(
-        new HandlerOf[Writer, W, Rest, A, (List[W], A)] {
-          def ret(a: A) = pure((Nil, a))
-          def op[X](op: Writer[W, X], k: X => (List[W], A) ! Rest) = op match {
-            case Writer.Tell(w, answer) => k(answer(())).map { case (ws, a) => (w :: ws, a) }
+      handleStateful[Writer % W, ({ type L[x] = Writer[W, x] })#L, List[W], Rest, A, (List[W], A)](
+        split[Writer % W, R, Rest, A](p))(Nil)(new StatefulHandlerOf[Writer, W, List[W], Rest, A, (List[W], A)] {
+          def ret(ws: List[W], a: A) = pure((ws.reverse, a))
+          def answer[X](cell: Cell[List[W]], op: Writer[W, X]): X = op match {
+            case Writer.Tell(w, answer) => cell.set(w :: cell.get); answer(())
           }
         })
   }

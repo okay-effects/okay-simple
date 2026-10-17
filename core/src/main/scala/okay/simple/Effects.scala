@@ -73,6 +73,46 @@ trait Effects extends Syntax {
   /** a handler of an effect with a parameter, `F % S`, its operations `F[S, X]` — with no type lambda to write */
   abstract class HandlerOf[F[_, _], S, R, A, B] extends Handler[({ type L[x] = F[S, x] })#L, R, A, B]
 
+  /** a stateful handler's state where an operation is: read and written by its clause, in place */
+  trait Cell[S] { def get: S; def set(s: S): Unit }
+  private final class VarCell[S](private var s: S) extends Cell[S] {
+    def get: S = s
+    def set(t: S): Unit = s = t
+  }
+
+  /** a handler whose every clause resumes `k` once, at once, with its answer: an operation ANSWERED IN PLACE — an
+   * implementation needs no `k` for it (`Reader`) */
+  trait TailHandler[F[_], R, A, B] {
+    def ret(a: A): B ! R
+    def answer[X](op: F[X]): X
+  }
+  /** the same with a state of its own, `cell` (`State`, `Writer`): a `k` taken by another handler and resumed twice
+   * resumes the state of its time */
+  trait StatefulHandler[F[_], S, R, A, B] {
+    def ret(s: S, a: A): B ! R
+    def answer[X](cell: Cell[S], op: F[X]): X
+  }
+  abstract class TailHandlerOf[F[_, _], P, R, A, B] extends TailHandler[({ type L[x] = F[P, x] })#L, R, A, B]
+  abstract class StatefulHandlerOf[F[_, _], P, S, R, A, B] extends StatefulHandler[({ type L[x] = F[P, x] })#L, S, R, A, B]
+
+  /** `E`, the last, handled by a handler answering in place. By default a `handle`; an implementation may do better */
+  def handleTail[E, F[_], R, A, B](p: A ! (R + E))(h: TailHandler[F, R, A, B])(implicit o: Ops.Aux[E, F]): B ! R =
+    handle[E, F, R, A, B](p)(new Handler[F, R, A, B] {
+      def ret(a: A) = h.ret(a)
+      def op[X](op: F[X], k: X => B ! R) = delay(k(h.answer(op)))
+    })
+  /** `E`, the last, handled by a stateful handler answering in place, from the state `s0`. By default a `handle` */
+  def handleStateful[E, F[_], S, R, A, B](p: A ! (R + E))(s0: S)(h: StatefulHandler[F, S, R, A, B])(
+      implicit o: Ops.Aux[E, F]): B ! R =
+    flatMap(handle[E, F, R, A, S => B ! R](p)(new Handler[F, R, A, S => B ! R] {
+      def ret(a: A) = pure((s: S) => h.ret(s, a))
+      def op[X](op: F[X], k: X => (S => B ! R) ! R) = pure { (s: S) =>
+        val cell = new VarCell[S](s)
+        val x = h.answer(cell, op)
+        flatMap(k(x))((f: S => B ! R) => f(cell.get))
+      }
+    }))((f: S => B ! R) => f(s0))
+
   /** `E` handled from wherever it is in the row: `split`, then `handle` */
   def handleAny[E, F[_], R, Rest, A, B](p: A ! R)(h: Handler[F, Rest, A, B])(implicit s: Split[E, R, Rest],
       o: Ops.Aux[E, F]): B ! Rest = handle[E, F, Rest, A, B](split[E, R, Rest, A](p))(h)
@@ -86,3 +126,4 @@ trait Effects extends Syntax {
     def into[S](implicit s: Sub[R, S]): A ! S = embed[R, S, A](p)
   }
 }
+
