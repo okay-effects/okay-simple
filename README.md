@@ -215,7 +215,7 @@ as Scala 2 does. An application of Scala 3 alone takes the Scala 3 build. Proven
   operation and its rest, one node), `Delay` — covariant in its value; `F` a row's operations, each carrying its
   place (`At`). A handler interprets the tree (`Free.handle`, `Free.answer` in place, each with or without a state),
   an operation passed on by each handler it crosses, one place nearer; `k` a trampoline. A handler takes its effect
-  from its place in the row at once (`handleAt`, `answerAt`): no `split`, no program renamed. Scala 3's typed by
+  from its place in the row at once (`handleAt`, `answerAt`; Scala 3): no `split`, no program renamed. Scala 3's typed by
   `Places`, no cast; Scala 2's places numbers, one trusted step.
 - **okay-core's bridge** (okay-core's `effects/`): a program okay-core's own `Cont`, nothing wrapped; a place okay-core's
   path, `Split` its `Removed`; a handler one of okay-core's forms (`Deep`, `Answering`, `Stateful`), installed by its
