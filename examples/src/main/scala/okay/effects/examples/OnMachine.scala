@@ -4,5 +4,6 @@ import okay.effects.simple.Machine
 
 /** the examples ON THE MACHINE: `sbt "examples/runMain okay.effects.examples.OnMachine"` */
 object OnMachine {
-  def main(args: Array[String]): Unit = Report.lines(Machine).foreach(println)
+  implicit val fx: okay.effects.Effects = Machine
+  def main(args: Array[String]): Unit = Report.lines.foreach(println)
 }

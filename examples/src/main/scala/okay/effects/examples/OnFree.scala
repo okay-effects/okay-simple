@@ -4,5 +4,6 @@ import okay.effects.simple.free.Free
 
 /** the examples ON THE `Free` MONAD: `sbt "examples/runMain okay.effects.examples.OnFree"` */
 object OnFree {
-  def main(args: Array[String]): Unit = Report.lines(Free).foreach(println)
+  implicit val fx: okay.effects.Effects = Free
+  def main(args: Array[String]): Unit = Report.lines.foreach(println)
 }

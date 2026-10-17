@@ -3,7 +3,7 @@ package okay.effects.examples
 import okay.effects.{Effects, Sum, Void}
 
 /**
- * CODE WRITTEN ONCE FOR BOTH COMPILERS, over any implementation `fx`.
+ * CODE WRITTEN ONCE FOR BOTH COMPILERS, over any implementation `fx`, given implicitly: `new Shared()`.
  *
  *  - An effect: a GADT of its operations. Each operation says how its answer is made (`answer`), so a handler's
  *    clause needs no GADT inference — Scala 2 has none for a method's type parameter.
@@ -16,7 +16,7 @@ object Ticket {
   final case class Next[X](answer: Int => X) extends Ticket[X]
 }
 
-class Shared(val fx: Effects) {
+class Shared(implicit val fx: Effects) {
   import fx._
   import fx.std._
 

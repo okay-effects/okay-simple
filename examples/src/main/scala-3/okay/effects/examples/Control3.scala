@@ -6,7 +6,7 @@ import okay.effects.Effects
  * CONTROL, SCALA 3, over any implementation `fx`: generators (`Yield`), a search (`Choose`'s `first`), errors recovered, delimited control —
  * `shift`/`reset` with the answer type fixed (an effect of `std`), and with the answer type changed (`delimited`).
  */
-class Control3(val fx: Effects):
+class Control3(using val fx: Effects):
   import fx.*
   import fx.std.*
 

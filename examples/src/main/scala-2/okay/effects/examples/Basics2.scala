@@ -18,7 +18,7 @@ object Basics2 {
   }
 }
 
-class Basics2[F <: Effects](val fx: F) {
+class Basics2[F <: Effects](implicit val fx: F) {
   import fx._
   import fx.std._
   import Basics2.Counter

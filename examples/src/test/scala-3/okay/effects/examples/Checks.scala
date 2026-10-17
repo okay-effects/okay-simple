@@ -4,8 +4,8 @@ import okay.effects.Effects
 
 /** the Scala 3 examples' values on the implementation `fx`: a change that breaks an example breaks this */
 abstract class Checks(fx: Effects) extends SharedChecks(fx):
-  val basics = Basics3(fx)
-  val control = Control3(fx)
+  val basics = Basics3(using fx)
+  val control = Control3(using fx)
 
   test("the basics: a row of three, an effect of one's own, a general handler"):
     assertEquals(basics.greeted, (1, (List("hello, Ann"), 0)))

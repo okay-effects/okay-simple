@@ -17,7 +17,7 @@ object Basics3:
  * THE BASICS, SCALA 3, over any implementation `fx`: a row of type constructors (`Reader % String + State % Int`),
  * its requirements as context bounds, an effect of one's own an `enum` whose clauses GADT inference types, handlers of each shape.
  */
-class Basics3(val fx: Effects):
+class Basics3(using val fx: Effects):
   import fx.*
   import fx.std.*
   import Basics3.{Coin, Counter}
