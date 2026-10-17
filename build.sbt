@@ -86,11 +86,9 @@ lazy val interopTofu = (project in file("interop/tofu")).dependsOn(interopCats, 
   .settings(crossBuilt, name := "okay-effects-tofu", libraryDependencies += "tf.tofu" %% "tofu-kernel" % "0.14.3")
 
 /** TAGLESS: the interface's words over no implementation — a program a value, made once, run on the implementation
- * in the implicit context; each word that implementation's own */
+ * in the implicit context; each word that implementation's own. One per compiler: Scala 3's every word `inline` */
 lazy val tagless = (project in file("tagless")).dependsOn(effects, machine % Test, free % Test, tck % Test)
-  .settings(crossBuilt, name := "okay-effects-tagless",
-    // one source for both compilers: each evidence made on the implementation passed as Scala 2 passes it
-    scalacOptions ++= (if (scalaVersion.value.startsWith("3")) Seq("-Wconf:msg=Implicit parameters should be provided:s") else Nil))
+  .settings(crossBuilt, name := "okay-effects-tagless")
 
 /** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
 lazy val bench = (project in file("bench")).dependsOn(machine, free, tagless).enablePlugins(JmhPlugin)

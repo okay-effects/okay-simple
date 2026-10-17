@@ -59,7 +59,9 @@ class TaglessOnFree extends TaglessChecks(Free)
 
 class TaglessOnBoth extends munit.FunSuite {
   test("one value, two implementations") {
-    assertEquals(run(Programs1.greeted)(Machine), run(Programs1.greeted)(Free))
+    def onMachine = { implicit val fx: Effects = Machine; run(Programs1.greeted) }
+    def onFree = { implicit val fx: Effects = Free; run(Programs1.greeted) }
+    assertEquals(onMachine, onFree)
   }
 }
 
