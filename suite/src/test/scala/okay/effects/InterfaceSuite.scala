@@ -4,6 +4,8 @@ package okay.effects
 abstract class InterfaceSuite(fx: okay.effects.Effects) extends munit.FunSuite {
   val p = new Programs(fx)
   val g = new Numbering(fx)
+  val d = new ShiftReset(fx)
+  val at = new AnswerTypes(fx)
 
   test("a program's effects handled in the row's order") {
     assertEquals(p.handledInOrder, (13, (List("hello, Ann"), 10)))
@@ -35,6 +37,17 @@ abstract class InterfaceSuite(fx: okay.effects.Effects) extends munit.FunSuite {
     assertEquals(g.numbered, List((2, 1), (12, 11)))
     assertEquals(g.numberedInState, (7, List((2, (false, 5, 1)), (12, (true, 6, 11)))))
     assertEquals(g.stopped, List((1, 0)))
+  }
+  test("shift and reset: k resumed twice, dropped, each resumption its own") {
+    assertEquals(d.twice, 12)
+    assertEquals(d.dropped, 42)
+    assertEquals(d.both, List(10, 20))
+  }
+  test("delimited control changing answer types") {
+    assertEquals(at.greeting, "hello, Ann")
+    assertEquals(at.twice, 12)
+    assertEquals(at.lifted, 3)
+    assertEquals(at.binds(100000), 100000)
   }
   test("constant stack: 100 000 operations under three handlers, 100 000 binds") {
     assertEquals(p.counted(100000), (List(), (100000, ())))

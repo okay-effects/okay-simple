@@ -14,6 +14,12 @@ trait TailClauses[O[_], A, P] {
   def ret(a: A): P
   def answer[X](op: O[X]): X
 }
+/** clauses that never resume `k`: an operation's clause the handler's result at once, the rest dropped (`Error`) — an
+ * implementation needs no `k` for it, and may leave at once */
+trait AbortClauses[O[_], A, P] {
+  def ret(a: A): P
+  def abort[X](op: O[X]): P
+}
 /** a general handler's clauses with a state of their own, a parameter of the handler: each clause gets the state of
  * its time, and `k` is resumed with the answer and the state to go on from — any number of times, each with its own */
 trait StatefulClauses[O[_], S, A, P] {
@@ -116,6 +122,8 @@ trait Effectful {
   /** a handler whose every clause resumes `k` once, at once, with its answer: an operation ANSWERED IN PLACE — an
    * implementation needs no `k` for it (`Reader`) */
   type TailHandler[E[_], R[_], A, B] = TailClauses[E, A, B ! R]
+  /** a handler whose clauses never resume `k`: an operation ABORTS the rest, its clause the handler's result */
+  type AbortHandler[E[_], R[_], A, B] = AbortClauses[E, A, B ! R]
   /** the same with a state of its own, `cell` (`State`, `Writer`): a `k` taken by another handler and resumed twice
    * resumes the state of its time */
   type StatefulTailHandler[E[_], S, R[_], A, B] = StatefulTailClauses[E, S, A, B ! R]
@@ -132,6 +140,12 @@ trait Effectful {
     })
   /** `E`, the last, handled by a stateful handler answering in place, from the state `s0`. By default a general
    * handler of functions of the state */
+  /** `E`, the last, handled by a handler that never resumes `k`. By default a general handler dropping `k` */
+  def handleLast[E[_], R[_], A, B](p: A ! ({type L[x] = Sum[R, E, x]})#L, h: AbortHandler[E, R, A, B]): B ! R =
+    handleLast[E, R, A, B](p, new Clauses[E, A, B ! R] {
+      def ret(a: A): B ! R = h.ret(a)
+      def op[X](op: E[X], k: X => B ! R): B ! R = h.abort(op)
+    })
   def handleLast[E[_], S, R[_], A, B](p: A ! ({type L[x] = Sum[R, E, x]})#L, s0: S, h: StatefulTailHandler[E, S, R, A, B]): B ! R =
     flatMap(handleLast[E, R, A, S => B ! R](p, new Clauses[E, A, (S => B ! R) ! R] {
       def ret(a: A): (S => B ! R) ! R = pure((s: S) => h.ret(s, a))
@@ -156,6 +170,8 @@ trait Effectful {
   def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: Handler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
     handleLast[E, Rest, A, B](split[E, R, Rest, A](p), h)
   def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: TailHandler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
+    handleLast[E, Rest, A, B](split[E, R, Rest, A](p), h)
+  def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: AbortHandler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
     handleLast[E, Rest, A, B](split[E, R, Rest, A](p), h)
   def handle[E[_], S, R[_], Rest[_], A, B](p: A ! R, s0: S, h: StatefulTailHandler[E, S, Rest, A, B])(
       implicit s: Split[E, R, Rest]): B ! Rest =

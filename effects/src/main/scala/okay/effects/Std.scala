@@ -31,19 +31,26 @@ object Std {
   object Choose {
     final case class Among[X](xs: List[X]) extends Choose[X]
   }
+
+  /** DELIMITED CONTROL: `Shift(f)`, `f` given the rest of the program up to the nearest `reset`, of the answer program
+   * `P` (`B ! R`) */
+  sealed trait Control[P, X]
+  object Control {
+    final case class Shift[P, X](f: (X => P) => P) extends Control[P, X]
+  }
 }
 
 /**
  * THE STANDARD EFFECTS' OPERATIONS AND HANDLERS, written once on the interface, for both compilers: over any
  * implementation `fx`, apart from it — the implementation knows nothing of them, and offers them as its `std`, a
  * member of the interface. So two imports, the implementation's and its standard effects':
- * `import Machine._; import Machine.std._`. The effects (`State`, `Reader`, `Writer`, `Error`, `Choose`), their
+ * `import Machine._; import Machine.std._`. The effects (`State`, `Reader`, `Writer`, `Error`, `Choose`, `Control` for shift and reset), their
  * operations and their handlers, each handler taking its effect from anywhere in the row; the parameter named, the
  * rest inferred: `writer[String](p)`. A handler answering in place is the implementation's `handle` of its shape.
  * An effect with a parameter is written here as both compilers read it, `({ type L[x] = State[S, x] })#L` — Scala 3's
  * `State % S`, Scala 2's `(State % S)#L`.
  */
-final class Std[F <: Effects](val fx: F) {
+class Std[F <: Effects](val fx: F) {
   import fx._
 
   type State[S, X] = Std.State[S, X]
@@ -56,6 +63,8 @@ final class Std[F <: Effects](val fx: F) {
   val Error: Std.Error.type = Std.Error
   type Choose[X] = Std.Choose[X]
   val Choose: Std.Choose.type = Std.Choose
+  type Control[P, X] = Std.Control[P, X]
+  val Control: Std.Control.type = Std.Control
 
   def get[S, R[_]](implicit in: In[({ type L[x] = State[S, x] })#L, R]): S ! R = perform[({ type L[x] = State[S, x] })#L].apply[R, S](Std.State.Get(s => s))
   def put[S, R[_]](s: S)(implicit in: In[({ type L[x] = State[S, x] })#L, R]): Unit ! R = perform[({ type L[x] = State[S, x] })#L].apply[R, Unit](Std.State.Put(s, u => u))
@@ -102,15 +111,28 @@ final class Std[F <: Effects](val fx: F) {
         })
   }
 
-  /** the value, or what was raised: the rest dropped */
+  /** the value, or what was raised: the rest dropped — a handler aborting, no `k` */
   def attempt[E]: ErrorHandler[E] = new ErrorHandler[E]
   final class ErrorHandler[E] {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Error[E, x] })#L, R, Rest]): Either[E, A] ! Rest =
-      handle[({ type L[x] = Error[E, x] })#L, R, Rest, A, Either[E, A]](p, new Handler[({ type L[x] = Error[E, x] })#L, Rest, A, Either[E, A]] {
+      handle[({ type L[x] = Error[E, x] })#L, R, Rest, A, Either[E, A]](p, new AbortHandler[({ type L[x] = Error[E, x] })#L, Rest, A, Either[E, A]] {
         def ret(a: A) = pure(Right(a))
-        def op[X](op: Error[E, X], k: X => Either[E, A] ! Rest) = op match { case Std.Error.Raise(e) => pure(Left(e)) }
+        def abort[X](op: Error[E, X]) = op match { case Std.Error.Raise(e) => pure(Left(e)) }
       })
   }
+
+  /** `shift`: the rest of the program up to the nearest `reset` taken as `k`, a function — resumable any number of
+   * times, each resumption under the same `reset` — and `f` run in its place, its value the `reset`'s. The answer
+   * type `B` is the `reset`'s, fixed */
+  def shift[A, B, R[_], Rr[_]](f: (A => B ! R) => B ! R)(implicit in: In[({ type L[x] = Control[B ! R, x] })#L, Rr]): A ! Rr =
+    perform[({ type L[x] = Control[B ! R, x] })#L].apply[Rr, A](Std.Control.Shift[B ! R, A](f))
+  /** `reset`: the delimiter `shift` takes the rest up to — the handler of `Control`, deep, answering `Shift(f)` with
+   * `f(k)` */
+  def reset[B, R[_]](p: B ! ({ type L[x] = Sum[R, ({ type M[y] = Control[B ! R, y] })#M, x] })#L): B ! R =
+    handleLast[({ type L[x] = Control[B ! R, x] })#L, R, B, B](p, new Handler[({ type L[x] = Control[B ! R, x] })#L, R, B, B] {
+      def ret(b: B) = pure(b)
+      def op[X](op: Control[B ! R, X], k: X => B ! R) = op match { case Std.Control.Shift(f) => f(k) }
+    })
 
   /** every way the program can go: `k` resumed once for each choice */
   def all[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): List[A] ! Rest =

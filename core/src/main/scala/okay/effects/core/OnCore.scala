@@ -1,9 +1,10 @@
 package okay.effects.core
 
-import okay.one.Cont
+import okay.one.{Cont, Delim}
+import okay.one.row.Nearest
 import okay.one.handler.{Answering, Deep, Stateful, Translate}
 import okay.one.row.{+:, In, Plain, Pure, Removed, Row}
-import okay.effects.Effects
+import okay.effects.{Delimited, Effects}
 
 /**
  * okay-simple's interface ON OKAY-CORE'S MACHINE, by okay-core's public API: a program is okay-core's own `Cont`,
@@ -118,6 +119,35 @@ private[core] class OnCore extends Effects {
       implicit s: Split[E, R, Rest]): P[B] = keeping(p, stateful(s0, h), s.removed)
 
   def run[A](p: P[A]): A = p.asInstanceOf[Cont[okay.one.row.Pure, Nothing, Nothing, A]].run
+
+  /** delimited control changing answer types, okay-core's own: its `Cont`'s answers, its `shift0` and `$` */
+  override protected def newDelimited: Delimited[this.type] = new OnCore.Native[this.type](this)
+}
+
+object OnCore {
+  /**
+   * `Delimited` NATIVE, on okay-core's control: `Cps[A, B, C, R]` okay-core's own `Cont` under a `$` — of the value
+   * `A`, the rest's answer `B ! R`, the answer made `C ! R`, its answer types the machine's — `shift` okay-core's
+   * `shift0` up to the nearest `$`, `reset` the `$` itself, its value through `pure`. A program of effects goes under
+   * the `$` widened, `Control` its head, its operations' places one further in, and lifted to any answer. No
+   * continuation-passing of the interface's: the machine's frames, its `k` data.
+   */
+  final class Native[F <: OnCore](val fx: F) extends Delimited[F] {
+    private type P[A] = Cont[Row, Nothing, Nothing, A]
+    private type D = Delim[Row]
+
+    type Cps[A, B, C, R[_]] = Cont[D, P[B], P[C], A]
+
+    def pure[A, B, R[_]](a: A): Cps[A, B, B, R] = Cont.Return[D, P[B], A](a)
+    def map[A, A2, B, C, R[_]](p: Cps[A, B, C, R])(f: A => A2): Cps[A2, B, C, R] = Cont.Map(p, f)
+    def flatMap[A, A2, B, C, D2, R[_]](p: Cps[A, B, C, R])(f: A => Cps[A2, D2, B, R]): Cps[A2, D2, C, R] =
+      Cont.Bind(p, f)
+    def lift[A, B, R[_]](p: P[A]): Cps[A, B, B, R] = Cont.widen[okay.one.row.Control[Row], Row, A](p).cont[P[B]]
+    def shift[A, B, C, R[_]](f: (A => P[B]) => P[C]): Cps[A, B, C, R] =
+      Cont.shift0[Row, Nothing, Nothing, B, P[C], A, D](f)(using Nearest.here[Row])
+    def reset[A, C, R[_]](p: Cps[A, A, C, R]): P[C] =
+      Cont.dollar[Row, P[A], Nothing, Nothing, C, A](p)((a: A) => Cont.Return[Row, Nothing, A](a))
+  }
 }
 
 

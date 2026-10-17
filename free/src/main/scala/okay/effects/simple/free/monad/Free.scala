@@ -23,7 +23,7 @@ enum Free[+F[_], +A]:
  * says by Scala 3's GADT inference that an operation is the handler's: no `Typeable`, no cast.
  *
  * In constant stack: `@tailrec` over a bind of a value and over binds nested to the left (re-associated), and `k` a
- * TRAMPOLINE — it gives back a bind, `Bind(Return(x), ...)`, which the interpreter outside goes on with, not a call
+ * TRAMPOLINE — it gives back the rest delayed, `Delay(...)`, which the interpreter outside goes on with, not a call
  * into the rest: a clause resuming `k` at once does not nest a call per operation.
  */
 object Free:
@@ -55,32 +55,45 @@ object Free:
   /** `E`, the last of `R + E`, handled deeply: `ret` the value's clause, `eff` an operation's, its `k` the rest under
    * the same handler, resumable any number of times */
   inline def handle[E[_], R[_], A, B](p: A ! (R + E))(ret: A => B ! R, eff: [X] => (E[X], X => B ! R) => B ! R): B ! R =
-    handle[E, R, A, B, Unit](p, ())((_, a) => ret(a), [X] => (_: Unit, op: E[X], k: (X, Unit) => B ! R) =>
-      eff[X](op, (x: X) => k(x, ())))
+    handling(p, ret, eff)
+
+  @tailrec private def handling[E[_], R[_], A, B](p: A ! (R + E), ret: A => B ! R,
+      eff: [X] => (E[X], X => B ! R) => B ! R): B ! R = p match
+    case Return(a) => ret(a)
+    case Perform(op) => handling(Bind(Perform(op), (a: A) => Return(a)), ret, eff)
+    case d: Delay[f, a] => handling(d.p(), ret, eff)
+    case b: Bind[f, x, a] => b.m match
+      case Return(x) => handling(b.f(x), ret, eff)
+      case m: Bind[f2, y, x2] => handling(Bind(m.m, (y: y) => Bind(m.f(y), b.f)), ret, eff)
+      case d: Delay[f2, x2] => handling(Bind(d.p(), b.f), ret, eff)
+      case Perform(op) => op match
+        case pl: At.Placed[r, e, x3] => (pl.at: @unchecked) match
+          // the handler's: its clause, `k` a trampoline — the rest built when the run outside gets to it
+          case _: Place.Last[r2, e2] => eff[x3](pl.op, (x: x3) => Delay(() => handle(b.f(x))(ret, eff)))
+          // passed on, one place nearer: the rest under this handler, given back to the handler outside
+          case i: Place.Init[e2, r2, g, rest] =>
+            Bind(Perform(At.Placed(i.s, pl.op)), (x: x3) => handle(b.f(x))(ret, eff))
 
   /** the same with a state of its own, from `s`: each clause gets the state of its time, `k` resumed with the answer
    * and the state to go on from — each resumption its own */
   inline def handle[E[_], R[_], A, B, S](p: A ! (R + E), s: S)(ret: (S, A) => B ! R,
-      eff: [X] => (S, E[X], (X, S) => B ! R) => B ! R): B ! R = handling(p, s, ret, eff)
+      eff: [X] => (S, E[X], (X, S) => B ! R) => B ! R): B ! R = stating(p, s, ret, eff)
 
-  @tailrec private def handling[E[_], R[_], A, B, S](p: A ! (R + E), s: S, ret: (S, A) => B ! R,
+  @tailrec private def stating[E[_], R[_], A, B, S](p: A ! (R + E), s: S, ret: (S, A) => B ! R,
       eff: [X] => (S, E[X], (X, S) => B ! R) => B ! R): B ! R = p match
     case Return(a) => ret(s, a)
-    case Perform(op) => on(op, s, eff, (a: A, s1: S) => ret(s1, a))
-    case d: Delay[f, a] => handling(d.p(), s, ret, eff)
+    case Perform(op) => stating(Bind(Perform(op), (a: A) => Return(a)), s, ret, eff)
+    case d: Delay[f, a] => stating(d.p(), s, ret, eff)
     case b: Bind[f, x, a] => b.m match
-      case Return(x) => handling(b.f(x), s, ret, eff)
-      case Perform(op) =>
-        on(op, s, eff, (x: x, s1: S) => Bind(Return(x), (x: x) => handle(b.f(x), s1)(ret, eff)))
-      case m: Bind[f2, y, x2] => handling(Bind(m.m, (y: y) => Bind(m.f(y), b.f)), s, ret, eff)
-      case d: Delay[f2, x2] => handling(Bind(d.p(), b.f), s, ret, eff)
-
-  /** an operation at `R + E`: `E`'s to the handler's clause, any other passed on, one place nearer, then `k` */
-  private def on[E[_], R[_], X, B, S](op: At[R + E, X], s: S, eff: [Y] => (S, E[Y], (Y, S) => B ! R) => B ! R,
-      k: (X, S) => B ! R): B ! R = op match
-    case pl: At.Placed[r, e, x] => (pl.at: @unchecked) match
-      case _: Place.Last[r2, e2] => eff[X](s, pl.op, k)
-      case i: Place.Init[e2, r2, g, rest] => Bind(Perform(At.Placed(i.s, pl.op)), (x: X) => k(x, s))
+      case Return(x) => stating(b.f(x), s, ret, eff)
+      case m: Bind[f2, y, x2] => stating(Bind(m.m, (y: y) => Bind(m.f(y), b.f)), s, ret, eff)
+      case d: Delay[f2, x2] => stating(Bind(d.p(), b.f), s, ret, eff)
+      case Perform(op) => op match
+        case pl: At.Placed[r, e, x3] => (pl.at: @unchecked) match
+          case _: Place.Last[r2, e2] =>
+            eff[x3](s, pl.op, (x: x3, s1: S) => Delay(() => handle(b.f(x), s1)(ret, eff)))
+          case i: Place.Init[e2, r2, g, rest] =>
+            Bind(Perform(At.Placed(i.s, pl.op)), (x: x3) => handle(b.f(x), s)(ret, eff))
 
   /** `E`, the last of `R + E`, handled by a handler ANSWERING IN PLACE: each operation of `E`'s answered by `ans`,
    * the run going on at once with the answer — no `k`, no trampoline */
@@ -106,7 +119,7 @@ object Free:
           case _: Place.Last[r2, e2] => answering(b.f(ans[x3](cell, pl.op)), cell, ret, ans)
           case i: Place.Init[e2, r2, g, rest] =>
             val now = cell.state
-            Bind(Perform(At.Placed(i.s, pl.op)), (x: x) => answer(b.f(x), now)(ret, ans))
+            Bind(Perform(At.Placed(i.s, pl.op)), (x: x3) => answer(b.f(x), now)(ret, ans))
 
   /** `p`'s places renamed from `R1`'s to `R2`'s */
   inline def remap[R1[_], R2[_], A](p: A ! R1, rename: Renaming[R1, R2]): A ! R2 = remapping(p, rename)

@@ -1,6 +1,6 @@
 package okay.effects.simple.machine
 
-import okay.effects.{Cell, Clauses, Effects, StatefulClauses, StatefulTailClauses, Void, TailClauses}
+import okay.effects.{AbortClauses, Cell, Clauses, Effects, StatefulClauses, StatefulTailClauses, Void, TailClauses}
 import okay.effects.Places
 import okay.effects.Places.{+, Place, Renaming, toEnd}
 import scala.annotation.tailrec
@@ -60,6 +60,8 @@ private[simple] object Machine:
     case General[E[_], T[_], A, B](h: Clauses[E, A, Prog[T, B]]) extends Level[E, T, A, B]
     /** a general handler with a state of its own: the state of its time, kept as it is */
     case StateK[E[_], T[_], A, B, S](h: StatefulClauses[E, S, A, Prog[T, B]], state: S) extends Level[E, T, A, B]
+    /** never resuming `k`: an operation found here leaves at once with the clause's result, no `k` made */
+    case Abort[E[_], T[_], A, B](h: AbortClauses[E, A, Prog[T, B]]) extends Level[E, T, A, B]
     /** answering in place */
     case Tail[E[_], T[_], A, B](h: TailClauses[E, A, Prog[T, B]]) extends Level[E, T, A, B]
     /** answering in place, its state in `cell`: of its level, made afresh each time it is installed */
@@ -84,6 +86,7 @@ private[simple] object Machine:
     case s: Level.StateK[e, t, a2, b, st] => s.h.ret(s.state, a)
     case t: Level.Tail[e, t2, a2, b] => t.h.ret(a)
     case s: Level.State[e, t, a2, b, st] => s.h.ret(s.cell.state, a)
+    case x: Level.Abort[e, t, a2, b] => x.h.ret(a)
 
   /** an operation answered in place, by a level that `answers` */
   inline def answer[E[_], X](lv: Level[E, ?, ?, ?], op: E[X]): X = lv match
@@ -188,6 +191,9 @@ private[simple] object Machine:
         case g: Level.StateK[e3, t3, a3, b3, s] =>
           val k = (x: X, s1: s) => Prog.Resume[t, X, b, R0, V0, E, a](inner, pre, Level.StateK(g.h, s1), x)
           Go[t, b, w, Z](g.h.op[X](g.state, op, k), l.outside, l.m)
+        case g: Level.Abort[e3, t3, a3, b3] =>
+          // the rest dropped: the frames inside and the levels crossed left behind, no `k`
+          Go[t, b, w, Z](g.h.abort[X](op), l.outside, l.m)
         case _ => throw IllegalStateException("answered in place")
       case ip: Place.Init[e2, r, g, rest] =>
         walk[E, R0, X, V0, t, w, Z](ip.s, op, inner, Prefix.Handler(pre, fresh(l.lv), l.outside), l.m)
@@ -230,6 +236,8 @@ private[simple] class Machine extends Effects:
     Prog.Handle(p, Level.General(h))
   override def handleLast[E[_], R[_], A, B](p: Prog[R + E, A], h: TailHandler[E, R, A, B]): Prog[R, B] =
     Prog.Handle(p, Level.Tail(h))
+  override def handleLast[E[_], R[_], A, B](p: Prog[R + E, A], h: AbortHandler[E, R, A, B]): Prog[R, B] =
+    Prog.Handle(p, Level.Abort(h))
   override def handleLast[E[_], S, R[_], A, B](p: Prog[R + E, A], s0: S, h: StatefulTailHandler[E, S, R, A, B]): Prog[R, B] =
     Prog.Handle(p, Level.State(h, Cell.Var(s0)))
   override def handleLast[E[_], S, R[_], A, B](p: Prog[R + E, A], s0: S, h: StatefulHandler[E, S, R, A, B]): Prog[R, B] =

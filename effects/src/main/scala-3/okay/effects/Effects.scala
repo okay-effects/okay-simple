@@ -21,8 +21,14 @@ trait Effects extends Effectful:
   /** a context bound: `def greet[R[_]: {Has[Reader % String], Has[State % Int]}]: Int ! R` */
   type Has[E[_]] = [R[_]] =>> In[E, R]
 
-  /** the standard effects on this implementation: `import Machine.std.*` */
-  final lazy val std: Std[this.type] = new Std[this.type](this)
+  /** the standard effects on this implementation: `import Machine.std.*`. Final, a stable path to import from; made
+   * by `newStd`, which an implementation may override with a `Std` of better handlers */
+  final lazy val std: Std[this.type] = newStd
+  protected def newStd: Std[this.type] = new Std[this.type](this)
+  /** delimited control changing answer types (`Delimited`), made by `newDelimited`: by default continuation-passing
+   * over this implementation's programs; an implementation with continuations of its own overrides it */
+  final lazy val delimited: Delimited[this.type] = newDelimited
+  protected def newDelimited: Delimited[this.type] = new Delimited.ByCps[this.type](this)
 
   /** a program's methods: `p.flatMap(f)`, `p.map(f)`, `p.into[S]` — extensions, no object made for them */
   extension [A, R[_]](p: A ! R)
