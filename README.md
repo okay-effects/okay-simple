@@ -110,13 +110,18 @@ compilers).
   counted from the end. `handleLast` answers place 0, and passes any other operation on: it makes a new node of it, one
   place in, and wraps the rest in itself — so an operation costs a node and a closure for every handler it crosses.
   Short, and easy to check.
-- **`machine/`, the fast one**: a machine of an explicit stack — the frames of the binds over the nearest level, and
-  the levels outside it, each a handler or a remapping of places (`split`, `embed`) with the frames outside it. An
-  operation walks the levels outward: a remapping renames its place, a handler not its own takes one off. Nothing is
-  allocated on the way and nothing is passed on. At its handler the rest up to it, the handler included, is `k`: the
-  frames inside and the levels crossed, immutable, so `k` is resumed any number of times; resumed, they are put back
-  on the stack where the resumption is.
-
+- **`machine/`, the fast one, typed**: a `@tailrec` loop over three typed things — the program `Prog[X]`; the
+  frames `Frames[X, V]`, the binds from `X` to the value `V` of the nearest level's body, aligned, each bind's output
+  the next one's input; the levels `Meta[V, Z]`, from `V` to the run's value `Z`, each a handler (general, answering
+  in place, or with a state of its own) or a remapping of places (`split`, `embed`) with the frames outside it. An
+  operation carries its place; it walks the levels outward by their fields (a remapping renaming the place, a handler
+  not its own taking one off), nothing allocated, to its handler, place 0. Answered in place, the answer goes straight
+  into the next frame — no `Done` made — a state written in its level. A general handler's clause gets `k`: the
+  frames inside and the levels crossed as a typed `Prefix`, put back on the stack where `k` is resumed, a stateful
+  level with the state it had when `k` was taken. The loop holds the hot cases only, small enough for the JIT to
+  compile whole; the rest is `cold`'s. ONE CAST, `opOf`: an operation found by its place is of its handler's
+  operations — a place is a number, which the compiler cannot see; the interface's `Split` and `In`, found by the
+  types of the row, guarantee it. Both compilers, from one source.
 - **`okaycore/`, on okay-core's machine** (Scala 3), by okay-core's public API only: a program is okay-core's own
   `Cont`, nothing wrapped. An okay-simple place is okay-core's path (the last effect of an okay-simple row is the
   head of okay-core's), `Split` is okay-core's `Removed`, made of the place; a general handler is a `Deep`, one
