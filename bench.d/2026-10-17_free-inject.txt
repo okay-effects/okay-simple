@@ -1,0 +1,14 @@
+[info] ImplementationsBenchmark.askAcross4                         free  avgt   10      73.952 ±   0.478   us/op
+[info] ImplementationsBenchmark.askAcross4:gc.alloc.rate.norm      free  avgt   10  814768.052 ±   0.001    B/op
+[info] ImplementationsBenchmark.askAcross4In                       free  avgt   10      71.838 ±   1.699   us/op
+[info] ImplementationsBenchmark.askAcross4In:gc.alloc.rate.norm    free  avgt   10  734848.050 ±   0.001    B/op
+[info] ImplementationsBenchmark.askNear                            free  avgt   10      35.054 ±   0.113   us/op
+[info] ImplementationsBenchmark.askNear:gc.alloc.rate.norm         free  avgt   10  414120.025 ±   0.001    B/op
+[info] ImplementationsBenchmark.askNearIn                          free  avgt   10      31.078 ±   0.103   us/op
+[info] ImplementationsBenchmark.askNearIn:gc.alloc.rate.norm       free  avgt   10  398136.022 ±   0.001    B/op
+[info] ImplementationsBenchmark.binds                              free  avgt   10      12.036 ±   0.011   us/op
+[info] ImplementationsBenchmark.binds:gc.alloc.rate.norm           free  avgt   10  149952.008 ±   0.001    B/op
+[info] ImplementationsBenchmark.stateLoop                          free  avgt   10      32.670 ±   0.615   us/op
+[info] ImplementationsBenchmark.stateLoop:gc.alloc.rate.norm       free  avgt   10  454256.023 ±   0.001    B/op
+[info] ImplementationsBenchmark.stateLoopIn                        free  avgt   10      29.300 ±   0.332   us/op
+[info] ImplementationsBenchmark.stateLoopIn:gc.alloc.rate.norm     free  avgt   10  430272.021 ±   0.001    B/op

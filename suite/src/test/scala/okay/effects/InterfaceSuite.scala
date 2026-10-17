@@ -6,6 +6,7 @@ abstract class InterfaceSuite(fx: okay.effects.Effects) extends munit.FunSuite {
   val g = new Numbering(fx)
   val d = new ShiftReset(fx)
   val at = new AnswerTypes(fx)
+  val more = new MoreStd(fx)
 
   test("a program's effects handled in the row's order") {
     assertEquals(p.handledInOrder, (13, (List("hello, Ann"), 10)))
@@ -48,6 +49,21 @@ abstract class InterfaceSuite(fx: okay.effects.Effects) extends munit.FunSuite {
     assertEquals(at.twice, 12)
     assertEquals(at.lifted, 3)
     assertEquals(at.binds(100000), 100000)
+  }
+  test("a generator: collected, taken, each value to an effectful consumer") {
+    assertEquals(more.collected, (List(3, 2, 1), ()))
+    assertEquals(more.taken, (List(5, 4), None))
+    assertEquals(more.all3, (List(3, 2, 1), Some(())))
+    assertEquals(more.summed, (6, ()))
+  }
+  test("the first way with no fail; all the ways, linear") {
+    assertEquals(more.evens(List(1, 2, 3, 4)), Some(20))
+    assertEquals(more.evens(List(1, 3)), None)
+    assertEquals(more.many(3000), 3000)
+  }
+  test("recover: what was raised to a program in its place") {
+    assertEquals(more.recovered, 4)
+    assertEquals(more.unraised, 7)
   }
   test("constant stack: 100 000 operations under three handlers, 100 000 binds") {
     assertEquals(p.counted(100000), (List(), (100000, ())))

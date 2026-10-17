@@ -61,13 +61,12 @@ lazy val suiteCore = (project in file("suite-core")).dependsOn(core)
 
 /** the interface on THE `Free` MONAD: Scala 3, a program a `Free` interpreted by its handlers */
 lazy val free = (project in file("free")).dependsOn(effects)
-  .settings(crossScalaVersions := Seq(scala3), name := "okay-effects-free", libraryDependencies += munit)
+  .settings(crossBuilt, name := "okay-effects-free")
 
 /** the interface's suite on the `Free` monad */
 lazy val suiteFree = (project in file("suite-free")).dependsOn(free)
-  .settings(crossScalaVersions := Seq(scala3), name := "okay-effects-suite-free", publish / skip := true,
-    libraryDependencies += munit,
-    Test / unmanagedSourceDirectories ++= suiteOf(scala3).map((ThisBuild / baseDirectory).value / _))
+  .settings(crossBuilt, name := "okay-effects-suite-free", publish / skip := true,
+    Test / unmanagedSourceDirectories ++= suiteOf(scalaVersion.value).map((ThisBuild / baseDirectory).value / _))
 
 /** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
 lazy val bench = (project in file("bench")).dependsOn(machine, core, kernel, free).enablePlugins(JmhPlugin)
@@ -110,4 +109,4 @@ lazy val root = (project in file(".")).aggregate(effects, machine, suite, core, 
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
 /** everything: the interface's suites by both compilers, then the two compilers in one application */
-addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteKernel/test ; ++2.13.18 suite/test ; suiteKernel/test ; ++3.9.0 ; suiteCore/test ; suiteFree/test ; compat2/test ; compat3/test ; compat3on2/test")
+addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteKernel/test ; ++2.13.18 suite/test ; suiteKernel/test ; suiteFree/test ; ++3.9.0 ; suiteCore/test ; suiteFree/test ; compat2/test ; compat3/test ; compat3on2/test")
