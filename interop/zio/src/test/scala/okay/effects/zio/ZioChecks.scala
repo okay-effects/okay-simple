@@ -7,19 +7,22 @@ import zio.{Runtime, Unsafe, ZIO}
 
 /** ZIO over the effects, on an implementation */
 abstract class ZioChecks(val fx0: Runner) extends munit.FunSuite {
+  private implicit val ec: scala.concurrent.ExecutionContext = munitExecutionContext
   val z = ZioEffects(fx0)
   import z._
   import z.fx._
 
-  private def unsafeRun[A](task: zio.Task[A]): A = Unsafe.unsafe { implicit u => Runtime.default.unsafe.run(task).getOrThrow() }
+  /** the task run by ZIO's runtime, its value a `Future`: munit waits for it, on the JVM and on Scala.js */
+  private def unsafeRun[A](task: zio.Task[A]): scala.concurrent.Future[A] =
+    Unsafe.unsafe { implicit u => Runtime.default.unsafe.runToFuture(task) }
 
   test("a program of ZIO tasks, lowered to a task, run by ZIO's runtime") {
     val p: Int ! Tasks = fromZIO[Int, Tasks](ZIO.succeed(20)).flatMap(a => fromZIO[Int, Tasks](ZIO.attempt(a + 22)))
-    assertEquals(unsafeRun(toZIO(p)), 42)
+    unsafeRun(toZIO(p)).map(v => assertEquals(v, 42))
   }
   test("a task failed: the program's failure ZIO's") {
     val p: Int ! Tasks = fromZIO[Int, Tasks](ZIO.fail(new RuntimeException("boom"))).map(_ + 1)
-    assertEquals(unsafeRun(toZIO(p).either).left.map(_.getMessage), Left("boom"))
+    unsafeRun(toZIO(p).either).map(v => assertEquals(v.left.map(_.getMessage), Left("boom")))
   }
 }
 

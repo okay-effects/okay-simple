@@ -11,6 +11,7 @@ import okay.effects.free.Free
 
 /** cats over the effects, on an implementation */
 abstract class CatsChecks(val fx0: Runner) extends munit.FunSuite {
+  private implicit val ec: scala.concurrent.ExecutionContext = munitExecutionContext
   val c = Cats(fx0)
   import c._
   import c.fx._
@@ -38,7 +39,7 @@ abstract class CatsChecks(val fx0: Runner) extends munit.FunSuite {
   type LIO[X] = Std.Lift[IO, X]
   test("a program of cats-effect 3's IO lifted, lowered to an IO, run") {
     val p: Int ! LIO = lift[IO, Int, LIO](IO(20)).flatMap(a => lift[IO, Int, LIO](IO(a + 22)))
-    assertEquals(lower[IO, Int](p).unsafeRunSync(), 42)
+    lower[IO, Int](p).unsafeToFuture().map(v => assertEquals(v, 42))
   }
 }
 

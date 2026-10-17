@@ -1,6 +1,6 @@
 val scala3 = "3.9.0"
 val scala2 = "2.13.18"
-val munit = "org.scalameta" %% "munit" % "1.2.3" % Test
+import sbtcrossproject.{CrossProject, CrossType}
 
 ThisBuild / organization := "dev.okay"
 ThisBuild / version := "0.1.0-SNAPSHOT"
@@ -16,37 +16,44 @@ def crossBuilt: Seq[Def.Setting[?]] = Seq(
   crossScalaVersions := Seq(scala3, scala2),
   scalacOptions ++= (if (scalaVersion.value.startsWith("3")) Seq("-deprecation", "-feature")
                      else Seq("-deprecation", "-feature", "-Xlint")),
-  libraryDependencies += munit)
+  libraryDependencies += "org.scalameta" %%% "munit" % "1.2.3" % Test)
+
+/** ON THE JVM AND SCALA.JS: one source (`CrossType.Pure`), the JVM's project named as the module, Scala.js's `…JS` */
+def crossBoth(id: String, dir: String): CrossProject = CrossProject(id, file(dir))(JVMPlatform, JSPlatform).crossType(CrossType.Pure)
+  .settings(crossBuilt).jvmConfigure(_.withId(id)).jsConfigure(_.withId(id + "JS"))
+/** munit, for the JVM-only projects */
+val munit = "org.scalameta" %% "munit" % "1.2.3" % Test
 
 /** THE INTERFACE: the types and the primitives, the standard effects written on them — no implementation */
-lazy val effects = (project in file("core/effects")).settings(crossBuilt, name := "okay-effects")
+lazy val effects = crossBoth("effects", "core/effects").settings(name := "okay-effects")
 
 /** the fast implementation: a machine of an explicit stack, an operation finding its handler in one walk */
-lazy val machine = (project in file("core/machine")).dependsOn(effects).settings(crossBuilt, name := "okay-effects-machine")
+lazy val machine = crossBoth("machine", "core/machine").dependsOn(effects).settings(name := "okay-effects-machine")
 
 /** THE INTERFACE'S SUITE, a library: `InterfaceSuite(fx)` and its programs, for any implementation — here's, and the
  * bridges' in their own repositories (okay-core's, okay-kernel's): `"dev.okay" %% "okay-effects-tck" % ... % Test` */
-lazy val tck = (project in file("tck")).dependsOn(effects)
-  .settings(crossBuilt, name := "okay-effects-tck",
-    libraryDependencies := libraryDependencies.value.filterNot(_.name == "munit") :+ ("org.scalameta" %% "munit" % "1.2.3"))
+lazy val tck = crossBoth("tck", "tck").dependsOn(effects)
+  .settings(name := "okay-effects-tck",
+    libraryDependencies := libraryDependencies.value.filterNot(_.name == "munit") :+ ("org.scalameta" %%% "munit" % "1.2.3"))
 
 /** the interface's suites, on each implementation, by both compilers */
-lazy val suite = (project in file("suite")).dependsOn(machine, tck)
-  .settings(crossBuilt, name := "okay-effects-suite", publish / skip := true,
-    Test / unmanagedSourceDirectories ++= Seq("src/test/impl", s"src/test/impl-${major(scalaVersion.value)}").map(baseDirectory.value / _))
+lazy val suite = crossBoth("suite", "suite").dependsOn(machine, tck)
+  .settings(name := "okay-effects-suite", publish / skip := true,
+    Test / unmanagedSourceDirectories ++= Seq("src/test/impl", s"src/test/impl-${major(scalaVersion.value)}")
+      .map(baseDirectory.value.getParentFile / _))
 
 /** the interface on THE `Free` MONAD: Scala 3, a program a `Free` interpreted by its handlers */
-lazy val free = (project in file("core/free")).dependsOn(effects)
-  .settings(crossBuilt, name := "okay-effects-free")
+lazy val free = crossBoth("free", "core/free").dependsOn(effects)
+  .settings(name := "okay-effects-free")
 
 /** the interface's suite on the `Free` monad */
-lazy val suiteFree = (project in file("suite-free")).dependsOn(free, tck)
-  .settings(crossBuilt, name := "okay-effects-suite-free", publish / skip := true)
+lazy val suiteFree = crossBoth("suiteFree", "suite-free").dependsOn(free, tck)
+  .settings(name := "okay-effects-suite-free", publish / skip := true)
 
 /** EXAMPLES: how to write with the effects — code for both compilers, Scala 3's way, Scala 2's way — written over
  * `Effects` alone; run on the machine and on the `Free` monad by `OnMachine` and `OnFree`, their values checked on
  * each (`Checks`) */
-lazy val examples = (project in file("examples")).dependsOn(machine, free)
+lazy val examples = (project in file("examples")).dependsOn(machine.jvm, free.jvm)
   .settings(crossBuilt, name := "okay-effects-examples", publish / skip := true)
 
 /** the `Free` monad as Scala 2.13 builds it, on the interface's 2.13 build */
@@ -72,27 +79,30 @@ lazy val examplesMixed = (project in file("examples/mixed")).dependsOn(examples2
 
 /** INTEROP WITH CATS: cats' `Monad` of the programs, a cats monad's programs lifted in and a program lowered to one —
  * over any implementation, both compilers */
-lazy val interopCats = (project in file("interop/cats")).dependsOn(effects, machine % Test, free % Test)
-  .settings(crossBuilt, name := "okay-effects-cats", libraryDependencies ++= Seq("org.typelevel" %% "cats-core" % "2.13.0",
+lazy val interopCats = crossBoth("interopCats", "interop/cats").dependsOn(effects, machine % Test, free % Test)
+  .settings(name := "okay-effects-cats", libraryDependencies ++= Seq("org.typelevel" %%% "cats-core" % "2.13.0",
     // cats-effect 3's IO lowered to, in the checks: any cats monad is, the module asks no more
-    "org.typelevel" %% "cats-effect" % "3.5.7" % Test))
+    "org.typelevel" %%% "cats-effect" % "3.5.7" % Test))
 
 /** INTEROP WITH ZIO: a task performed in a program, a program lowered to a task */
-lazy val interopZio = (project in file("interop/zio")).dependsOn(effects, machine % Test, free % Test)
-  .settings(crossBuilt, name := "okay-effects-zio", libraryDependencies += "dev.zio" %% "zio" % "2.1.14")
+lazy val interopZio = crossBoth("interopZio", "interop/zio").dependsOn(effects, machine % Test, free % Test)
+  .settings(name := "okay-effects-zio", libraryDependencies += "dev.zio" %%% "zio" % "2.1.14")
+  // ZIO's runtime on Scala.js reads `java.time`: a port of it, for the checks
+  .jsSettings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.6.0" % Test)
 
 /** INTEROP WITH TOFU: `WithLocal` of a `Reader`, `Errors` of an `Error`, over cats' monad of the programs */
-lazy val interopTofu = (project in file("interop/tofu")).dependsOn(interopCats, machine % Test, free % Test)
+lazy val interopTofu = (project in file("interop/tofu")).dependsOn(interopCats.jvm, machine.jvm % Test, free.jvm % Test)
+  // the JVM's only: tofu is not built for Scala.js
   .settings(crossBuilt, name := "okay-effects-tofu", libraryDependencies += "tf.tofu" %% "tofu-kernel" % "0.14.3")
 
 /** TAGLESS: the interface's words over no implementation — a program a value, made once, run on the implementation
  * in the implicit context; each word that implementation's own. One per compiler: Scala 3's every word `inline` */
-lazy val tagless = (project in file("tagless")).dependsOn(effects, machine % Test, free % Test, tck % Test)
-  .settings(crossBuilt, name := "okay-effects-tagless")
+lazy val tagless = crossBoth("tagless", "tagless").dependsOn(effects, machine % Test, free % Test, tck % Test)
+  .settings(name := "okay-effects-tagless")
 
 /** MORE EFFECTS, each a module over the interface in `modules/`, both compilers, checked on the machine, on `Free`, on tagless */
-def effectModule(dir: String, artifact: String): Project = Project(dir, file("modules/" + dir)).dependsOn(effects, machine % Test, free % Test, tagless % Test)
-  .settings(crossBuilt, name := artifact)
+def effectModule(dir: String, artifact: String) = crossBoth(dir, "modules/" + dir)
+  .dependsOn(effects, machine % Test, free % Test, tagless % Test).settings(name := artifact)
 /** cooperative threads in turns, a channel between them */
 lazy val concurrent = effectModule("concurrent", "okay-effects-concurrent")
 /** resources released at a scope's end */
@@ -113,7 +123,7 @@ lazy val resilience = effectModule("resilience", "okay-effects-resilience")
 lazy val stream = effectModule("stream", "okay-effects-stream")
 
 /** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
-lazy val bench = (project in file("bench")).dependsOn(machine, free, tagless).enablePlugins(JmhPlugin)
+lazy val bench = (project in file("bench")).dependsOn(machine.jvm, free.jvm, tagless.jvm).enablePlugins(JmhPlugin)
   .settings(crossScalaVersions := Seq(scala3, scala2), name := "okay-effects-bench", publish / skip := true)
 
 /**
@@ -146,8 +156,10 @@ lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
     name := "okay-effects-compat-scala3", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
-lazy val root = (project in file(".")).aggregate(effects, tck, machine, suite, free, suiteFree, tagless, concurrent, resource, io, probability, parsing, logic, transaction, resilience, stream, interopCats, interopZio, interopTofu, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2)
+lazy val root = (project in file(".")).aggregate(effects.jvm, effects.js, tck.jvm, tck.js, machine.jvm, machine.js, suite.jvm, suite.js, free.jvm, free.js, suiteFree.jvm, suiteFree.js, tagless.jvm, tagless.js, concurrent.jvm, concurrent.js, resource.jvm, resource.js, io.jvm, io.js, probability.jvm, probability.js, parsing.jvm, parsing.js, logic.jvm, logic.js, transaction.jvm, transaction.js, resilience.jvm, resilience.js, stream.jvm, stream.js, interopCats.jvm, interopCats.js, interopZio.jvm, interopZio.js, interopTofu, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
 /** everything: the interface's suites by both compilers, then the two compilers in one application */
+/** the same suites on Scala.js (Node.js), by both compilers */
+addCommandAlias("testJS", "; ++3.9.0 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; interopCatsJS/test ; interopZioJS/test ; ++2.13.18 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; interopCatsJS/test ; interopZioJS/test ; ++3.9.0")
 addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++2.13.18 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test")

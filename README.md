@@ -369,8 +369,13 @@ evidence, passed on to the recursion):
 
 ## Build
 
+The interface, the machine, `Free`, the suite, tagless, the modules and interop with cats and ZIO are built for the
+JVM and for Scala.js (`CrossType.Pure`: one source; the JVM's project named as the module, Scala.js's `…JS`); tofu,
+the examples, the benchmark and the compatibility checks for the JVM.
+
 ```sh
-sbt testAll                                      # both compilers: everything here
+sbt testAll                                      # both compilers: everything here, on the JVM
+sbt testJS                                       # both compilers: the suites, tagless, the modules, interop, on Scala.js (Node.js)
 sbt "+effects/publishLocal" "+tck/publishLocal"  # the interface and its suite, for okay-core's and okay-kernel's bridges
 python3 /tmp/okz/tools/withlock.py sbt "bench/Jmh/run -f 2 -wi 5 -i 5 -w 1 -r 1 -prof gc"   # JMH, holding JMH's lock
 ```
