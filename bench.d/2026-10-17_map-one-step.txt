@@ -1,0 +1,30 @@
+== /tmp/okay-simple-base
+[info] ImplementationsBenchmark.askAcross4                       machine  avgt   10      29.872 ±   1.806   us/op
+[info] ImplementationsBenchmark.askAcross4:gc.alloc.rate.norm    machine  avgt   10  335272.021 ±   0.001    B/op
+[info] ImplementationsBenchmark.askAcross4In                     machine  avgt   10      23.226 ±   1.429   us/op
+[info] ImplementationsBenchmark.askAcross4In:gc.alloc.rate.norm  machine  avgt   10  255352.016 ±   0.001    B/op
+[info] ImplementationsBenchmark.askNear                          machine  avgt   10      21.915 ±   0.195   us/op
+[info] ImplementationsBenchmark.askNear:gc.alloc.rate.norm       machine  avgt   10  270408.015 ±   0.001    B/op
+[info] ImplementationsBenchmark.askNearIn                        machine  avgt   10      20.819 ±   0.089   us/op
+[info] ImplementationsBenchmark.askNearIn:gc.alloc.rate.norm     machine  avgt   10  254424.015 ±   0.001    B/op
+[info] ImplementationsBenchmark.binds                            machine  avgt   10      10.863 ±   0.048   us/op
+[info] ImplementationsBenchmark.binds:gc.alloc.rate.norm         machine  avgt   10  126056.008 ±   0.001    B/op
+[info] ImplementationsBenchmark.stateLoop                        machine  avgt   10      19.259 ±   0.564   us/op
+[info] ImplementationsBenchmark.stateLoop:gc.alloc.rate.norm     machine  avgt   10  286440.014 ±   0.001    B/op
+[info] ImplementationsBenchmark.stateLoopIn                      machine  avgt   10      18.086 ±   0.154   us/op
+[info] ImplementationsBenchmark.stateLoopIn:gc.alloc.rate.norm   machine  avgt   10  262456.013 ±   0.001    B/op
+== /Users/sergiy/work/my/okay-simple
+[info] ImplementationsBenchmark.askAcross4                       machine  avgt   10      23.370 ±   0.117   us/op
+[info] ImplementationsBenchmark.askAcross4:gc.alloc.rate.norm    machine  avgt   10  287272.016 ±   0.001    B/op
+[info] ImplementationsBenchmark.askAcross4In                     machine  avgt   10      19.544 ±   0.419   us/op
+[info] ImplementationsBenchmark.askAcross4In:gc.alloc.rate.norm  machine  avgt   10  207352.014 ±   0.001    B/op
+[info] ImplementationsBenchmark.askNear                          machine  avgt   10      16.051 ±   0.935   us/op
+[info] ImplementationsBenchmark.askNear:gc.alloc.rate.norm       machine  avgt   10  222408.011 ±   0.001    B/op
+[info] ImplementationsBenchmark.askNearIn                        machine  avgt   10      16.311 ±   0.079   us/op
+[info] ImplementationsBenchmark.askNearIn:gc.alloc.rate.norm     machine  avgt   10  206424.011 ±   0.001    B/op
+[info] ImplementationsBenchmark.binds                            machine  avgt   10       7.207 ±   0.152   us/op
+[info] ImplementationsBenchmark.binds:gc.alloc.rate.norm         machine  avgt   10   78056.005 ±   0.001    B/op
+[info] ImplementationsBenchmark.stateLoop                        machine  avgt   10      19.063 ±   0.054   us/op
+[info] ImplementationsBenchmark.stateLoop:gc.alloc.rate.norm     machine  avgt   10  286440.013 ±   0.001    B/op
+[info] ImplementationsBenchmark.stateLoopIn                      machine  avgt   10      18.118 ±   0.087   us/op
+[info] ImplementationsBenchmark.stateLoopIn:gc.alloc.rate.norm   machine  avgt   10  262456.013 ±   0.001    B/op

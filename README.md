@@ -1,15 +1,15 @@
 # okay-simple
 
 One simple interface for effect systems, for Scala 3 and Scala 2.13: the types `!`, `+`, `%`, the functions
-`perform`, `handle`, `split`, `run` (module `api`, package `okay.api`), and the standard effects written once on them
-(module `std`, package `okay.std`; their definitions in the object `okay.std.Std`, so that other effects of the same
-names in `okay.std` do not clash). The interface is ONE for both compilers, `Effectful`: a row is a type
+`perform`, `handle`, `split`, `run`, and the standard effects written once on them, `Std` (module `effects`, package
+`okay.effects`; the standard effects' definitions inside the object `Std`, so that other effects of the same names
+do not clash). The interface is ONE for both compilers, `Effectful`: a row is a type
 constructor in both, and everything over it is one source. Only how a row is written is each compiler's own
 `Effects`: in Scala 3 by type lambdas, `Choose + State % Int`; in Scala 2 by names taken as the constructor they
 make, `(*[Choose] + (State % Int))#L`. The interface fixes no implementation: a program, a row's evidence
 are abstract types, and an implementation makes them what it likes. `simple/` is its own implementation; `core/`
 runs the same programs on okay-core's machine, `kernel/` on okay-kernel's protocol. An implementation knows nothing
-of the standard effects: they are the trait `Std`, mixed in where an implementation is offered (`Simple`, `Core`,
+of the standard effects: they are the trait `Std`, mixed in where an implementation is offered (`Machine`, `Core`,
 `OnKernel.on`).
 
 ## A program
@@ -17,7 +17,7 @@ of the standard effects: they are the trait `Std`, mixed in where an implementat
 Scala 3:
 
 ```scala
-import okay.simple.machine.Simple.*          // everything: the types, the primitives, the effects and their handlers
+import okay.effects.simple.Machine.*          // everything: the types, the primitives, the effects and their handlers
 
 // in any row that has these three, at any place
 def greet[R[_]: {Has[Reader % String], Has[Writer % String], Has[State % Int]}]: Int ! R =
@@ -35,7 +35,7 @@ run(reader("Ann")(state(10)(writer[String](greet[Row]))))             // (13, (L
 Scala 2:
 
 ```scala
-import okay.simple.machine.Simple._
+import okay.effects.simple.Machine._
 
 def greet[R[_]](implicit r: In[(Reader % String)#L, R], w: In[(Writer % String)#L, R], s: In[(State % Int)#L, R]): Int ! R =
   for {
@@ -73,7 +73,7 @@ a row as both read it, `({ type L[x] = Sum[R, E, x] })#L`.
 The evidence is found by implicit search, the same in both, from `splitOne`, `splitLast`, `splitInit` (`E`
 further in). `handle` takes `E` from wherever it is in the row: by default `split(p)`, moving `E` to the end of the
 row, then `handleLast`, taking the last effect; an implementation may take it from its place at once. Both take a
-handler of any of the three shapes: `handle(p, h)`, `handle(p, s0, h)` for a stateful one.
+handler of any of the four shapes: `handle(p, h)`, `handle(p, s0, h)` for a stateful one.
 `p.into[S]` puts a program in a row of more effects.
 
 ## An effect and its handler
@@ -124,12 +124,13 @@ times (`Choose`'s `all` resumes it once per choice).
 
 The standard effects, each handled from anywhere in the row: `State` (`state(s0)`), `Reader` (`reader(e)`),
 `Writer` (`writer[W]`), `Error` (`attempt[E]`), `Choose` (`all`): one source for both compilers, their
-definitions the object `okay.std.Std`, their operations and handlers the trait `Std`.
+definitions the object `okay.effects.Std`, their operations and handlers the trait `Std`.
 
 ## Scala 2 and Scala 3: one interface, compatible
 
-The interface is one source, `Effectful` (`api/src/main/scala`): the program, the row's evidence, the primitives,
-the handlers' shapes (`Clauses`, `TailClauses`, `StatefulClauses`; `Handler[E, R, A, B]` is `Clauses[E, A, B ! R]`),
+The interface is one source, `Effectful` (`effects/src/main/scala`): the program, the row's evidence, the primitives,
+the handlers' shapes (`Clauses`, `TailClauses`, `StatefulClauses`, `StatefulTailClauses`; `Handler[E, R, A, B]` is
+`Clauses[E, A, B ! R]`),
 `Cell`, the defaults. Each compiler's `Effects` (`scala-2/`, `scala-3/`) adds only how a row is written. So the
 standard effects, the protocol's bridge and the suite's checks are one source too; the machines are each
 compiler's, as Scala 2 has no GADT inference to type the walk to a handler.
@@ -150,7 +151,7 @@ writes rows as Scala 2 does. An application of Scala 3 alone takes the Scala 3 b
 All behind the same interface, all run by the same suites (`suite/`; `machine` and the protocol's bridge by both
 compilers).
 
-- **`simple/`, the machine, one per compiler** — the same interface, the same suites, `okay.simple.machine.Simple`:
+- **`simple/`, the machine, one per compiler** — the same interface, the same suites, `okay.effects.simple.Machine`:
   - **Scala 3's own** (`simple/src/main/scala-3`): typed by Scala 3's GADT inference throughout, NO CAST. A program
     is `Prog[R, A]`, of its row, a type constructor; an operation `Perf(at, op)`, its place a typed path
     (`LastPlace`, `InitPlace`, `OnePlace` — the `Split` evidence itself), its operation an `E[X]`. The frames `Frames[R, X, V]` aligned, the
@@ -185,10 +186,16 @@ okay-core's look-up, kept on its path, is found again the next time.
 
 Both run in constant stack: 100 000 operations under three handlers, 100 000 binds.
 
-Three shapes of handler: a general one, `Handler`, whose clause gets `k`; one answering in place, `TailHandler`, every
-clause resuming `k` once, at once (`Reader`); and the same with a state of its own in a `Cell`, `StatefulHandler`
-(`State`, `Writer`). The machine answers the last two where the operation finds them: no `k`, no allocation, the
-state written in its level. A `k` taken by a general handler across a stateful level copies its state, so resumed
+Four shapes of handler, general or answering in place, with a state of its own or without:
+
+| | its clause gets `k` | answered in place, every clause resuming `k` once, at once |
+|---|---|---|
+| no state | `Handler` | `TailHandler` (`Reader`) |
+| a state of its own | `StatefulHandler`: the state of its time, `k` resumed with the next | `StatefulTailHandler`, the state in a `Cell` (`State`, `Writer`) |
+
+A stateful general handler is a handler with a parameter: `k(x, s)` goes on from the state `s`, so a `k` resumed
+twice runs each branch from its own. The machine answers the two in place where the operation finds them: no `k`,
+no allocation, the state written in its level. A `k` taken by a general handler across a stateful level copies its state, so resumed
 twice it resumes the state of its time. An implementation with no such forms runs them as general handlers (the
 interface's defaults).
 
