@@ -35,11 +35,11 @@ trait Effects extends Effectful {
 
   /** the standard effects on this implementation: `import Machine.std._`. Final, a stable path to import from; made
    * by `newStd`, which an implementation may override with a `Std` of better handlers */
-  final lazy val std: Std[this.type] = newStd
+  final val std: Std[this.type] = newStd
   protected def newStd: Std[this.type] = new Std[this.type](this)
   /** delimited control changing answer types (`Delimited`), made by `newDelimited`: by default continuation-passing
    * over this implementation's programs; an implementation with continuations of its own overrides it */
-  final lazy val delimited: Delimited[this.type] = newDelimited
+  final val delimited: Delimited[this.type] = newDelimited
   protected def newDelimited: Delimited[this.type] = new Delimited.ByCps[this.type](this)
 
   /** a program's methods: `p.flatMap(f)`, `p.map(f)`, `p.into[S]` */

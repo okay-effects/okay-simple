@@ -87,7 +87,7 @@ lazy val interopTofu = (project in file("interop/tofu")).dependsOn(interopCats, 
 
 /** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
 lazy val bench = (project in file("bench")).dependsOn(machine, free).enablePlugins(JmhPlugin)
-  .settings(crossScalaVersions := Seq(scala3), name := "okay-effects-bench", publish / skip := true)
+  .settings(crossScalaVersions := Seq(scala3, scala2), name := "okay-effects-bench", publish / skip := true)
 
 /**
  * COMPATIBILITY. One application has one build of the interface. The interface is one source; how a row is written

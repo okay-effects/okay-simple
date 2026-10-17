@@ -241,29 +241,37 @@ private[machine] object Engine {
     case b: Bind[r, y, x] => loop[R, y, V, Z](b.p, new Then[R, y, x, V](b.f, fs), m)
     case b: Mapping[r, y, x] => loop[R, y, V, Z](b.p, new Mapped[R, y, x, V](b.f, fs), m)
     case p: Perf[r, x] =>
-      // the handler, walked to by the levels' fields: a remapping renames the place, a handler counts one
-      var n = p.at
-      var l: Level0 = m
-      while (l.kind == RemapKind || (n != 0 && l.kind == HandlerKind)) {
-        if (l.kind == RemapKind) n = l.rename(n) else n -= 1
-        l = l.outer
-      }
-      l match {
-        case a: Answering =>
-          // answered in place, the answer straight into the next frame: no `Done` made
-          val x = a.answerAny(p.op).asInstanceOf[x]
-          fs match {
-            case t: Then[r2, a2, y, v] => loop[R, y, V, Z](t.f(x), t.rest, m)
-            case _ => loop[R, X, V, Z](Done(x), fs, m)
-          }
-        case _ =>
-          val g = walk[R, x, V, R, V, Z](p.at, p.op, fs, none[R, V], m)
-          loop[g.R, g.X, g.V, Z](g.c, g.fs, g.m)
+      val a = inPlace(p.at, m)
+      if (a ne null) {
+        // answered in place, the answer straight into the next frame: no `Done` made
+        val x = a.answerAny(p.op).asInstanceOf[x]
+        fs match {
+          case t: Then[r2, a2, y, v] => loop[R, y, V, Z](t.f(x), t.rest, m)
+          case _ => loop[R, X, V, Z](Done(x), fs, m)
+        }
+      } else {
+        val g = walk[R, x, V, R, V, Z](p.at, p.op, fs, none[R, V], m)
+        loop[g.R, g.X, g.V, Z](g.c, g.fs, g.m)
       }
     case d: Delay[r, x] => loop[R, X, V, Z](d.p(), fs, m)
     case _ =>
       val g = cold[R, X, V, Z](c, fs, m)
       loop[g.R, g.X, g.V, Z](g.c, g.fs, g.m)
+  }
+
+  /** the level the operation at `n` is answered by in place, walked to by the levels' fields — a remapping renames the
+   * place, a handler counts one; `null`: its handler takes `k`, or none answers it here */
+  private def inPlace(n0: Int, m: Level0): Answering = {
+    var n = n0
+    var l = m
+    while (l.kind == RemapKind || (n != 0 && l.kind == HandlerKind)) {
+      if (l.kind == RemapKind) n = l.rename(n) else n -= 1
+      l = l.outer
+    }
+    l match {
+      case a: Answering => a
+      case _ => null
+    }
   }
 
   /** the loop's cold steps: a level entered, a `k` resumed; a step of the loop's own given back to it */
