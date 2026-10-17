@@ -18,7 +18,7 @@ machine and to okay-kernel's protocol, all checked by one suite.
 | `machine/` | `okay-effects-machine` | `okay.effects.machine` | THE MACHINE, one per compiler: `okay.effects.machine.Machine` |
 | `free/` | `okay-effects-free` | `okay.effects.free` | THE `Free` MONAD, one per compiler: `okay.effects.free.Free` (through the interface), `OnFree` (as it is) |
 | `tagless/` | `okay-effects-tagless` | `okay.effects.tagless` | TAGLESS: `Tagless`, an `Effects` of no implementation — a program a value, run on the `Runner` in the implicit context |
-| `concurrent/`, `resource/`, `io/`, `probability/`, `parsing/`, `logic/`, `transaction/`, `resilience/` | `okay-effects-concurrent`, ... | `okay.effects.concurrent`, ... | MORE EFFECTS, each over the interface: see below |
+| `modules/`: `concurrent`, `resource`, `io`, `probability`, `parsing`, `logic`, `transaction`, `resilience` | `okay-effects-concurrent`, ... | `okay.effects.concurrent`, ... | MORE EFFECTS, each over the interface: see below |
 | `tck/` | `okay-effects-tck` | `okay.effects` | the interface's suite, a library: `InterfaceSuite(fx)` for any implementation |
 | `interop/cats`, `interop/zio`, `interop/tofu` | `okay-effects-cats`, `-zio`, `-tofu` | `okay.effects.cats`, `.zio`, `.tofu` | interop with cats (and cats-effect 3), ZIO, tofu |
 | `examples/` | — | `okay.effects.examples` | examples over `Effects` alone, run on the machine and on `Free` |
@@ -187,7 +187,7 @@ constant stack; okay-core's bridge has it native, on okay-core's own `shift0` an
 
 ## More effects
 
-Modules over the interface, one source for both compilers, each checked on the machine and on `Free`; each a class
+Modules over the interface, in `modules/`, one source for both compilers, each checked on the machine and on `Free`; each a class
 over an implementation, `Concurrent(fx)`, `Io(fx)`, ...:
 
 | Module | What it gives |

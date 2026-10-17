@@ -1,6 +1,6 @@
 package okay.effects.probability
 
-import okay.effects.{Effects, Std}
+import okay.effects.Effects
 
 /** a random choice: `Weighted(xs)`, one of the values, each with its weight (positive, summing to anything) */
 sealed trait Dist[X]
@@ -44,7 +44,7 @@ class Probability[F <: Effects](val fx: F) {
       def ret(a: A) = pure(a)
       def op[X](op: Dist[X], k: X => A ! Rest) = op match {
         case Dist.Weighted(xs) =>
-          nextDouble[Rest](rnd).flatMap { u =>
+          nextDouble[Rest].flatMap { u =>
             val target = u * xs.map(_._2).sum
             def pick(ys: List[(X, Double)], acc: Double): X = ys match {
               case (x, _) :: Nil => x
