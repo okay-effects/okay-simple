@@ -74,7 +74,6 @@ private[machine] trait Places extends MachineTypes {
   implicit def subOne[E <: Effect, S](implicit e: In[E, S]): Sub[E, S] = new Renaming[E, S] {
     def apply[E2](at: Place[E2, E, ?]): Place[E2, S, ?] = at match {
       case _: OnePlace[e] => e
-      case other => throw new IllegalStateException(s"not a place in a row of one: $other")
     }
   }
   implicit def subMore[R, E <: Effect, S](implicit r: Sub[R, S], e: In[E, S]): Sub[R + E, S] = new Renaming[Plus[R, E], S] {
@@ -98,7 +97,6 @@ private[machine] trait Places extends MachineTypes {
     case l: HandlerLevel[e, t, a, b, w, z] => at match {
       case _: LastPlace[r, e2] => l
       case ip: InitPlace[e2, r, g, rest] => levelOf[E, t, w, Z](ip.s, l.m)
-      case other => throw new IllegalStateException(s"not a place at a handler: $other")
     }
     case r: RemapLevel[r1, r2, a, w, z] => levelOf[E, r2, w, Z](r.rename(at), r.m)
     case _ => throw new IllegalStateException(s"an operation no handler took, at $at")
@@ -113,7 +111,6 @@ private[machine] trait Places extends MachineTypes {
     case l: HandlerLevel[e, t, a, b, w, z] => at match {
       case _: LastPlace[r, e2] => l.found[R0, X, V0](op, inner, pre)
       case ip: InitPlace[e2, r, g, rest] => walk[E, R0, X, V0, t, w, Z](ip.s, op, inner, l.crossed(pre), l.m)
-      case other => throw new IllegalStateException(s"not a place at a handler: $other")
     }
     case r: RemapLevel[r1, r2, a, w, z] => walk[E, R0, X, V0, r2, w, Z](r.rename(at), op, inner, r.crossed(pre), r.m)
     case _ => throw new IllegalStateException(s"an operation no handler took, at $at")

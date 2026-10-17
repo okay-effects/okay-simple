@@ -30,6 +30,20 @@ class Lanes(val fx: Simple) {
   type RS = State % Int
   def counting(i: Int): Unit ! RS = if (i == 0) pure(()) else get[Int, RS].flatMap(s => put[Int, RS](s + 1)).andThen(counting(i - 1))
   def stateLoop: Int = run(state(0)(counting(n)))._1
+
+  // -- THE SAME, ROW-POLYMORPHIC: the effects asked as evidence, `In`, once per call, passed on to the recursion —
+  // the row named once, outside; its places made once, not at each operation
+
+  def asksIn[R](i: Int)(implicit in: In[Reader % Int, R]): Int ! R =
+    if (i == 0) pure(0) else ask[Int, R].flatMap(x => asksIn[R](i - 1).map(_ + x))
+  def askNearIn: Int = run(reader(1)(asksIn[R0](n)))
+  def askAcross4In: Int = run(reader(1)(state(0)(writer[Int](attempt[Int](all(asksIn[R4](n))))))) match {
+    case (_, (_, Right(List(v)))) => v
+    case other => sys.error(other.toString)
+  }
+  def countingIn[R](i: Int)(implicit in: In[State % Int, R]): Unit ! R =
+    if (i == 0) pure(()) else get[Int, R].flatMap(s => put[Int, R](s + 1)).andThen(countingIn[R](i - 1))
+  def stateLoopIn: Int = run(state(0)(countingIn[RS](n)))._1
 }
 
 @JmhState(Scope.Benchmark)
@@ -53,4 +67,7 @@ class ImplementationsBenchmark {
   @Benchmark def askNear: Int = lanes.askNear
   @Benchmark def askAcross4: Int = lanes.askAcross4
   @Benchmark def stateLoop: Int = lanes.stateLoop
+  @Benchmark def askNearIn: Int = lanes.askNearIn
+  @Benchmark def askAcross4In: Int = lanes.askAcross4In
+  @Benchmark def stateLoopIn: Int = lanes.stateLoopIn
 }
