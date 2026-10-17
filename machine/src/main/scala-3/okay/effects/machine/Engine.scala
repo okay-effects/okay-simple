@@ -115,19 +115,16 @@ private[machine] object Engine:
 
   // -- THE LOOP
 
-  /** the handler `at` is answered by, walked by the path. An operation at the empty effect's place, or past every
-   * handler — in the row of no effect, where its only place is `Only[Void]` — is an operation of `Void`: there is
-   * none, absurd */
-  @tailrec private def found[E[_], X, R[_], V, Z](at: Place[E, R, ?], op: E[X], m: Meta[R, V, Z]): Level[E, ?, ?, ?] =
+  /** the handler `at` is answered by, walked by the path; `null` past every handler or at the empty effect's place —
+   * the operation of `Void`, which `walk` finds absurd */
+  @tailrec private def found[E[_], R[_], V, Z](at: Place[E, R, ?], m: Meta[R, V, Z]): Level[E, ?, ?, ?] | Null =
     m match
       case l: Meta.Handler[e, t, a, b, w, z] => (at: @unchecked) match
         case _: Place.Last[r, e2] => l.lv
-        case ip: Place.Init[e2, r, g, rest] => found[E, X, t, w, Z](ip.s, op, l.m)
-        case _: Place.Absurd[r] => op.absurd
-      case r: Meta.Remapped[r1, r2, a, w, z] => found[E, X, r2, w, Z](r.rename(at), op, r.m)
-      case _: Meta.Top[z] => (at: @unchecked) match
-        case _: Place.Only[e2] => op.absurd
-        case _: Place.Absurd[r] => op.absurd
+        case ip: Place.Init[e2, r, g, rest] => found[E, t, w, Z](ip.s, l.m)
+        case _: Place.Absurd[r] => null
+      case r: Meta.Remapped[r1, r2, a, w, z] => found[E, r2, w, Z](r.rename(at), r.m)
+      case _: Meta.Top[z] => null
 
   @tailrec private def loop[R[_], X, V, Z](c: Prog[R, X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Z = c match
     case d: Prog.Done[r, x] => fs match
@@ -140,7 +137,7 @@ private[machine] object Engine:
           loop(g.c, g.fs, g.m)
     case b: Prog.Bind[r, y, x] => loop[R, y, V, Z](b.p, Frames.Then[R, y, x, V](b.f, fs), m)
     case b: Prog.Mapping[r, y, x] => loop[R, y, V, Z](b.p, Frames.Mapped[R, y, x, V](b.f, fs), m)
-    case p: Prog.Perf[r, e, x] => found[e, x, R, V, Z](p.at, p.op, m) match
+    case p: Prog.Perf[r, e, x] => found[e, R, V, Z](p.at, m) match
       // answered in place, the answer straight into the next frame: no `Done` made
       case t: Level.Tail[e2, t2, a2, b2] =>
         val v = t.h.answer[x](p.op)
