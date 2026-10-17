@@ -90,6 +90,18 @@ lazy val interopZio = crossBoth("interopZio", "interop/zio").dependsOn(effects, 
   // ZIO's runtime on Scala.js reads `java.time`: a port of it, for the checks
   .jsSettings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.6.0" % Test)
 
+/** INTEROP WITH JAVA'S STREAMS AND ITERATORS: the stream module's streams to and from them. The JVM's: Scala.js has no
+ * `java.util.stream` */
+lazy val interopJavaStream = (project in file("interop/java-stream"))
+  .dependsOn(effects.jvm, stream.jvm, machine.jvm % Test, free.jvm % Test, tagless.jvm % Test)
+  .settings(crossBuilt, name := "okay-effects-java-stream")
+
+/** INTEROP WITH ZIO'S STREAMS: a stream of ZIO's tasks a `ZStream`, and back */
+lazy val interopZioStream = crossBoth("interopZioStream", "interop/zio-stream")
+  .dependsOn(interopZio, stream, machine % Test, free % Test, tagless % Test)
+  .settings(name := "okay-effects-zio-stream", libraryDependencies += "dev.zio" %%% "zio-streams" % "2.1.14")
+  .jsSettings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.6.0" % Test)
+
 /** INTEROP WITH TOFU: `WithLocal` of a `Reader`, `Errors` of an `Error`, over cats' monad of the programs */
 lazy val interopTofu = (project in file("interop/tofu")).dependsOn(interopCats.jvm, machine.jvm % Test, free.jvm % Test)
   // the JVM's only: tofu is not built for Scala.js
@@ -152,7 +164,8 @@ def docBlocks(lang: String) = Def.task {
 }
 lazy val docsCheck = (project in file("docs/check/scala-3"))
   .dependsOn(tck.jvm, machine.jvm, free.jvm, tagless.jvm, concurrent.jvm, resource.jvm, io.jvm, probability.jvm, parsing.jvm, logic.jvm,
-    transaction.jvm, resilience.jvm, stream.jvm, async.jvm, interopCats.jvm, interopZio.jvm, interopTofu)
+    transaction.jvm, resilience.jvm, stream.jvm, async.jvm, interopCats.jvm, interopZio.jvm, interopTofu, interopJavaStream,
+    interopZioStream.jvm)
   .settings(scalaVersion := scala3, crossScalaVersions := Seq(scala3), publish / skip := true, libraryDependencies += munit,
     libraryDependencies += "org.typelevel" %% "cats-effect" % "3.5.7",
     scalacOptions ++= Seq("-deprecation", "-feature", "-Wconf:msg=unused:s"), Test / sourceGenerators += docBlocks("scala").taskValue)
@@ -191,10 +204,10 @@ lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
     name := "okay-effects-compat-scala3", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
-lazy val root = (project in file(".")).aggregate(docsCheck, docsCheck2, effects.jvm, effects.js, tck.jvm, tck.js, machine.jvm, machine.js, suite.jvm, suite.js, free.jvm, free.js, suiteFree.jvm, suiteFree.js, tagless.jvm, tagless.js, concurrent.jvm, concurrent.js, resource.jvm, resource.js, io.jvm, io.js, probability.jvm, probability.js, parsing.jvm, parsing.js, logic.jvm, logic.js, transaction.jvm, transaction.js, resilience.jvm, resilience.js, stream.jvm, stream.js, async.jvm, async.js, interopCats.jvm, interopCats.js, interopZio.jvm, interopZio.js, interopTofu, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2)
+lazy val root = (project in file(".")).aggregate(docsCheck, docsCheck2, effects.jvm, effects.js, tck.jvm, tck.js, machine.jvm, machine.js, suite.jvm, suite.js, free.jvm, free.js, suiteFree.jvm, suiteFree.js, tagless.jvm, tagless.js, concurrent.jvm, concurrent.js, resource.jvm, resource.js, io.jvm, io.js, probability.jvm, probability.js, parsing.jvm, parsing.js, logic.jvm, logic.js, transaction.jvm, transaction.js, resilience.jvm, resilience.js, stream.jvm, stream.js, async.jvm, async.js, interopCats.jvm, interopCats.js, interopZio.jvm, interopZio.js, interopTofu, interopJavaStream, interopZioStream.jvm, interopZioStream.js, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
 /** everything: the interface's suites by both compilers, then the two compilers in one application */
 /** the same suites on Scala.js (Node.js), by both compilers */
-addCommandAlias("testJS", "; ++3.9.0 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; asyncJS/test ; interopCatsJS/test ; interopZioJS/test ; ++2.13.18 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; asyncJS/test ; interopCatsJS/test ; interopZioJS/test ; ++3.9.0")
-addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++2.13.18 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test ; docsCheck/test ; ++2.13.18 docsCheck2/test ; ++3.9.0")
+addCommandAlias("testJS", "; ++3.9.0 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; asyncJS/test ; interopCatsJS/test ; interopZioJS/test ; interopZioStreamJS/test ; ++2.13.18 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; asyncJS/test ; interopCatsJS/test ; interopZioJS/test ; interopZioStreamJS/test ; ++3.9.0")
+addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; interopJavaStream/test ; interopZioStream/test ; ++2.13.18 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; interopJavaStream/test ; interopZioStream/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test ; docsCheck/test ; ++2.13.18 docsCheck2/test ; ++3.9.0")

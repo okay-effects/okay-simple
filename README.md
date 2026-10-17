@@ -25,7 +25,7 @@ guide, a page for each module; every code block compiled and run.
 | `core/tagless/` | `okay-effects-tagless` | `okay.effects.tagless` | TAGLESS: `Tagless`, an `Effects` of no implementation — a program a value, run on the `Runner` in the implicit context |
 | `modules/`: `concurrent`, `resource`, `io`, `probability`, `parsing`, `logic`, `transaction`, `resilience`, `stream`, `async` | `okay-effects-concurrent`, ... | `okay.effects.concurrent`, ... | MORE EFFECTS, each over the interface: see below |
 | `tck/` | `okay-effects-tck` | `okay.effects` | the interface's suite, a library: `InterfaceSuite(fx)` for any implementation |
-| `interop/cats`, `interop/zio`, `interop/tofu` | `okay-effects-cats`, `-zio`, `-tofu` | `okay.effects.cats`, `.zio`, `.tofu` | interop with cats (and cats-effect 3), ZIO, tofu |
+| `interop/cats`, `interop/zio`, `interop/zio-stream`, `interop/java-stream`, `interop/tofu` | `okay-effects-cats`, `-zio`, `-zio-stream`, `-java-stream`, `-tofu` | `okay.effects.cats`, `.zio`, `.zstream`, `.jstream`, `.tofu` | interop with cats (and cats-effect 3), ZIO and its streams, Java's streams, tofu |
 | `examples/` | — | `okay.effects.examples` | examples over `Effects` alone, run on the machine and on `Free` |
 | `suite/`, `suite-free/`, `compat/`, `bench/` | — | — | the suite on each implementation, the compatibility checks, the benchmark |
 
@@ -332,6 +332,8 @@ Over any implementation, both compilers; another monad's programs inside a progr
 |---|---|
 | `interop/cats` | `Cats().monad[R]`, cats' `Monad` of the programs (stack safe); a `Lowering` of any cats monad — `IO` of cats-effect 3, `Either`, `Option` |
 | `interop/zio` | `ZioEffects()`: `fromZIO(task)`, `toZIO(p)` — a ZIO task a `Lift[Task, *]`, a program a `Task` |
+| `interop/java-stream` | `JavaStreams()`: Java's `Stream`s and `Iterator`s to and from the stream module's streams, both ways lazy (the JVM's) |
+| `interop/zio-stream` | `ZioStreams()`: a stream of ZIO's tasks a `ZStream` (`toZStream`), a `ZStream` a stream (`fromZStream`) |
 | `interop/tofu` | `Tofu(Cats())`: `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row named |
 
 ## Examples

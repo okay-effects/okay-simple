@@ -57,4 +57,4 @@ assert(run(range[Pure](0, 5).map(_ * 2).toList) == List(0, 2, 4, 6, 8))
 | [logic](modules/logic.md) | logic variables, unification, relations either way, a fair search |
 | [transaction](modules/transaction.md) | transactions on a store, rolled back on an error |
 | [resilience](modules/resilience.md) | retries and fallbacks |
-| [interop](modules/interop.md) | cats (and cats-effect), ZIO, tofu |
+| [interop](modules/interop.md) | cats (and cats-effect), ZIO and its streams, Java's streams, tofu |

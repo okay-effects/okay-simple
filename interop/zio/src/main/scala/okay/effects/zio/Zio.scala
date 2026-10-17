@@ -10,7 +10,7 @@ import zio.{Task, ZIO}
  *  - `toZIO(p)`: a program whose one effect is `Lift[Task, *]` as a `Task[A]`, `lower` by ZIO's bind — the rest
  *    suspended in it, so a throw in it is the task's failure.
  *
- * `val z = ZioEffects(Machine); import z._`
+ * `implicit val fx: Runner = Machine; val z = ZioEffects(); import z._`
  */
 class ZioEffects[F <: Runner](implicit val fx: F) {
   import fx._
