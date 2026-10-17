@@ -17,6 +17,7 @@ machine and to okay-kernel's protocol, all checked by one suite.
 | `effects/` | `okay-effects` | `okay.effects` | the interface (`Effectful`, each compiler's `Effects`), the standard effects (`Std`), delimited control changing answer types (`Delimited`); typed places for Scala 3 implementations (`Places`) |
 | `machine/` | `okay-effects-machine` | `okay.effects.machine` | THE MACHINE, one per compiler: `okay.effects.machine.Machine` |
 | `free/` | `okay-effects-free` | `okay.effects.free` | THE `Free` MONAD, one per compiler: `okay.effects.free.Free` (through the interface), `OnFree` (as it is) |
+| `tagless/` | `okay-effects-tagless` | `okay.effects.tagless` | TAGLESS: the interface's words over no implementation — a program a value, run on the implementation in the implicit context |
 | `tck/` | `okay-effects-tck` | `okay.effects` | the interface's suite, a library: `InterfaceSuite(fx)` for any implementation |
 | `interop/cats`, `interop/zio`, `interop/tofu` | `okay-effects-cats`, `-zio`, `-tofu` | `okay.effects.cats`, `.zio`, `.tofu` | interop with cats (and cats-effect 3), ZIO, tofu |
 | `examples/` | — | `okay.effects.examples` | examples over `Effects` alone, run on the machine and on `Free` |
@@ -225,6 +226,42 @@ as Scala 2 does. An application of Scala 3 alone takes the Scala 3 build. Proven
   answering place 0 and passing any other on, one place in: two effects of one type in a row stay two places.
 
 All run in constant stack: 100 000 operations under three handlers, 100 000 binds.
+
+## Tagless
+
+`tagless/`: the same words — `!`, `In`, `Split`, `perform`, `handle` of each shape, `std` — over NO implementation.
+A program is a `Program[A, R]`, a function of the implementation, `on(fx)`; so is the evidence. The program is a
+value, made once and run on any implementation; the implementation is asked for once, at `run`, from the implicit
+context:
+
+```scala
+import okay.effects.Effects
+import okay.effects.machine.Machine
+import okay.effects.tagless.Tagless.*
+import okay.effects.tagless.Tagless.std.*
+
+def greet[R[_]: {Has[Reader % String], Has[State % Int]}]: Int ! R =
+  for { name <- ask[String, R]; n <- get[Int, R]; _ <- put[Int, R](n + 1) } yield n
+
+val greeted: (Int, Int) ! Pure = state(0)(reader("Ann")(greet[Reader % String + State % Int]))
+
+given Effects = Machine      // or Free, or okay-core's Core
+run(greeted)
+```
+
+Each word made on `fx` is `fx`'s own: `pure` its `pure`, a handler its `handle` of the same shape, `state` its
+`std.state` — so what an implementation does better it does here too. One trusted step: the `k` an implementation
+gives a general handler's clause is given back to the clause as a `Program` (a cast, checked by identity: a `k`
+kept and run on another implementation fails). Delimited control changing answer types (`delimited`) is not here.
+
+Its price, a `Program` made and then made again on `fx` at each node (Scala 3, µs, the programs of `Measured`):
+
+| Program | machine | tagless on the machine | `Free` | tagless on `Free` |
+|---|---|---|---|---|
+| 1000 maps | 6.9 | 12.1 | 12.0 | 17.2 |
+| 1000 `ask`s under their handler | 17.2 | 22.4 | 33.9 | 34.7 |
+| across four handlers | 23.3 | 36.6 | 71.0 | 86.7 |
+| 1000 `get`/`put` pairs | 18.5 | 32.1 | 20.5 | 39.5 |
 
 ## Interop
 

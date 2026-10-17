@@ -1,0 +1,921 @@
+[info] welcome to sbt 1.13.0 (Eclipse Adoptium Java 26.0.2.1)
+[info] loading global plugins from /Users/sergiy/.sbt/1.0/plugins
+[info] loading settings for project tl-build from plugins.sbt...
+[info] loading project definition from /private/tmp/ab/tl/project
+[info] loading settings for project root from build.sbt...
+[info] resolving key references (17363 settings) ...
+[info] set current project to root (in build file:/private/tmp/ab/tl/)
+[info] Setting Scala version to 3.9.0 on 15 projects.
+[info] Excluded 6 projects, run ++ 3.9.0 -v for more details.
+[info] Reapplying settings...
+[info] set current project to root (in build file:/private/tmp/ab/tl/)
+[info] Defining bench / Jmh / run / javaOptions
+[info] The new value will be used by bench / Jmh / run / forkOptions, bench / Jmh / run / runner
+[info] Reapplying settings...
+[info] set current project to root (in build file:/private/tmp/ab/tl/)
+[info] compiling 5 Scala sources to /private/tmp/ab/tl/effects/target/scala-3.9.0/classes ...
+[info] done compiling
+[info] compiling 2 Scala sources to /private/tmp/ab/tl/tagless/target/scala-3.9.0/classes ...
+[info] compiling 2 Scala sources to /private/tmp/ab/tl/free/target/scala-3.9.0/classes ...
+[info] compiling 2 Scala sources to /private/tmp/ab/tl/machine/target/scala-3.9.0/classes ...
+[info] done compiling
+[info] done compiling
+[info] done compiling
+[info] compiling 3 Scala sources to /private/tmp/ab/tl/bench/target/scala-3.9.0/classes ...
+[info] done compiling
+[info] running (fork) org.openjdk.jmh.generators.bytecode.JmhBytecodeGenerator /private/tmp/ab/tl/bench/target/scala-3.9.0/classes /private/tmp/ab/tl/bench/target/scala-3.9.0/src_managed/jmh /private/tmp/ab/tl/bench/target/scala-3.9.0/resource_managed/jmh default
+[info] Processing 4 classes from /private/tmp/ab/tl/bench/target/scala-3.9.0/classes with "reflection" generator
+[info] Writing out Java source to /private/tmp/ab/tl/bench/target/scala-3.9.0/src_managed/jmh and resources to /private/tmp/ab/tl/bench/target/scala-3.9.0/resource_managed/jmh
+[info] compiling 19 Java sources to /private/tmp/ab/tl/bench/target/scala-3.9.0/classes ...
+[info] done compiling
+[info] running (fork) org.openjdk.jmh.Main -f 2 -wi 5 -i 5 -w 1 -r 1 -prof gc TaglessBenchmark
+[info] # WARNING: JMH lock is ignored by user request, make sure no other JMH instances are running
+[error] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[error] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/private/tmp/ab/tl/target/bg-jobs/sbt_f47ccab/target/59b62dda/1296d6b9/jmh-core-1.37.jar)
+[error] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[error] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # JMH version: 1.37
+[info] # VM version: JDK 26.0.2.1, OpenJDK 64-Bit Server VM, 26.0.2.1+1
+[info] # VM invoker: /Users/sergiy/.sdkman/candidates/java/26.0.2.1-tem/bin/java
+[info] # VM options: -Djmh.ignoreLock=true
+[info] # Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+[info] # Warmup: 5 iterations, 1 s each
+[info] # Measurement: 5 iterations, 1 s each
+[info] # Timeout: 10 min per iteration
+[info] # Threads: 1 thread, will synchronize iterations
+[info] # Benchmark mode: Average time, time/op
+[info] # Benchmark: okay.effects.bench.TaglessBenchmark.askAcross4
+[info] # Parameters: (impl = machine)
+[info] # Run progress: 0.00% complete, ETA 00:02:40
+[info] # Fork: 1 of 2
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/private/tmp/ab/tl/target/bg-jobs/sbt_f47ccab/target/59b62dda/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 50.340 us/op
+[info] # Warmup Iteration   2: 36.407 us/op
+[info] # Warmup Iteration   3: 36.400 us/op
+[info] # Warmup Iteration   4: 36.498 us/op
+[info] # Warmup Iteration   5: 36.519 us/op
+[info] Iteration   1: 36.492 us/op
+[info]                  gc.alloc.rate:      11479.030 MB/sec
+[info]                  gc.alloc.rate.norm: 439304.255 B/op
+[info]                  gc.count:           23.000 counts
+[info]                  gc.time:            9.000 ms
+[info] Iteration   2: 36.507 us/op
+[info]                  gc.alloc.rate:      11474.428 MB/sec
+[info]                  gc.alloc.rate.norm: 439304.256 B/op
+[info]                  gc.count:           22.000 counts
+[info]                  gc.time:            9.000 ms
+[info] Iteration   3: 36.539 us/op
+[info]                  gc.alloc.rate:      11463.854 MB/sec
+[info]                  gc.alloc.rate.norm: 439304.257 B/op
+[info]                  gc.count:           23.000 counts
+[info]                  gc.time:            9.000 ms
+[info] Iteration   4: 36.379 us/op
+[info]                  gc.alloc.rate:      11514.650 MB/sec
+[info]                  gc.alloc.rate.norm: 439304.254 B/op
+[info]                  gc.count:           23.000 counts
+[info]                  gc.time:            11.000 ms
+[info] Iteration   5: 36.412 us/op
+[info]                  gc.alloc.rate:      11502.814 MB/sec
+[info]                  gc.alloc.rate.norm: 439304.256 B/op
+[info]                  gc.count:           23.000 counts
+[info]                  gc.time:            9.000 ms
+[info] # Run progress: 6.25% complete, ETA 00:02:32
+[info] # Fork: 2 of 2
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/private/tmp/ab/tl/target/bg-jobs/sbt_f47ccab/target/59b62dda/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 71.794 us/op
+[info] # Warmup Iteration   2: 39.673 us/op
+[info] # Warmup Iteration   3: 36.383 us/op
+[info] # Warmup Iteration   4: 36.610 us/op
+[info] # Warmup Iteration   5: 36.651 us/op
+[info] Iteration   1: 36.928 us/op
+[info]                  gc.alloc.rate:      11343.553 MB/sec
+[info]                  gc.alloc.rate.norm: 439304.258 B/op
+[info]                  gc.count:           9.000 counts
+[info]                  gc.time:            4.000 ms
+[info] Iteration   2: 37.148 us/op
+[info]                  gc.alloc.rate:      11276.571 MB/sec
+[info]                  gc.alloc.rate.norm: 439304.260 B/op
+[info]                  gc.count:           10.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   3: 36.718 us/op
+[info]                  gc.alloc.rate:      11407.648 MB/sec
+[info]                  gc.alloc.rate.norm: 439304.257 B/op
+[info]                  gc.count:           10.000 counts
+[info]                  gc.time:            5.000 ms
+[info] Iteration   4: 36.545 us/op
+[info]                  gc.alloc.rate:      11462.323 MB/sec
+[info]                  gc.alloc.rate.norm: 439304.255 B/op
+[info]                  gc.count:           11.000 counts
+[info]                  gc.time:            5.000 ms
+[info] Iteration   5: 36.817 us/op
+[info]                  gc.alloc.rate:      11377.490 MB/sec
+[info]                  gc.alloc.rate.norm: 439304.258 B/op
+[info]                  gc.count:           12.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Result "okay.effects.bench.TaglessBenchmark.askAcross4":
+[info]   36.648 ±(99.9%) 0.376 us/op [Average]
+[info]   (min, avg, max) = (36.379, 36.648, 37.148), stdev = 0.249
+[info]   CI (99.9%): [36.272, 37.024] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.askAcross4:gc.alloc.rate":
+[info]   11430.236 ±(99.9%) 116.353 MB/sec [Average]
+[info]   (min, avg, max) = (11276.571, 11430.236, 11514.650), stdev = 76.960
+[info]   CI (99.9%): [11313.883, 11546.589] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.askAcross4:gc.alloc.rate.norm":
+[info]   439304.257 ±(99.9%) 0.003 B/op [Average]
+[info]   (min, avg, max) = (439304.254, 439304.257, 439304.260), stdev = 0.002
+[info]   CI (99.9%): [439304.254, 439304.260] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.askAcross4:gc.count":
+[info]   166.000 ±(99.9%) 0.001 counts [Sum]
+[info]   (min, avg, max) = (9.000, 16.600, 23.000), stdev = 6.586
+[info]   CI (99.9%): [166.000, 166.000] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.askAcross4:gc.time":
+[info]   73.000 ±(99.9%) 0.001 ms [Sum]
+[info]   (min, avg, max) = (4.000, 7.300, 11.000), stdev = 2.359
+[info]   CI (99.9%): [73.000, 73.000] (assumes normal distribution)
+[info] # JMH version: 1.37
+[info] # VM version: JDK 26.0.2.1, OpenJDK 64-Bit Server VM, 26.0.2.1+1
+[info] # VM invoker: /Users/sergiy/.sdkman/candidates/java/26.0.2.1-tem/bin/java
+[info] # VM options: -Djmh.ignoreLock=true
+[info] # Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+[info] # Warmup: 5 iterations, 1 s each
+[info] # Measurement: 5 iterations, 1 s each
+[info] # Timeout: 10 min per iteration
+[info] # Threads: 1 thread, will synchronize iterations
+[info] # Benchmark mode: Average time, time/op
+[info] # Benchmark: okay.effects.bench.TaglessBenchmark.askAcross4
+[info] # Parameters: (impl = free)
+[info] # Run progress: 12.50% complete, ETA 00:02:22
+[info] # Fork: 1 of 2
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/private/tmp/ab/tl/target/bg-jobs/sbt_f47ccab/target/59b62dda/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 176.574 us/op
+[info] # Warmup Iteration   2: 104.264 us/op
+[info] # Warmup Iteration   3: 86.932 us/op
+[info] # Warmup Iteration   4: 87.233 us/op
+[info] # Warmup Iteration   5: 87.409 us/op
+[info] Iteration   1: 87.408 us/op
+[info]                  gc.alloc.rate:      10633.268 MB/sec
+[info]                  gc.alloc.rate.norm: 974720.614 B/op
+[info]                  gc.count:           8.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   2: 86.499 us/op
+[info]                  gc.alloc.rate:      10747.342 MB/sec
+[info]                  gc.alloc.rate.norm: 974968.567 B/op
+[info]                  gc.count:           9.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   3: 86.757 us/op
+[info]                  gc.alloc.rate:      10715.965 MB/sec
+[info]                  gc.alloc.rate.norm: 974968.607 B/op
+[info]                  gc.count:           9.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   4: 86.455 us/op
+[info]                  gc.alloc.rate:      10753.115 MB/sec
+[info]                  gc.alloc.rate.norm: 974968.605 B/op
+[info]                  gc.count:           9.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   5: 86.407 us/op
+[info]                  gc.alloc.rate:      10759.096 MB/sec
+[info]                  gc.alloc.rate.norm: 974968.614 B/op
+[info]                  gc.count:           10.000 counts
+[info]                  gc.time:            8.000 ms
+[info] # Run progress: 18.75% complete, ETA 00:02:12
+[info] # Fork: 2 of 2
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/private/tmp/ab/tl/target/bg-jobs/sbt_f47ccab/target/59b62dda/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 167.743 us/op
+[info] # Warmup Iteration   2: 91.674 us/op
+[info] # Warmup Iteration   3: 87.205 us/op
+[info] # Warmup Iteration   4: 87.045 us/op
+[info] # Warmup Iteration   5: 87.561 us/op
+[info] Iteration   1: 87.052 us/op
+[info]                  gc.alloc.rate:      10676.872 MB/sec
+[info]                  gc.alloc.rate.norm: 974720.610 B/op
+[info]                  gc.count:           8.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   2: 86.482 us/op
+[info]                  gc.alloc.rate:      10747.006 MB/sec
+[info]                  gc.alloc.rate.norm: 974720.605 B/op
+[info]                  gc.count:           9.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   3: 86.410 us/op
+[info]                  gc.alloc.rate:      10756.367 MB/sec
+[info]                  gc.alloc.rate.norm: 974720.607 B/op
+[info]                  gc.count:           9.000 counts
+[info]                  gc.time:            7.000 ms
+[info] Iteration   4: 86.749 us/op
+[info]                  gc.alloc.rate:      10713.953 MB/sec
+[info]                  gc.alloc.rate.norm: 974720.608 B/op
+[info]                  gc.count:           10.000 counts
+[info]                  gc.time:            7.000 ms
+[info] Iteration   5: 86.621 us/op
+[info]                  gc.alloc.rate:      10729.112 MB/sec
+[info]                  gc.alloc.rate.norm: 974720.617 B/op
+[info]                  gc.count:           10.000 counts
+[info]                  gc.time:            8.000 ms
+[info] Result "okay.effects.bench.TaglessBenchmark.askAcross4":
+[info]   86.684 ±(99.9%) 0.492 us/op [Average]
+[info]   (min, avg, max) = (86.407, 86.684, 87.408), stdev = 0.325
+[info]   CI (99.9%): [86.192, 87.176] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.askAcross4:gc.alloc.rate":
+[info]   10723.209 ±(99.9%) 61.391 MB/sec [Average]
+[info]   (min, avg, max) = (10633.268, 10723.209, 10759.096), stdev = 40.606
+[info]   CI (99.9%): [10661.818, 10784.600] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.askAcross4:gc.alloc.rate.norm":
+[info]   974819.806 ±(99.9%) 193.609 B/op [Average]
+[info]   (min, avg, max) = (974720.605, 974819.806, 974968.614), stdev = 128.060
+[info]   CI (99.9%): [974626.196, 975013.415] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.askAcross4:gc.count":
+[info]   91.000 ±(99.9%) 0.001 counts [Sum]
+[info]   (min, avg, max) = (8.000, 9.100, 10.000), stdev = 0.738
+[info]   CI (99.9%): [91.000, 91.000] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.askAcross4:gc.time":
+[info]   66.000 ±(99.9%) 0.001 ms [Sum]
+[info]   (min, avg, max) = (6.000, 6.600, 8.000), stdev = 0.843
+[info]   CI (99.9%): [66.000, 66.000] (assumes normal distribution)
+[info] # JMH version: 1.37
+[info] # VM version: JDK 26.0.2.1, OpenJDK 64-Bit Server VM, 26.0.2.1+1
+[info] # VM invoker: /Users/sergiy/.sdkman/candidates/java/26.0.2.1-tem/bin/java
+[info] # VM options: -Djmh.ignoreLock=true
+[info] # Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+[info] # Warmup: 5 iterations, 1 s each
+[info] # Measurement: 5 iterations, 1 s each
+[info] # Timeout: 10 min per iteration
+[info] # Threads: 1 thread, will synchronize iterations
+[info] # Benchmark mode: Average time, time/op
+[info] # Benchmark: okay.effects.bench.TaglessBenchmark.askNear
+[info] # Parameters: (impl = machine)
+[info] # Run progress: 25.00% complete, ETA 00:02:02
+[info] # Fork: 1 of 2
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/private/tmp/ab/tl/target/bg-jobs/sbt_f47ccab/target/59b62dda/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 38.902 us/op
+[info] # Warmup Iteration   2: 22.716 us/op
+[info] # Warmup Iteration   3: 22.723 us/op
+[info] # Warmup Iteration   4: 22.612 us/op
+[info] # Warmup Iteration   5: 22.506 us/op
+[info] Iteration   1: 22.380 us/op
+[info]                  gc.alloc.rate:      13224.506 MB/sec
+[info]                  gc.alloc.rate.norm: 310376.157 B/op
+[info]                  gc.count:           11.000 counts
+[info]                  gc.time:            5.000 ms
+[info] Iteration   2: 22.519 us/op
+[info]                  gc.alloc.rate:      13142.453 MB/sec
+[info]                  gc.alloc.rate.norm: 310376.158 B/op
+[info]                  gc.count:           12.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   3: 22.424 us/op
+[info]                  gc.alloc.rate:      13198.401 MB/sec
+[info]                  gc.alloc.rate.norm: 310376.157 B/op
+[info]                  gc.count:           12.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   4: 22.415 us/op
+[info]                  gc.alloc.rate:      13203.505 MB/sec
+[info]                  gc.alloc.rate.norm: 310376.156 B/op
+[info]                  gc.count:           13.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   5: 22.511 us/op
+[info]                  gc.alloc.rate:      13146.675 MB/sec
+[info]                  gc.alloc.rate.norm: 310376.157 B/op
+[info]                  gc.count:           14.000 counts
+[info]                  gc.time:            7.000 ms
+[info] # Run progress: 31.25% complete, ETA 00:01:52
+[info] # Fork: 2 of 2
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/private/tmp/ab/tl/target/bg-jobs/sbt_f47ccab/target/59b62dda/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 34.987 us/op
+[info] # Warmup Iteration   2: 23.749 us/op
+[info] # Warmup Iteration   3: 23.034 us/op
+[info] # Warmup Iteration   4: 22.466 us/op
+[info] # Warmup Iteration   5: 22.650 us/op
+[info] Iteration   1: 22.401 us/op
+[info]                  gc.alloc.rate:      13211.562 MB/sec
+[info]                  gc.alloc.rate.norm: 310376.157 B/op
+[info]                  gc.count:           11.000 counts
+[info]                  gc.time:            5.000 ms
+[info] Iteration   2: 22.444 us/op
+[info]                  gc.alloc.rate:      13186.432 MB/sec
+[info]                  gc.alloc.rate.norm: 310376.158 B/op
+[info]                  gc.count:           12.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   3: 22.363 us/op
+[info]                  gc.alloc.rate:      13233.755 MB/sec
+[info]                  gc.alloc.rate.norm: 310376.157 B/op
+[info]                  gc.count:           12.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   4: 22.399 us/op
+[info]                  gc.alloc.rate:      13212.847 MB/sec
+[info]                  gc.alloc.rate.norm: 310376.156 B/op
+[info]                  gc.count:           14.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   5: 22.368 us/op
+[info]                  gc.alloc.rate:      13230.962 MB/sec
+[info]                  gc.alloc.rate.norm: 310376.157 B/op
+[info]                  gc.count:           14.000 counts
+[info]                  gc.time:            7.000 ms
+[info] Result "okay.effects.bench.TaglessBenchmark.askNear":
+[info]   22.422 ±(99.9%) 0.083 us/op [Average]
+[info]   (min, avg, max) = (22.363, 22.422, 22.519), stdev = 0.055
+[info]   CI (99.9%): [22.340, 22.505] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.askNear:gc.alloc.rate":
+[info]   13199.110 ±(99.9%) 48.713 MB/sec [Average]
+[info]   (min, avg, max) = (13142.453, 13199.110, 13233.755), stdev = 32.220
+[info]   CI (99.9%): [13150.397, 13247.823] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.askNear:gc.alloc.rate.norm":
+[info]   310376.157 ±(99.9%) 0.001 B/op [Average]
+[info]   (min, avg, max) = (310376.156, 310376.157, 310376.158), stdev = 0.001
+[info]   CI (99.9%): [310376.156, 310376.158] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.askNear:gc.count":
+[info]   125.000 ±(99.9%) 0.001 counts [Sum]
+[info]   (min, avg, max) = (11.000, 12.500, 14.000), stdev = 1.179
+[info]   CI (99.9%): [125.000, 125.000] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.askNear:gc.time":
+[info]   60.000 ±(99.9%) 0.001 ms [Sum]
+[info]   (min, avg, max) = (5.000, 6.000, 7.000), stdev = 0.667
+[info]   CI (99.9%): [60.000, 60.000] (assumes normal distribution)
+[info] # JMH version: 1.37
+[info] # VM version: JDK 26.0.2.1, OpenJDK 64-Bit Server VM, 26.0.2.1+1
+[info] # VM invoker: /Users/sergiy/.sdkman/candidates/java/26.0.2.1-tem/bin/java
+[info] # VM options: -Djmh.ignoreLock=true
+[info] # Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+[info] # Warmup: 5 iterations, 1 s each
+[info] # Measurement: 5 iterations, 1 s each
+[info] # Timeout: 10 min per iteration
+[info] # Threads: 1 thread, will synchronize iterations
+[info] # Benchmark mode: Average time, time/op
+[info] # Benchmark: okay.effects.bench.TaglessBenchmark.askNear
+[info] # Parameters: (impl = free)
+[info] # Run progress: 37.50% complete, ETA 00:01:41
+[info] # Fork: 1 of 2
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/private/tmp/ab/tl/target/bg-jobs/sbt_f47ccab/target/59b62dda/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 54.464 us/op
+[info] # Warmup Iteration   2: 36.223 us/op
+[info] # Warmup Iteration   3: 34.899 us/op
+[info] # Warmup Iteration   4: 34.751 us/op
+[info] # Warmup Iteration   5: 34.679 us/op
+[info] Iteration   1: 34.598 us/op
+[info]                  gc.alloc.rate:      11852.269 MB/sec
+[info]                  gc.alloc.rate.norm: 430048.242 B/op
+[info]                  gc.count:           9.000 counts
+[info]                  gc.time:            5.000 ms
+[info] Iteration   2: 34.573 us/op
+[info]                  gc.alloc.rate:      11861.108 MB/sec
+[info]                  gc.alloc.rate.norm: 430048.242 B/op
+[info]                  gc.count:           10.000 counts
+[info]                  gc.time:            7.000 ms
+[info] Iteration   3: 34.579 us/op
+[info]                  gc.alloc.rate:      11858.922 MB/sec
+[info]                  gc.alloc.rate.norm: 430048.242 B/op
+[info]                  gc.count:           11.000 counts
+[info]                  gc.time:            7.000 ms
+[info] Iteration   4: 34.454 us/op
+[info]                  gc.alloc.rate:      11901.774 MB/sec
+[info]                  gc.alloc.rate.norm: 430048.242 B/op
+[info]                  gc.count:           11.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   5: 34.476 us/op
+[info]                  gc.alloc.rate:      11894.335 MB/sec
+[info]                  gc.alloc.rate.norm: 430048.242 B/op
+[info]                  gc.count:           11.000 counts
+[info]                  gc.time:            7.000 ms
+[info] # Run progress: 43.75% complete, ETA 00:01:31
+[info] # Fork: 2 of 2
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/private/tmp/ab/tl/target/bg-jobs/sbt_f47ccab/target/59b62dda/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 61.304 us/op
+[info] # Warmup Iteration   2: 35.682 us/op
+[info] # Warmup Iteration   3: 34.790 us/op
+[info] # Warmup Iteration   4: 34.939 us/op
+[info] # Warmup Iteration   5: 35.167 us/op
+[info] Iteration   1: 34.720 us/op
+[info]                  gc.alloc.rate:      11810.862 MB/sec
+[info]                  gc.alloc.rate.norm: 430048.243 B/op
+[info]                  gc.count:           10.000 counts
+[info]                  gc.time:            7.000 ms
+[info] Iteration   2: 34.786 us/op
+[info]                  gc.alloc.rate:      11788.511 MB/sec
+[info]                  gc.alloc.rate.norm: 430048.244 B/op
+[info]                  gc.count:           10.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   3: 34.920 us/op
+[info]                  gc.alloc.rate:      11743.128 MB/sec
+[info]                  gc.alloc.rate.norm: 430048.245 B/op
+[info]                  gc.count:           10.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   4: 34.856 us/op
+[info]                  gc.alloc.rate:      11764.628 MB/sec
+[info]                  gc.alloc.rate.norm: 430048.245 B/op
+[info]                  gc.count:           11.000 counts
+[info]                  gc.time:            7.000 ms
+[info] Iteration   5: 34.847 us/op
+[info]                  gc.alloc.rate:      11766.927 MB/sec
+[info]                  gc.alloc.rate.norm: 430048.244 B/op
+[info]                  gc.count:           11.000 counts
+[info]                  gc.time:            7.000 ms
+[info] Result "okay.effects.bench.TaglessBenchmark.askNear":
+[info]   34.681 ±(99.9%) 0.252 us/op [Average]
+[info]   (min, avg, max) = (34.454, 34.681, 34.920), stdev = 0.167
+[info]   CI (99.9%): [34.429, 34.933] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.askNear:gc.alloc.rate":
+[info]   11824.246 ±(99.9%) 86.035 MB/sec [Average]
+[info]   (min, avg, max) = (11743.128, 11824.246, 11901.774), stdev = 56.907
+[info]   CI (99.9%): [11738.211, 11910.282] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.askNear:gc.alloc.rate.norm":
+[info]   430048.243 ±(99.9%) 0.002 B/op [Average]
+[info]   (min, avg, max) = (430048.242, 430048.243, 430048.245), stdev = 0.001
+[info]   CI (99.9%): [430048.241, 430048.245] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.askNear:gc.count":
+[info]   104.000 ±(99.9%) 0.001 counts [Sum]
+[info]   (min, avg, max) = (9.000, 10.400, 11.000), stdev = 0.699
+[info]   CI (99.9%): [104.000, 104.000] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.askNear:gc.time":
+[info]   65.000 ±(99.9%) 0.001 ms [Sum]
+[info]   (min, avg, max) = (5.000, 6.500, 7.000), stdev = 0.707
+[info]   CI (99.9%): [65.000, 65.000] (assumes normal distribution)
+[info] # JMH version: 1.37
+[info] # VM version: JDK 26.0.2.1, OpenJDK 64-Bit Server VM, 26.0.2.1+1
+[info] # VM invoker: /Users/sergiy/.sdkman/candidates/java/26.0.2.1-tem/bin/java
+[info] # VM options: -Djmh.ignoreLock=true
+[info] # Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+[info] # Warmup: 5 iterations, 1 s each
+[info] # Measurement: 5 iterations, 1 s each
+[info] # Timeout: 10 min per iteration
+[info] # Threads: 1 thread, will synchronize iterations
+[info] # Benchmark mode: Average time, time/op
+[info] # Benchmark: okay.effects.bench.TaglessBenchmark.binds
+[info] # Parameters: (impl = machine)
+[info] # Run progress: 50.00% complete, ETA 00:01:21
+[info] # Fork: 1 of 2
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/private/tmp/ab/tl/target/bg-jobs/sbt_f47ccab/target/59b62dda/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 14.061 us/op
+[info] # Warmup Iteration   2: 12.368 us/op
+[info] # Warmup Iteration   3: 12.083 us/op
+[info] # Warmup Iteration   4: 12.046 us/op
+[info] # Warmup Iteration   5: 12.028 us/op
+[info] Iteration   1: 12.037 us/op
+[info]                  gc.alloc.rate:      8082.689 MB/sec
+[info]                  gc.alloc.rate.norm: 102072.084 B/op
+[info]                  gc.count:           19.000 counts
+[info]                  gc.time:            8.000 ms
+[info] Iteration   2: 12.060 us/op
+[info]                  gc.alloc.rate:      8070.069 MB/sec
+[info]                  gc.alloc.rate.norm: 102072.084 B/op
+[info]                  gc.count:           18.000 counts
+[info]                  gc.time:            8.000 ms
+[info] Iteration   3: 12.034 us/op
+[info]                  gc.alloc.rate:      8087.681 MB/sec
+[info]                  gc.alloc.rate.norm: 102072.084 B/op
+[info]                  gc.count:           19.000 counts
+[info]                  gc.time:            8.000 ms
+[info] Iteration   4: 12.043 us/op
+[info]                  gc.alloc.rate:      8081.736 MB/sec
+[info]                  gc.alloc.rate.norm: 102072.084 B/op
+[info]                  gc.count:           18.000 counts
+[info]                  gc.time:            8.000 ms
+[info] Iteration   5: 12.027 us/op
+[info]                  gc.alloc.rate:      8092.496 MB/sec
+[info]                  gc.alloc.rate.norm: 102072.084 B/op
+[info]                  gc.count:           19.000 counts
+[info]                  gc.time:            8.000 ms
+[info] # Run progress: 56.25% complete, ETA 00:01:11
+[info] # Fork: 2 of 2
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/private/tmp/ab/tl/target/bg-jobs/sbt_f47ccab/target/59b62dda/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 17.847 us/op
+[info] # Warmup Iteration   2: 13.636 us/op
+[info] # Warmup Iteration   3: 12.177 us/op
+[info] # Warmup Iteration   4: 12.089 us/op
+[info] # Warmup Iteration   5: 12.228 us/op
+[info] Iteration   1: 12.192 us/op
+[info]                  gc.alloc.rate:      7983.092 MB/sec
+[info]                  gc.alloc.rate.norm: 102072.086 B/op
+[info]                  gc.count:           6.000 counts
+[info]                  gc.time:            3.000 ms
+[info] Iteration   2: 12.399 us/op
+[info]                  gc.alloc.rate:      7850.251 MB/sec
+[info]                  gc.alloc.rate.norm: 102072.087 B/op
+[info]                  gc.count:           7.000 counts
+[info]                  gc.time:            4.000 ms
+[info] Iteration   3: 12.152 us/op
+[info]                  gc.alloc.rate:      8009.256 MB/sec
+[info]                  gc.alloc.rate.norm: 102072.085 B/op
+[info]                  gc.count:           6.000 counts
+[info]                  gc.time:            3.000 ms
+[info] Iteration   4: 12.370 us/op
+[info]                  gc.alloc.rate:      7868.331 MB/sec
+[info]                  gc.alloc.rate.norm: 102072.087 B/op
+[info]                  gc.count:           7.000 counts
+[info]                  gc.time:            3.000 ms
+[info] Iteration   5: 12.173 us/op
+[info]                  gc.alloc.rate:      7994.680 MB/sec
+[info]                  gc.alloc.rate.norm: 102072.085 B/op
+[info]                  gc.count:           8.000 counts
+[info]                  gc.time:            4.000 ms
+[info] Result "okay.effects.bench.TaglessBenchmark.binds":
+[info]   12.149 ±(99.9%) 0.210 us/op [Average]
+[info]   (min, avg, max) = (12.027, 12.149, 12.399), stdev = 0.139
+[info]   CI (99.9%): [11.939, 12.358] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.binds:gc.alloc.rate":
+[info]   8012.028 ±(99.9%) 136.520 MB/sec [Average]
+[info]   (min, avg, max) = (7850.251, 8012.028, 8092.496), stdev = 90.300
+[info]   CI (99.9%): [7875.508, 8148.548] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.binds:gc.alloc.rate.norm":
+[info]   102072.085 ±(99.9%) 0.002 B/op [Average]
+[info]   (min, avg, max) = (102072.084, 102072.085, 102072.087), stdev = 0.001
+[info]   CI (99.9%): [102072.084, 102072.087] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.binds:gc.count":
+[info]   127.000 ±(99.9%) 0.001 counts [Sum]
+[info]   (min, avg, max) = (6.000, 12.700, 19.000), stdev = 6.255
+[info]   CI (99.9%): [127.000, 127.000] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.binds:gc.time":
+[info]   57.000 ±(99.9%) 0.001 ms [Sum]
+[info]   (min, avg, max) = (3.000, 5.700, 8.000), stdev = 2.452
+[info]   CI (99.9%): [57.000, 57.000] (assumes normal distribution)
+[info] # JMH version: 1.37
+[info] # VM version: JDK 26.0.2.1, OpenJDK 64-Bit Server VM, 26.0.2.1+1
+[info] # VM invoker: /Users/sergiy/.sdkman/candidates/java/26.0.2.1-tem/bin/java
+[info] # VM options: -Djmh.ignoreLock=true
+[info] # Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+[info] # Warmup: 5 iterations, 1 s each
+[info] # Measurement: 5 iterations, 1 s each
+[info] # Timeout: 10 min per iteration
+[info] # Threads: 1 thread, will synchronize iterations
+[info] # Benchmark mode: Average time, time/op
+[info] # Benchmark: okay.effects.bench.TaglessBenchmark.binds
+[info] # Parameters: (impl = free)
+[info] # Run progress: 62.50% complete, ETA 00:01:01
+[info] # Fork: 1 of 2
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/private/tmp/ab/tl/target/bg-jobs/sbt_f47ccab/target/59b62dda/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 24.427 us/op
+[info] # Warmup Iteration   2: 16.745 us/op
+[info] # Warmup Iteration   3: 16.876 us/op
+[info] # Warmup Iteration   4: 16.865 us/op
+[info] # Warmup Iteration   5: 16.666 us/op
+[info] Iteration   1: 16.864 us/op
+[info]                  gc.alloc.rate:      9836.826 MB/sec
+[info]                  gc.alloc.rate.norm: 173968.118 B/op
+[info]                  gc.count:           12.000 counts
+[info]                  gc.time:            5.000 ms
+[info] Iteration   2: 16.958 us/op
+[info]                  gc.alloc.rate:      9782.451 MB/sec
+[info]                  gc.alloc.rate.norm: 173968.119 B/op
+[info]                  gc.count:           12.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   3: 16.928 us/op
+[info]                  gc.alloc.rate:      9799.708 MB/sec
+[info]                  gc.alloc.rate.norm: 173968.118 B/op
+[info]                  gc.count:           13.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   4: 17.006 us/op
+[info]                  gc.alloc.rate:      9754.997 MB/sec
+[info]                  gc.alloc.rate.norm: 173968.119 B/op
+[info]                  gc.count:           13.000 counts
+[info]                  gc.time:            5.000 ms
+[info] Iteration   5: 17.127 us/op
+[info]                  gc.alloc.rate:      9685.558 MB/sec
+[info]                  gc.alloc.rate.norm: 173968.120 B/op
+[info]                  gc.count:           14.000 counts
+[info]                  gc.time:            7.000 ms
+[info] # Run progress: 68.75% complete, ETA 00:00:50
+[info] # Fork: 2 of 2
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/private/tmp/ab/tl/target/bg-jobs/sbt_f47ccab/target/59b62dda/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 21.147 us/op
+[info] # Warmup Iteration   2: 17.638 us/op
+[info] # Warmup Iteration   3: 17.473 us/op
+[info] # Warmup Iteration   4: 17.453 us/op
+[info] # Warmup Iteration   5: 17.391 us/op
+[info] Iteration   1: 17.384 us/op
+[info]                  gc.alloc.rate:      9542.207 MB/sec
+[info]                  gc.alloc.rate.norm: 173968.122 B/op
+[info]                  gc.count:           20.000 counts
+[info]                  gc.time:            8.000 ms
+[info] Iteration   2: 17.446 us/op
+[info]                  gc.alloc.rate:      9508.966 MB/sec
+[info]                  gc.alloc.rate.norm: 173968.122 B/op
+[info]                  gc.count:           20.000 counts
+[info]                  gc.time:            8.000 ms
+[info] Iteration   3: 17.552 us/op
+[info]                  gc.alloc.rate:      9451.441 MB/sec
+[info]                  gc.alloc.rate.norm: 173968.123 B/op
+[info]                  gc.count:           20.000 counts
+[info]                  gc.time:            9.000 ms
+[info] Iteration   4: 17.532 us/op
+[info]                  gc.alloc.rate:      9461.543 MB/sec
+[info]                  gc.alloc.rate.norm: 173968.123 B/op
+[info]                  gc.count:           20.000 counts
+[info]                  gc.time:            8.000 ms
+[info] Iteration   5: 17.506 us/op
+[info]                  gc.alloc.rate:      9475.818 MB/sec
+[info]                  gc.alloc.rate.norm: 173968.123 B/op
+[info]                  gc.count:           20.000 counts
+[info]                  gc.time:            8.000 ms
+[info] Result "okay.effects.bench.TaglessBenchmark.binds":
+[info]   17.230 ±(99.9%) 0.422 us/op [Average]
+[info]   (min, avg, max) = (16.864, 17.230, 17.552), stdev = 0.279
+[info]   CI (99.9%): [16.808, 17.652] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.binds:gc.alloc.rate":
+[info]   9629.951 ±(99.9%) 236.332 MB/sec [Average]
+[info]   (min, avg, max) = (9451.441, 9629.951, 9836.826), stdev = 156.319
+[info]   CI (99.9%): [9393.620, 9866.283] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.binds:gc.alloc.rate.norm":
+[info]   173968.121 ±(99.9%) 0.003 B/op [Average]
+[info]   (min, avg, max) = (173968.118, 173968.121, 173968.123), stdev = 0.002
+[info]   CI (99.9%): [173968.117, 173968.124] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.binds:gc.count":
+[info]   164.000 ±(99.9%) 0.001 counts [Sum]
+[info]   (min, avg, max) = (12.000, 16.400, 20.000), stdev = 3.836
+[info]   CI (99.9%): [164.000, 164.000] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.binds:gc.time":
+[info]   70.000 ±(99.9%) 0.001 ms [Sum]
+[info]   (min, avg, max) = (5.000, 7.000, 9.000), stdev = 1.414
+[info]   CI (99.9%): [70.000, 70.000] (assumes normal distribution)
+[info] # JMH version: 1.37
+[info] # VM version: JDK 26.0.2.1, OpenJDK 64-Bit Server VM, 26.0.2.1+1
+[info] # VM invoker: /Users/sergiy/.sdkman/candidates/java/26.0.2.1-tem/bin/java
+[info] # VM options: -Djmh.ignoreLock=true
+[info] # Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+[info] # Warmup: 5 iterations, 1 s each
+[info] # Measurement: 5 iterations, 1 s each
+[info] # Timeout: 10 min per iteration
+[info] # Threads: 1 thread, will synchronize iterations
+[info] # Benchmark mode: Average time, time/op
+[info] # Benchmark: okay.effects.bench.TaglessBenchmark.stateLoop
+[info] # Parameters: (impl = machine)
+[info] # Run progress: 75.00% complete, ETA 00:00:40
+[info] # Fork: 1 of 2
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/private/tmp/ab/tl/target/bg-jobs/sbt_f47ccab/target/59b62dda/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 54.380 us/op
+[info] # Warmup Iteration   2: 33.092 us/op
+[info] # Warmup Iteration   3: 32.547 us/op
+[info] # Warmup Iteration   4: 32.253 us/op
+[info] # Warmup Iteration   5: 32.449 us/op
+[info] Iteration   1: 31.968 us/op
+[info]                  gc.alloc.rate:      13319.138 MB/sec
+[info]                  gc.alloc.rate.norm: 446528.225 B/op
+[info]                  gc.count:           11.000 counts
+[info]                  gc.time:            4.000 ms
+[info] Iteration   2: 32.468 us/op
+[info]                  gc.alloc.rate:      13114.300 MB/sec
+[info]                  gc.alloc.rate.norm: 446528.228 B/op
+[info]                  gc.count:           12.000 counts
+[info]                  gc.time:            5.000 ms
+[info] Iteration   3: 32.492 us/op
+[info]                  gc.alloc.rate:      13104.596 MB/sec
+[info]                  gc.alloc.rate.norm: 446528.227 B/op
+[info]                  gc.count:           13.000 counts
+[info]                  gc.time:            5.000 ms
+[info] Iteration   4: 32.211 us/op
+[info]                  gc.alloc.rate:      13219.000 MB/sec
+[info]                  gc.alloc.rate.norm: 446528.226 B/op
+[info]                  gc.count:           14.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Iteration   5: 32.377 us/op
+[info]                  gc.alloc.rate:      13150.364 MB/sec
+[info]                  gc.alloc.rate.norm: 446528.227 B/op
+[info]                  gc.count:           15.000 counts
+[info]                  gc.time:            6.000 ms
+[info] # Run progress: 81.25% complete, ETA 00:00:30
+[info] # Fork: 2 of 2
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/private/tmp/ab/tl/target/bg-jobs/sbt_f47ccab/target/59b62dda/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 54.108 us/op
+[info] # Warmup Iteration   2: 33.512 us/op
+[info] # Warmup Iteration   3: 33.292 us/op
+[info] # Warmup Iteration   4: 31.964 us/op
+[info] # Warmup Iteration   5: 31.990 us/op
+[info] Iteration   1: 32.015 us/op
+[info]                  gc.alloc.rate:      13297.804 MB/sec
+[info]                  gc.alloc.rate.norm: 446464.224 B/op
+[info]                  gc.count:           11.000 counts
+[info]                  gc.time:            4.000 ms
+[info] Iteration   2: 32.245 us/op
+[info]                  gc.alloc.rate:      13203.125 MB/sec
+[info]                  gc.alloc.rate.norm: 446464.227 B/op
+[info]                  gc.count:           13.000 counts
+[info]                  gc.time:            5.000 ms
+[info] Iteration   3: 31.973 us/op
+[info]                  gc.alloc.rate:      13315.345 MB/sec
+[info]                  gc.alloc.rate.norm: 446464.224 B/op
+[info]                  gc.count:           13.000 counts
+[info]                  gc.time:            5.000 ms
+[info] Iteration   4: 31.714 us/op
+[info]                  gc.alloc.rate:      13423.786 MB/sec
+[info]                  gc.alloc.rate.norm: 446464.223 B/op
+[info]                  gc.count:           14.000 counts
+[info]                  gc.time:            5.000 ms
+[info] Iteration   5: 31.974 us/op
+[info]                  gc.alloc.rate:      13314.531 MB/sec
+[info]                  gc.alloc.rate.norm: 446464.225 B/op
+[info]                  gc.count:           15.000 counts
+[info]                  gc.time:            6.000 ms
+[info] Result "okay.effects.bench.TaglessBenchmark.stateLoop":
+[info]   32.144 ±(99.9%) 0.386 us/op [Average]
+[info]   (min, avg, max) = (31.714, 32.144, 32.492), stdev = 0.255
+[info]   CI (99.9%): [31.758, 32.529] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.stateLoop:gc.alloc.rate":
+[info]   13246.199 ±(99.9%) 157.922 MB/sec [Average]
+[info]   (min, avg, max) = (13104.596, 13246.199, 13423.786), stdev = 104.456
+[info]   CI (99.9%): [13088.277, 13404.121] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.stateLoop:gc.alloc.rate.norm":
+[info]   446496.226 ±(99.9%) 50.998 B/op [Average]
+[info]   (min, avg, max) = (446464.223, 446496.226, 446528.228), stdev = 33.732
+[info]   CI (99.9%): [446445.227, 446547.224] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.stateLoop:gc.count":
+[info]   131.000 ±(99.9%) 0.001 counts [Sum]
+[info]   (min, avg, max) = (11.000, 13.100, 15.000), stdev = 1.449
+[info]   CI (99.9%): [131.000, 131.000] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.stateLoop:gc.time":
+[info]   51.000 ±(99.9%) 0.001 ms [Sum]
+[info]   (min, avg, max) = (4.000, 5.100, 6.000), stdev = 0.738
+[info]   CI (99.9%): [51.000, 51.000] (assumes normal distribution)
+[info] # JMH version: 1.37
+[info] # VM version: JDK 26.0.2.1, OpenJDK 64-Bit Server VM, 26.0.2.1+1
+[info] # VM invoker: /Users/sergiy/.sdkman/candidates/java/26.0.2.1-tem/bin/java
+[info] # VM options: -Djmh.ignoreLock=true
+[info] # Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+[info] # Warmup: 5 iterations, 1 s each
+[info] # Measurement: 5 iterations, 1 s each
+[info] # Timeout: 10 min per iteration
+[info] # Threads: 1 thread, will synchronize iterations
+[info] # Benchmark mode: Average time, time/op
+[info] # Benchmark: okay.effects.bench.TaglessBenchmark.stateLoop
+[info] # Parameters: (impl = free)
+[info] # Run progress: 87.50% complete, ETA 00:00:20
+[info] # Fork: 1 of 2
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/private/tmp/ab/tl/target/bg-jobs/sbt_f47ccab/target/59b62dda/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 74.320 us/op
+[info] # Warmup Iteration   2: 42.706 us/op
+[info] # Warmup Iteration   3: 39.439 us/op
+[info] # Warmup Iteration   4: 39.490 us/op
+[info] # Warmup Iteration   5: 39.740 us/op
+[info] Iteration   1: 39.049 us/op
+[info]                  gc.alloc.rate:      12264.954 MB/sec
+[info]                  gc.alloc.rate.norm: 502256.273 B/op
+[info]                  gc.count:           11.000 counts
+[info]                  gc.time:            5.000 ms
+[info] Iteration   2: 39.518 us/op
+[info]                  gc.alloc.rate:      12119.336 MB/sec
+[info]                  gc.alloc.rate.norm: 502256.276 B/op
+[info]                  gc.count:           11.000 counts
+[info]                  gc.time:            5.000 ms
+[info] Iteration   3: 39.375 us/op
+[info]                  gc.alloc.rate:      12163.380 MB/sec
+[info]                  gc.alloc.rate.norm: 502256.275 B/op
+[info]                  gc.count:           11.000 counts
+[info]                  gc.time:            4.000 ms
+[info] Iteration   4: 39.736 us/op
+[info]                  gc.alloc.rate:      12052.331 MB/sec
+[info]                  gc.alloc.rate.norm: 502256.278 B/op
+[info]                  gc.count:           13.000 counts
+[info]                  gc.time:            5.000 ms
+[info] Iteration   5: 39.398 us/op
+[info]                  gc.alloc.rate:      12155.989 MB/sec
+[info]                  gc.alloc.rate.norm: 502256.276 B/op
+[info]                  gc.count:           13.000 counts
+[info]                  gc.time:            5.000 ms
+[info] # Run progress: 93.75% complete, ETA 00:00:10
+[info] # Fork: 2 of 2
+[info] WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/private/tmp/ab/tl/target/bg-jobs/sbt_f47ccab/target/59b62dda/1296d6b9/jmh-core-1.37.jar)
+[info] WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+[info] WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[info] # Warmup Iteration   1: 70.003 us/op
+[info] # Warmup Iteration   2: 41.533 us/op
+[info] # Warmup Iteration   3: 39.995 us/op
+[info] # Warmup Iteration   4: 40.214 us/op
+[info] # Warmup Iteration   5: 40.005 us/op
+[info] Iteration   1: 39.377 us/op
+[info]                  gc.alloc.rate:      12162.786 MB/sec
+[info]                  gc.alloc.rate.norm: 502256.276 B/op
+[info]                  gc.count:           10.000 counts
+[info]                  gc.time:            4.000 ms
+[info] Iteration   2: 39.550 us/op
+[info]                  gc.alloc.rate:      12109.267 MB/sec
+[info]                  gc.alloc.rate.norm: 502256.278 B/op
+[info]                  gc.count:           11.000 counts
+[info]                  gc.time:            4.000 ms
+[info] Iteration   3: 39.453 us/op
+[info]                  gc.alloc.rate:      12139.120 MB/sec
+[info]                  gc.alloc.rate.norm: 502256.276 B/op
+[info]                  gc.count:           12.000 counts
+[info]                  gc.time:            5.000 ms
+[info] Iteration   4: 39.546 us/op
+[info]                  gc.alloc.rate:      12110.397 MB/sec
+[info]                  gc.alloc.rate.norm: 502256.278 B/op
+[info]                  gc.count:           12.000 counts
+[info]                  gc.time:            5.000 ms
+[info] Iteration   5: 39.500 us/op
+[info]                  gc.alloc.rate:      12124.626 MB/sec
+[info]                  gc.alloc.rate.norm: 502256.278 B/op
+[info]                  gc.count:           13.000 counts
+[info]                  gc.time:            4.000 ms
+[info] Result "okay.effects.bench.TaglessBenchmark.stateLoop":
+[info]   39.450 ±(99.9%) 0.268 us/op [Average]
+[info]   (min, avg, max) = (39.049, 39.450, 39.736), stdev = 0.177
+[info]   CI (99.9%): [39.182, 39.719] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.stateLoop:gc.alloc.rate":
+[info]   12140.218 ±(99.9%) 82.969 MB/sec [Average]
+[info]   (min, avg, max) = (12052.331, 12140.218, 12264.954), stdev = 54.879
+[info]   CI (99.9%): [12057.249, 12223.188] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.stateLoop:gc.alloc.rate.norm":
+[info]   502256.276 ±(99.9%) 0.002 B/op [Average]
+[info]   (min, avg, max) = (502256.273, 502256.276, 502256.278), stdev = 0.002
+[info]   CI (99.9%): [502256.274, 502256.279] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.stateLoop:gc.count":
+[info]   117.000 ±(99.9%) 0.001 counts [Sum]
+[info]   (min, avg, max) = (10.000, 11.700, 13.000), stdev = 1.059
+[info]   CI (99.9%): [117.000, 117.000] (assumes normal distribution)
+[info] Secondary result "okay.effects.bench.TaglessBenchmark.stateLoop:gc.time":
+[info]   46.000 ±(99.9%) 0.001 ms [Sum]
+[info]   (min, avg, max) = (4.000, 4.600, 5.000), stdev = 0.516
+[info]   CI (99.9%): [46.000, 46.000] (assumes normal distribution)
+[info] # Run complete. Total time: 00:02:43
+[info] REMEMBER: The numbers below are just data. To gain reusable insights, you need to follow up on
+[info] why the numbers are the way they are. Use profilers (see -prof, -lprof), design factorial
+[info] experiments, perform baseline and negative tests that provide experimental control, make sure
+[info] the benchmarking environment is safe on JVM/OS/HW level, ask for reviews from the domain experts.
+[info] Do not assume the numbers tell you what you want them to tell.
+[info] NOTE: Current JVM experimentally supports Compiler Blackholes, and they are in use. Please exercise
+[info] extra caution when trusting the results, look into the generated code to check the benchmark still
+[info] works, and factor in a small probability of new VM bugs. Additionally, while comparisons between
+[info] different JVMs are already problematic, the performance difference caused by different Blackhole
+[info] modes can be very significant. Please make sure you use the consistent Blackhole mode for comparisons.
+[info] Benchmark                                        (impl)  Mode  Cnt       Score     Error   Units
+[info] TaglessBenchmark.askAcross4                     machine  avgt   10      36.648 ±   0.376   us/op
+[info] TaglessBenchmark.askAcross4:gc.alloc.rate       machine  avgt   10   11430.236 ± 116.353  MB/sec
+[info] TaglessBenchmark.askAcross4:gc.alloc.rate.norm  machine  avgt   10  439304.257 ±   0.003    B/op
+[info] TaglessBenchmark.askAcross4:gc.count            machine  avgt   10     166.000            counts
+[info] TaglessBenchmark.askAcross4:gc.time             machine  avgt   10      73.000                ms
+[info] TaglessBenchmark.askAcross4                        free  avgt   10      86.684 ±   0.492   us/op
+[info] TaglessBenchmark.askAcross4:gc.alloc.rate          free  avgt   10   10723.209 ±  61.391  MB/sec
+[info] TaglessBenchmark.askAcross4:gc.alloc.rate.norm     free  avgt   10  974819.806 ± 193.609    B/op
+[info] TaglessBenchmark.askAcross4:gc.count               free  avgt   10      91.000            counts
+[info] TaglessBenchmark.askAcross4:gc.time                free  avgt   10      66.000                ms
+[info] TaglessBenchmark.askNear                        machine  avgt   10      22.422 ±   0.083   us/op
+[info] TaglessBenchmark.askNear:gc.alloc.rate          machine  avgt   10   13199.110 ±  48.713  MB/sec
+[info] TaglessBenchmark.askNear:gc.alloc.rate.norm     machine  avgt   10  310376.157 ±   0.001    B/op
+[info] TaglessBenchmark.askNear:gc.count               machine  avgt   10     125.000            counts
+[info] TaglessBenchmark.askNear:gc.time                machine  avgt   10      60.000                ms
+[info] TaglessBenchmark.askNear                           free  avgt   10      34.681 ±   0.252   us/op
+[info] TaglessBenchmark.askNear:gc.alloc.rate             free  avgt   10   11824.246 ±  86.035  MB/sec
+[info] TaglessBenchmark.askNear:gc.alloc.rate.norm        free  avgt   10  430048.243 ±   0.002    B/op
+[info] TaglessBenchmark.askNear:gc.count                  free  avgt   10     104.000            counts
+[info] TaglessBenchmark.askNear:gc.time                   free  avgt   10      65.000                ms
+[info] TaglessBenchmark.binds                          machine  avgt   10      12.149 ±   0.210   us/op
+[info] TaglessBenchmark.binds:gc.alloc.rate            machine  avgt   10    8012.028 ± 136.520  MB/sec
+[info] TaglessBenchmark.binds:gc.alloc.rate.norm       machine  avgt   10  102072.085 ±   0.002    B/op
+[info] TaglessBenchmark.binds:gc.count                 machine  avgt   10     127.000            counts
+[info] TaglessBenchmark.binds:gc.time                  machine  avgt   10      57.000                ms
+[info] TaglessBenchmark.binds                             free  avgt   10      17.230 ±   0.422   us/op
+[info] TaglessBenchmark.binds:gc.alloc.rate               free  avgt   10    9629.951 ± 236.332  MB/sec
+[info] TaglessBenchmark.binds:gc.alloc.rate.norm          free  avgt   10  173968.121 ±   0.003    B/op
+[info] TaglessBenchmark.binds:gc.count                    free  avgt   10     164.000            counts
+[info] TaglessBenchmark.binds:gc.time                     free  avgt   10      70.000                ms
+[info] TaglessBenchmark.stateLoop                      machine  avgt   10      32.144 ±   0.386   us/op
+[info] TaglessBenchmark.stateLoop:gc.alloc.rate        machine  avgt   10   13246.199 ± 157.922  MB/sec
+[info] TaglessBenchmark.stateLoop:gc.alloc.rate.norm   machine  avgt   10  446496.226 ±  50.998    B/op
+[info] TaglessBenchmark.stateLoop:gc.count             machine  avgt   10     131.000            counts
+[info] TaglessBenchmark.stateLoop:gc.time              machine  avgt   10      51.000                ms
+[info] TaglessBenchmark.stateLoop                         free  avgt   10      39.450 ±   0.268   us/op
+[info] TaglessBenchmark.stateLoop:gc.alloc.rate           free  avgt   10   12140.218 ±  82.969  MB/sec
+[info] TaglessBenchmark.stateLoop:gc.alloc.rate.norm      free  avgt   10  502256.276 ±   0.002    B/op
+[info] TaglessBenchmark.stateLoop:gc.count                free  avgt   10     117.000            counts
+[info] TaglessBenchmark.stateLoop:gc.time                 free  avgt   10      46.000                ms
+[success] Total time: 168 s (0:02:48.0), completed Oct 17, 2026, 11:44:02 PM
