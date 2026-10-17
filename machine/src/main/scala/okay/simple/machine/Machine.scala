@@ -1,117 +1,183 @@
 package okay.simple.machine
 
-import okay.simple.{Ops, Simple}
+import okay.simple.{Effect, Simple}
 import scala.annotation.tailrec
 
 /**
- * THE MACHINE, typed. The run is a typed loop over three things, each typed by what it carries:
+ * THE MACHINE'S TYPES, typed by the row. A program is `Prog[R, A]`, of the value `A` at the row `R`; an operation of
+ * `E` is `Perf(at: At[E, R], op: Op[E, X])` — its place in the row, typed, and the operation of the type its name
+ * says. The run is a typed loop over three things:
  *
- *  - the program, `Prog[X]`, of the value `X`;
- *  - the FRAMES, `Frames[X, V]`: the binds from the value `X` to the value `V` of the nearest level's body —
- *    aligned, each bind's output the next one's input;
- *  - the LEVELS, `Meta[V, Z]`: from the value `V` of the nearest level's body to the run's value `Z` — a handler
- *    (general, answering in place, or with a state of its own) or a remapping of places (`split`, `embed`), each
- *    with the frames outside it.
+ *  - the program, `Prog[R, X]`;
+ *  - the FRAMES, `Frames[R, X, V]`: the binds at the row `R` from the value `X` to the value `V` of the nearest
+ *    level's body — aligned, each bind's output the next one's input;
+ *  - the LEVELS, `Meta[R, V, Z]`: the stack the program at the row `R` runs in, from `V` to the run's value `Z` — a
+ *    handler of `E` at the row `T + E`, its outside at `T`; a remapping of places from a row to another (`split`,
+ *    `embed`) — each with the frames outside it.
  *
- * An operation carries its place in its row; it walks the levels outward, a remapping renaming its place, a handler
- * not its own taking one off — nothing allocated — to its handler, place 0. A handler answering in place answers
- * there, the run going on: no `k`, a state written in its level. A general handler's clause gets `k`: the frames
- * inside and the levels crossed, as a typed `Prefix` put back on the stack where `k` is resumed — a stateful level
- * with the state it had when `k` was taken, so `k`, resumed any number of times, resumes the state of its time.
- * Everything in one `@tailrec` loop: constant stack.
- *
- * ONE CAST, the trusted step (`opOf`): an operation found by its place is of its handler's operations. A place is a
- * number, not a type, so the compiler cannot see it; the interface's `Split` and `In`, found by the types of the
- * row, guarantee it.
+ * What differs between the compilers is the place (`Places`, in `scala-2/` and `scala-3/`): in Scala 3 a typed path
+ * matched against the levels — the handler found is the operation's own by the types, no cast; in Scala 2 a number,
+ * the levels walked by it — Scala 2 cannot refine types by a match, so one cast where the operation meets its handler.
  */
-private[machine] object Machine extends Simple {
-  sealed trait Prog[+A]
-  final case class Done[A](a: A) extends Prog[A]
-  final case class Bind[X, A](p: Prog[X], f: X => Prog[A]) extends Prog[A]
-  final case class Delay[A](p: () => Prog[A]) extends Prog[A]
-  final case class Perf[X](at: Int, op: Any) extends Prog[X]
-  final case class HandleGeneral[F[_], R, A, B](p: Prog[A], h: Handler[F, R, A, B]) extends Prog[B]
-  final case class HandleTail[F[_], R, A, B](p: Prog[A], h: TailHandler[F, R, A, B]) extends Prog[B]
-  final case class HandleState[F[_], S, R, A, B](p: Prog[A], s0: S, h: StatefulHandler[F, S, R, A, B]) extends Prog[B]
-  final case class Remap[A](p: Prog[A], f: Int => Int) extends Prog[A]
-  final case class Resume[X, B](k: K[X, B], x: X) extends Prog[B]
+private[machine] trait MachineTypes extends Simple {
+  final abstract class PureRow
+  final abstract class Plus[R, E]
+  type Pure = PureRow
+  type +[R, E] = Plus[R, E]
+  type ![+A, R] = Prog[R, A]
 
-  /** the binds from a value `X` to the value `V` of the nearest level's body */
-  sealed abstract class Frames[-X, +V] {
+  /** the place of `E` in the row `R` */
+  type At[E <: Effect, R]
+  /** places in the row `R1` renamed to their places in `R2` */
+  type Rename[R1, R2]
+
+  sealed trait Prog[R, +A]
+  final case class Done[R, A](a: A) extends Prog[R, A]
+  final case class Bind[R, X, A](p: Prog[R, X], f: X => Prog[R, A]) extends Prog[R, A]
+  final case class Delay[R, A](p: () => Prog[R, A]) extends Prog[R, A]
+  final case class Perf[R, E <: Effect, X](at: At[E, R], op: Op[E, X]) extends Prog[R, X]
+  final case class HandleGeneral[E <: Effect, R, A, B](p: Prog[Plus[R, E], A], h: Handler[E, R, A, B]) extends Prog[R, B]
+  final case class HandleTail[E <: Effect, R, A, B](p: Prog[Plus[R, E], A], h: TailHandler[E, R, A, B]) extends Prog[R, B]
+  final case class HandleState[E <: Effect, S, R, A, B](p: Prog[Plus[R, E], A], s0: S, h: StatefulHandler[E, S, R, A, B])
+      extends Prog[R, B]
+  final case class Remap[R1, R2, A](p: Prog[R1, A], rename: Rename[R1, R2]) extends Prog[R2, A]
+  final case class Resume[R, X, B](k: K[R, X, B], x: X) extends Prog[R, B]
+
+  /** the binds at the row `R` from a value `X` to the value `V` of the nearest level's body */
+  sealed abstract class Frames[R, -X, +V] {
     /** the value at the end of the frames: of `Last` only */
     def last(x: X): V
   }
-  final class Last[V] extends Frames[V, V] { def last(x: V): V = x }
-  final class Then[X, Y, V](val f: X => Prog[Y], val rest: Frames[Y, V]) extends Frames[X, V] {
+  final class Last[R, V] extends Frames[R, V, V] { def last(x: V): V = x }
+  final class Then[R, X, Y, V](val f: X => Prog[R, Y], val rest: Frames[R, Y, V]) extends Frames[R, X, V] {
     def last(x: X): V = throw new IllegalStateException("not the last frame")
   }
 
-  /** the levels from the value `V` of the nearest one's body to the run's value `Z` */
-  /** `kind`: the top, a handler's level or a remapping; `outer` the level further out, `null` at the top; `remap` a
-   * remapping's renaming of places — fields, read by the walk to an operation's handler with no call */
-  sealed abstract class Meta[-V, +Z](final val kind: Int, final val outer: Meta[Nothing, Any], final val remap: Int => Int) {
+  /** a level, by its fields: its kind, the one further out (`null` at the top), a remapping's numbers — read by a walk
+   * with no call */
+  sealed abstract class Level0(final val kind: Int, final val outer: Level0)
+  final val TopKind = 0
+  final val GeneralKind = 1
+  final val TailKind = 2
+  final val StateKind = 3
+  final val RemapKind = 4
+
+  /** the levels the program at the row `R` runs in, from the value `V` of the nearest one's body to the run's `Z` */
+  sealed abstract class Meta[R, V, Z](kind: Int, outer: Level0) extends Level0(kind, outer) {
     /** the run's value: of `Top` only */
     def top(v: V): Z
+    /** the body's value given back through this level: where the run goes on outside it */
+    def returned(v: V): Next[Z]
+    /** this level crossed by an operation: `pre` with it after, and the levels outside it */
+    def stepOut[R0, V0](pre: Prefix[R0, V0, R, V]): Out[R0, V0, Z]
+    /** an operation found here by a number (Scala 2's walk): of a general handler's level only */
+    def foundAny[R0, X, V0](op: Any, inner: Frames[R0, X, V0], pre: Prefix[R0, V0, R, V]): Next[Z] =
+      throw new IllegalStateException("not a handler")
   }
-  final val TopKind = 0
-  final val HandlerKind = 1
-  final val RemapKind = 2
-  final class Top[Z] extends Meta[Z, Z](TopKind, null, null) {
+  final class Top[Z] extends Meta[PureRow, Z, Z](TopKind, null) {
     def top(v: Z): Z = v
+    def returned(v: Z): Next[Z] = throw new IllegalStateException("the top is the loop's")
+    def stepOut[R0, V0](pre: Prefix[R0, V0, PureRow, Z]): Out[R0, V0, Z] = throw new IllegalStateException("no handler")
   }
-  /** a level of the body's value `A`, the frames outside it from `B` to `W`, the levels outside them */
-  sealed abstract class Level[A, B, W, Z](kind: Int, remap: Int => Int, final val outside: Frames[B, W],
-      final val m: Meta[W, Z]) extends Meta[A, Z](kind, m, remap) {
+
+  /** a handler's level, of `E`: what the walk to an operation's handler finds, typed by the effect */
+  sealed trait Handling[E <: Effect] {
+    def kind: Int
+    /** an operation answered in place: of a handler answering in place, or a stateful one */
+    def answer[X](op: Op[E, X]): X
+  }
+  /** a handler of `E`'s level, the program inside at `T + E`, its body's value `A`; the frames outside it from `B`
+   * to `W` at `T`, the levels outside them */
+  sealed abstract class HandlerLevel[E <: Effect, T, A, B, W, Z](kind: Int, final val outside: Frames[T, B, W],
+      final val m: Meta[T, W, Z]) extends Meta[Plus[T, E], A, Z](kind, m) with Handling[E] {
     def top(v: A): Z = throw new IllegalStateException("not the top")
-    /** `pre` with this level after it: a `k` taken past it puts it back as it is now */
-    def crossed[V0](pre: Prefix[V0, A]): Prefix[V0, W]
+    /** `pre` with this level after it, as it is now */
+    def crossed[R0, V0](pre: Prefix[R0, V0, Plus[T, E], A]): Prefix[R0, V0, T, W]
+    def stepOut[R0, V0](pre: Prefix[R0, V0, Plus[T, E], A]): Out[R0, V0, Z] = out(crossed(pre), m)
+    /** the operation's `k` taken, its clause run: of a general handler only */
+    def found[R0, X, V0](op: Op[E, X], inner: Frames[R0, X, V0], pre: Prefix[R0, V0, Plus[T, E], A]): Next[Z] =
+      throw new IllegalStateException("answered in place")
+    override def foundAny[R0, X, V0](op: Any, inner: Frames[R0, X, V0], pre: Prefix[R0, V0, Plus[T, E], A]): Next[Z] =
+      found[R0, X, V0](opAs[E, X](op), inner, pre)
   }
-  final class GeneralLevel[F[_], R, A, B, W, Z](val h: Handler[F, R, A, B], outside: Frames[B, W], m: Meta[W, Z])
-      extends Level[A, B, W, Z](HandlerKind, null, outside, m) {
-    def crossed[V0](pre: Prefix[V0, A]): Prefix[V0, W] = new Prefix[V0, W] {
-      def put[Z2](m2: Meta[W, Z2]): Meta[V0, Z2] = pre.put(new GeneralLevel(h, outside, m2))
+  final class GeneralLevel[E <: Effect, T, A, B, W, Z](val h: Handler[E, T, A, B], outside: Frames[T, B, W],
+      m: Meta[T, W, Z]) extends HandlerLevel[E, T, A, B, W, Z](GeneralKind, outside, m) {
+    def returned(v: A): Next[Z] = next[T, B, W, Z](h.ret(v), outside, m)
+    def answer[X](op: Op[E, X]): X = throw new IllegalStateException("not answered in place")
+    def crossed[R0, V0](pre: Prefix[R0, V0, Plus[T, E], A]): Prefix[R0, V0, T, W] = new Prefix[R0, V0, T, W] {
+      def put[Z2](m2: Meta[T, W, Z2]): Meta[R0, V0, Z2] = pre.put(new GeneralLevel(h, outside, m2))
+    }
+    override def found[R0, X, V0](op: Op[E, X], inner: Frames[R0, X, V0], pre: Prefix[R0, V0, Plus[T, E], A]): Next[Z] = {
+      val k = new K[T, X, B] {
+        def at[W2, Z2](x: X, fs: Frames[T, B, W2], m2: Meta[T, W2, Z2]): Next[Z2] =
+          next[R0, X, V0, Z2](Done(x), inner, pre.put(new GeneralLevel(h, fs, m2)))
+      }
+      next[T, B, W, Z](h.op[X](op, (x: X) => Resume(k, x)), outside, m)
     }
   }
-  final class TailLevel[F[_], R, A, B, W, Z](val h: TailHandler[F, R, A, B], outside: Frames[B, W], m: Meta[W, Z])
-      extends Level[A, B, W, Z](HandlerKind, null, outside, m) {
-    def crossed[V0](pre: Prefix[V0, A]): Prefix[V0, W] = new Prefix[V0, W] {
-      def put[Z2](m2: Meta[W, Z2]): Meta[V0, Z2] = pre.put(new TailLevel(h, outside, m2))
+  final class TailLevel[E <: Effect, T, A, B, W, Z](val h: TailHandler[E, T, A, B], outside: Frames[T, B, W],
+      m: Meta[T, W, Z]) extends HandlerLevel[E, T, A, B, W, Z](TailKind, outside, m) {
+    def returned(v: A): Next[Z] = next[T, B, W, Z](h.ret(v), outside, m)
+    def answer[X](op: Op[E, X]): X = h.answer[X](op)
+    def crossed[R0, V0](pre: Prefix[R0, V0, Plus[T, E], A]): Prefix[R0, V0, T, W] = new Prefix[R0, V0, T, W] {
+      def put[Z2](m2: Meta[T, W, Z2]): Meta[R0, V0, Z2] = pre.put(new TailLevel(h, outside, m2))
     }
   }
   /** a stateful handler's level: its state the cell its clauses write */
-  final class StateLevel[F[_], S, R, A, B, W, Z](val h: StatefulHandler[F, S, R, A, B], var state: S,
-      outside: Frames[B, W], m: Meta[W, Z]) extends Level[A, B, W, Z](HandlerKind, null, outside, m) with Cell[S] {
+  final class StateLevel[E <: Effect, S, T, A, B, W, Z](val h: StatefulHandler[E, S, T, A, B], var state: S,
+      outside: Frames[T, B, W], m: Meta[T, W, Z]) extends HandlerLevel[E, T, A, B, W, Z](StateKind, outside, m) with Cell[S] {
+    def returned(v: A): Next[Z] = next[T, B, W, Z](h.ret(state, v), outside, m)
     def get: S = state
     def set(s: S): Unit = state = s
+    def answer[X](op: Op[E, X]): X = h.answer[X](this, op)
     /** put back with the state it has now, each time */
-    def crossed[V0](pre: Prefix[V0, A]): Prefix[V0, W] = {
+    def crossed[R0, V0](pre: Prefix[R0, V0, Plus[T, E], A]): Prefix[R0, V0, T, W] = {
       val now = state
-      new Prefix[V0, W] { def put[Z2](m2: Meta[W, Z2]): Meta[V0, Z2] = pre.put(new StateLevel(h, now, outside, m2)) }
+      new Prefix[R0, V0, T, W] { def put[Z2](m2: Meta[T, W, Z2]): Meta[R0, V0, Z2] = pre.put(new StateLevel(h, now, outside, m2)) }
     }
   }
-  final class RemapLevel[A, W, Z](val f: Int => Int, outside: Frames[A, W], m: Meta[W, Z])
-      extends Level[A, A, W, Z](RemapKind, f, outside, m) {
-    def crossed[V0](pre: Prefix[V0, A]): Prefix[V0, W] = new Prefix[V0, W] {
-      def put[Z2](m2: Meta[W, Z2]): Meta[V0, Z2] = pre.put(new RemapLevel(f, outside, m2))
+  /** a remapping's level: the program inside at `R1`, its places renamed to `R2`'s outside it */
+  final class RemapLevel[R1, R2, A, W, Z](val rename: Rename[R1, R2], final val outside: Frames[R2, A, W],
+      final val m: Meta[R2, W, Z]) extends Meta[R1, A, Z](RemapKind, m) {
+    def top(v: A): Z = throw new IllegalStateException("not the top")
+    def returned(v: A): Next[Z] = next[R2, A, W, Z](Done(v), outside, m)
+    def crossed[R0, V0](pre: Prefix[R0, V0, R1, A]): Prefix[R0, V0, R2, W] = new Prefix[R0, V0, R2, W] {
+      def put[Z2](m2: Meta[R2, W, Z2]): Meta[R0, V0, Z2] = pre.put(new RemapLevel(rename, outside, m2))
     }
+    def stepOut[R0, V0](pre: Prefix[R0, V0, R1, A]): Out[R0, V0, Z] = out(crossed(pre), m)
   }
 
-  /** levels taken off the stack, from the value `V` of the innermost one's body up to `A`: put back on any levels */
-  trait Prefix[V, +A] { def put[Z](m: Meta[A, Z]): Meta[V, Z] }
-  private def none[V]: Prefix[V, V] = new Prefix[V, V] { def put[Z](m: Meta[V, Z]): Meta[V, Z] = m }
+  /** levels taken off the stack, the innermost's body at `RIn` of `VIn`, the outermost at `ROut`, its value `VOut`:
+   * put back on any levels */
+  trait Prefix[RIn, VIn, ROut, VOut] { def put[Z](m: Meta[ROut, VOut, Z]): Meta[RIn, VIn, Z] }
+  def none[R, V]: Prefix[R, V, R, V] = new Prefix[R, V, R, V] { def put[Z](m: Meta[R, V, Z]): Meta[R, V, Z] = m }
+  /** a level crossed: the prefix with it, the levels outside */
+  abstract class Out[R0, V0, Z] {
+    type R
+    type V
+    val pre: Prefix[R0, V0, R, V]
+    val m: Meta[R, V, Z]
+  }
+  def out[R0, V0, R1, V1, Z](p: Prefix[R0, V0, R1, V1], m1: Meta[R1, V1, Z]): Out[R0, V0, Z] = new Out[R0, V0, Z] {
+    type R = R1
+    type V = V1
+    val pre = p
+    val m = m1
+  }
 
-  /** `k`, resumed with an `X` where the frames from `B` and the levels are: the rest put back, the handler's level
-   * outside it, those frames outside that */
-  trait K[X, B] { def at[W, Z](x: X, fs: Frames[B, W], m: Meta[W, Z]): Next[Z] }
+  /** `k`, resumed at the row `R` with an `X`, where the frames from `B` and the levels are */
+  trait K[R, X, B] { def at[W, Z](x: X, fs: Frames[R, B, W], m: Meta[R, W, Z]): Next[Z] }
   /** where the run goes on: a program, its frames, the levels — their types its own */
-  abstract class Next[+Z] {
+  abstract class Next[Z] {
+    type R
     type X
     type V
-    val c: Prog[X]
-    val fs: Frames[X, V]
-    val m: Meta[V, Z]
+    val c: Prog[R, X]
+    val fs: Frames[R, X, V]
+    val m: Meta[R, V, Z]
   }
-  private def next[X0, V0, Z](c0: Prog[X0], fs0: Frames[X0, V0], m0: Meta[V0, Z]): Next[Z] = new Next[Z] {
+  def next[R0, X0, V0, Z](c0: Prog[R0, X0], fs0: Frames[R0, X0, V0], m0: Meta[R0, V0, Z]): Next[Z] = new Next[Z] {
+    type R = R0
     type X = X0
     type V = V0
     val c = c0
@@ -119,131 +185,79 @@ private[machine] object Machine extends Simple {
     val m = m0
   }
 
-  /** THE TRUSTED STEP: an operation found by its place, of its handler's operations */
-  private def opOf[F[_], X](op: Any): F[X] = op.asInstanceOf[F[X]]
+  // -- the compiler's own (`Places`): the place, the evidence, and the walk to an operation's handler
 
-  /** an operation to its general handler: the levels it crosses taken off as `k`, the clause run outside them */
-  @tailrec private def capture[X, V0, V, Z](op: Any, at: Int, inner: Frames[X, V0], pre: Prefix[V0, V],
-      m: Meta[V, Z]): Next[Z] = m match {
-    case r: RemapLevel[a, w, z] => capture[X, V0, w, Z](op, r.f(at), inner, r.crossed(pre), r.m)
-    case g: GeneralLevel[f, r, a, b, w, z] if at == 0 =>
-      val k = new K[X, b] {
-        def at[W2, Z2](x: X, fs: Frames[b, W2], m2: Meta[W2, Z2]): Next[Z2] =
-          next[X, V0, Z2](Done(x), inner, pre.put(new GeneralLevel(g.h, fs, m2)))
-      }
-      next[b, w, Z](g.h.op[X](opOf[f, X](op), (x: X) => Resume(k, x)), g.outside, g.m)
-    case g: GeneralLevel[f, r, a, b, w, z] => capture[X, V0, w, Z](op, at - 1, inner, g.crossed(pre), g.m)
-    case t: TailLevel[f, r, a, b, w, z] => capture[X, V0, w, Z](op, at - 1, inner, t.crossed(pre), t.m)
-    case s: StateLevel[f, st, r, a, b, w, z] => capture[X, V0, w, Z](op, at - 1, inner, s.crossed(pre), s.m)
-    case _ => throw new IllegalStateException(s"an operation no handler took: $op")
-  }
+  /** the place an operation is performed at, of its evidence */
+  def placeOf[E <: Effect, R](in: In[E, R]): At[E, R]
+  /** Scala 2's trusted step, an operation found by its number of its handler's operations; never in Scala 3's */
+  def opAs[E <: Effect, X](op: Any): Op[E, X]
 
-  /** THE LOOP, its hot cases only — a bind, a value into a frame, an operation answered in place — small, so the JIT
-   * compiles it whole; everything else a step of `cold`'s, the loop going on where it says */
-  @tailrec private def loop[X, V, Z](c: Prog[X], fs: Frames[X, V], m: Meta[V, Z]): Z = c match {
-    case d: Done[x] => fs match {
-      case t: Then[a, y, v] => loop[y, V, Z](t.f(d.a), t.rest, m)
+  /** the handler of `E` answering `at` from `m` */
+  def levelOf[E <: Effect, R, V, Z](at: At[E, R], m: Meta[R, V, Z]): Handling[E]
+  /** an operation to its general handler: the levels it crosses taken as `k`'s, the clause run outside them */
+  def capture[E <: Effect, R, X, V, Z](at: At[E, R], op: Op[E, X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Next[Z]
+}
+
+/**
+ * THE MACHINE: a `@tailrec` loop of the hot cases — a bind, a value into a frame, an operation answered in place —
+ * small, so the JIT compiles it whole; the rest `cold`'s. An operation answered in place goes straight into the next
+ * frame, no `Done` made. A general handler's clause gets `k`: the frames inside, the levels crossed as a typed
+ * `Prefix`, put back where `k` is resumed — a stateful level with the state of its time.
+ */
+private[machine] object Machine extends Places {
+  @tailrec private def loop[R, X, V, Z](c: Prog[R, X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Z = c match {
+    case d: Done[r, x] => fs match {
+      case t: Then[r2, a, y, v] => loop[R, y, V, Z](t.f(d.a), t.rest, m)
       case _ =>
         if (m.kind == TopKind) m.top(fs.last(d.a))
         else {
-          val n = cold[X, V, Z](c, fs, m)
-          loop[n.X, n.V, Z](n.c, n.fs, n.m)
+          val n = cold[R, X, V, Z](c, fs, m)
+          loop[n.R, n.X, n.V, Z](n.c, n.fs, n.m)
         }
     }
-    case b: Bind[y, x] => loop[y, V, Z](b.p, new Then[y, x, V](b.f, fs), m)
-    case p: Perf[x] =>
-      // the level answering the operation's place, by fields: no call
-      var at = p.at
-      var l: Meta[Nothing, Any] = m
-      var k = l.kind
-      while (at != 0 || k != HandlerKind) {
-        if (k == HandlerKind) at -= 1
-        else if (k == RemapKind) at = l.remap(at)
-        else throw new IllegalStateException(s"an operation no handler took: ${p.op}")
-        l = l.outer
-        k = l.kind
-      }
-      l match {
+    case b: Bind[r, y, x] => loop[R, y, V, Z](b.p, new Then[R, y, x, V](b.f, fs), m)
+    case p: Perf[r, e, x] =>
+      val h = levelOf[e, R, V, Z](p.at, m)
+      if (h.kind != GeneralKind) {
         // answered in place, the answer straight into the next frame: no `Done` made
-        case t: TailLevel[f, r, a, b, w, z] =>
-          val x = t.h.answer[X](opOf[f, X](p.op))
-          fs match {
-            case th: Then[a2, y, v] => loop[y, V, Z](th.f(x), th.rest, m)
-            case _ => loop[X, V, Z](Done(x), fs, m)
-          }
-        case s: StateLevel[f, st, r, a, b, w, z] =>
-          val x = s.h.answer[X](s, opOf[f, X](p.op))
-          fs match {
-            case th: Then[a2, y, v] => loop[y, V, Z](th.f(x), th.rest, m)
-            case _ => loop[X, V, Z](Done(x), fs, m)
-          }
-        case _ =>
-          val n = cold[X, V, Z](c, fs, m)
-          loop[n.X, n.V, Z](n.c, n.fs, n.m)
+        val x = h.answer[x](p.op)
+        fs match {
+          case t: Then[r2, a, y, v] => loop[R, y, V, Z](t.f(x), t.rest, m)
+          case _ => loop[R, X, V, Z](Done(x), fs, m)
+        }
+      } else {
+        val n = capture[e, R, x, V, Z](p.at, p.op, fs, m)
+        loop[n.R, n.X, n.V, Z](n.c, n.fs, n.m)
       }
-    case d: Delay[x] => loop[X, V, Z](d.p(), fs, m)
+    case d: Delay[r, x] => loop[R, X, V, Z](d.p(), fs, m)
     case _ =>
-      val n = cold[X, V, Z](c, fs, m)
-      loop[n.X, n.V, Z](n.c, n.fs, n.m)
+      val n = cold[R, X, V, Z](c, fs, m)
+      loop[n.R, n.X, n.V, Z](n.c, n.fs, n.m)
   }
 
-  /** the loop's cold steps: a level entered or left, an operation to a general handler, a `k` resumed */
-  private def cold[X, V, Z](c: Prog[X], fs: Frames[X, V], m: Meta[V, Z]): Next[Z] = c match {
-    case Done(x) =>
-      val v = fs.last(x)
-      m match {
-        case l: GeneralLevel[f, r, a, b, w, z] => next[b, w, Z](l.h.ret(v), l.outside, l.m)
-        case l: TailLevel[f, r, a, b, w, z] => next[b, w, Z](l.h.ret(v), l.outside, l.m)
-        case l: StateLevel[f, s, r, a, b, w, z] => next[b, w, Z](l.h.ret(l.state, v), l.outside, l.m)
-        case l: RemapLevel[a, w, z] => next[a, w, Z](Done(v), l.outside, l.m)
-        case _ => throw new IllegalStateException("the top is the loop's")
-      }
-    case p: Perf[x] => capture[X, V, V, Z](p.op, p.at, fs, none[V], m)
-    case h: HandleGeneral[f, r, a, b] => next[a, a, Z](h.p, new Last[a], new GeneralLevel(h.h, fs, m))
-    case h: HandleTail[f, r, a, b] => next[a, a, Z](h.p, new Last[a], new TailLevel(h.h, fs, m))
-    case h: HandleState[f, s, r, a, b] => next[a, a, Z](h.p, new Last[a], new StateLevel(h.h, h.s0, fs, m))
-    case r: Remap[a] => next[a, a, Z](r.p, new Last[a], new RemapLevel(r.f, fs, m))
-    case r: Resume[x, b] => r.k.at(r.x, fs, m)
+  /** the loop's cold steps: a level entered or left, a `k` resumed */
+  private def cold[R, X, V, Z](c: Prog[R, X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Next[Z] = c match {
+    case d: Done[r, x] => m.returned(fs.last(d.a))
+    case h: HandleGeneral[e, r, a, b] => next[Plus[R, e], a, a, Z](h.p, new Last[Plus[R, e], a], new GeneralLevel[e, R, a, b, V, Z](h.h, fs, m))
+    case h: HandleTail[e, r, a, b] => next[Plus[R, e], a, a, Z](h.p, new Last[Plus[R, e], a], new TailLevel[e, R, a, b, V, Z](h.h, fs, m))
+    case h: HandleState[e, s, r, a, b] =>
+      next[Plus[R, e], a, a, Z](h.p, new Last[Plus[R, e], a], new StateLevel[e, s, R, a, b, V, Z](h.h, h.s0, fs, m))
+    case r: Remap[r1, r2, a] => next[r1, a, a, Z](r.p, new Last[r1, a], new RemapLevel[r1, R, a, V, Z](r.rename, fs, m))
+    case r: Resume[r, x, b] => r.k.at(r.x, fs, m)
     case _ => throw new IllegalStateException(s"not a cold step: $c")
   }
 
-  type ![+A, R] = Prog[A]
-  type Pure = Nothing
-  type +[R, E] = Nothing
-  final case class Place(at: Int)
-  /** the places, one per depth, shared: no allocation where an operation is performed */
-  private val places: Array[Place] = Array.tabulate(64)(Place(_))
-  private def placeAt(i: Int): Place = if (i < places.length) places(i) else Place(i)
-  type Split[E, R, Rest] = Place
-  type In[E, R] = Place
-  type Sub[R, S] = Vector[Int]
+  def pure[A, R](a: A): Prog[R, A] = Done(a)
+  def flatMap[A, B, R](p: Prog[R, A])(f: A => Prog[R, B]): Prog[R, B] = Bind(p, f)
+  def delay[A, R](p: => Prog[R, A]): Prog[R, A] = Delay(() => p)
+  protected def performOp[E <: Effect, R, X](op: Op[E, X])(implicit in: In[E, R]): Prog[R, X] = Perf[R, E, X](placeOf(in), op)
 
-  implicit def splitOne[E]: Place = places(0)
-  implicit def splitLast[R, E]: Place = places(0)
-  implicit def splitInit[E, R, G, Rest](implicit s: Place): Place = placeAt(s.at + 1)
-  implicit def in[E, R, Rest](implicit s: Place): Place = s
-  implicit def subPure[S]: Vector[Int] = Vector()
-  implicit def subOne[E, S](implicit e: Place): Vector[Int] = Vector(e.at)
-  implicit def subMore[R, E, S](implicit r: Vector[Int], e: Place): Vector[Int] = e.at +: r
-
-  def pure[A, R](a: A): Prog[A] = Done(a)
-  def flatMap[A, B, R](p: Prog[A])(f: A => Prog[B]): Prog[B] = Bind(p, f)
-  def delay[A, R](p: => Prog[A]): Prog[A] = Delay(() => p)
-  protected def performOp[E, F[_], R, X](op: F[X])(implicit in: Place): Prog[X] = Perf[X](in.at, op)
-
-  def split[E, R, Rest, A](p: Prog[A])(implicit s: Place): Prog[A] = {
-    val at = s.at
-    if (at == 0) p else Remap(p, i => if (i == at) 0 else if (i < at) i + 1 else i)
-  }
-  def embed[R, S, A](p: Prog[A])(implicit s: Vector[Int]): Prog[A] = Remap(p, s)
-
-  def handleLast[E, F[_], R, A, B](p: Prog[A])(h: Handler[F, R, A, B])(implicit o: Ops.Aux[E, F]): Prog[B] =
-    HandleGeneral(p, h)
-  override def handleTailLast[E, F[_], R, A, B](p: Prog[A])(h: TailHandler[F, R, A, B])(implicit o: Ops.Aux[E, F]): Prog[B] =
+  def handleLast[E <: Effect, R, A, B](p: Prog[Plus[R, E], A])(h: Handler[E, R, A, B]): Prog[R, B] = HandleGeneral(p, h)
+  override def handleTailLast[E <: Effect, R, A, B](p: Prog[Plus[R, E], A])(h: TailHandler[E, R, A, B]): Prog[R, B] =
     HandleTail(p, h)
-  override def handleStatefulLast[E, F[_], S, R, A, B](p: Prog[A])(s0: S)(h: StatefulHandler[F, S, R, A, B])(
-      implicit o: Ops.Aux[E, F]): Prog[B] = HandleState(p, s0, h)
-  def run[A](p: Prog[A]): A = loop[A, A, A](p, new Last[A], new Top[A])
+  override def handleStatefulLast[E <: Effect, S, R, A, B](p: Prog[Plus[R, E], A])(s0: S)(h: StatefulHandler[E, S, R, A, B]): Prog[R, B] =
+    HandleState(p, s0, h)
+  def run[A](p: Prog[PureRow, A]): A = loop[PureRow, A, A, A](p, new Last[PureRow, A], new Top[A])
 }
 
 /** the implementation, seen through the interface only */

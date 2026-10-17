@@ -60,47 +60,34 @@ lazy val bench = (project in file("bench")).dependsOn(free, machine, okaycore, k
     resolvers += Resolver.mavenLocal, libraryDependencies ++= Seq(
       "dev.okay" %% "okay-kernel-steps" % "0.2.0-SNAPSHOT", "dev.okay" % "okay-java" % "0.2.0-SNAPSHOT"))
 
-/** Scala 3's standard library for a Scala 2.13 project, resolved here and put BEHIND 2.13's by hand (okay-core's
- * finding: 2.13's first, to compile — Scala 3's carries TASTy, not Scala 2 pickles — and Scala 3's after it, to run) */
-lazy val Scala3Stdlib = config("scala3Stdlib").hide
-
-/** a project compiled by scalac 2.13 against the core as Scala 3 built it (`-Ytasty-reader`) */
-def scala2ReadingScala3: Seq[Def.Setting[?]] = Seq(
-  scalaVersion := scala2,
-  crossScalaVersions := Seq(scala2),
-  projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library").exclude("org.scala-lang", "scala3-library_3"))),
-  scalacOptions := Seq("-Ytasty-reader", "-deprecation", "-feature", "-Xlint"),
-  ivyConfigurations += Scala3Stdlib,
-  libraryDependencies ++= Seq(
-    munit,
-    "org.scala-lang" % "scala-library" % scala3 % Scala3Stdlib,
-    "org.scala-lang" % "scala3-library_3" % scala3 % Scala3Stdlib)
-) ++ Seq(Compile, Runtime, Test).flatMap(c => Seq(
-  c / dependencyClasspath ++= Classpaths.managedJars(Scala3Stdlib, Set("jar"), update.value),
-  c / dependencyClasspathAsJars ++= Classpaths.managedJars(Scala3Stdlib, Set("jar"), update.value)))
-
-/** COMPATIBILITY, 1: an effect, its handler and a program written in Scala 2.13, on the interface Scala 3 built */
-lazy val compat2 = (project in file("compat/scala2")).dependsOn(free, machine)
-  .settings(scala2ReadingScala3, name := "okay-simple-compat-scala2", publish / skip := true)
-
-/** COMPATIBILITY, 2: Scala 3 code using the Scala 2.13 library's effect and program beside its own */
-lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
-  .settings(scalaVersion := scala3, crossScalaVersions := Seq(scala3), libraryDependencies += munit,
-    name := "okay-simple-compat-scala3", publish / skip := true)
-
-/** COMPATIBILITY, 3: the other way — the interface and the implementation as Scala 2.13 builds them, and the
- * interface's suite compiled by Scala 3 against that build */
+/**
+ * COMPATIBILITY. One application has one build of the interface. A Scala 3 build's `Op` is a match type, which Scala
+ * 2 cannot read; so an application with Scala 2 code in it takes the Scala 2.13 build, which Scala 3 reads. Below:
+ * the interface and its implementations as Scala 2.13 builds them; the interface's suite compiled by Scala 3 against
+ * that build; an effect, its handler and a program written in Scala 2.13, used by Scala 3 code beside its own
+ */
 lazy val core213 = (project in file("compat/core-2.13"))
   .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), name := "okay-simple-core-213", publish / skip := true,
     Compile / unmanagedSourceDirectories := Seq("core/src/main/scala", "core/src/main/scala-2").map((ThisBuild / baseDirectory).value / _))
 lazy val free213 = (project in file("compat/free-2.13")).dependsOn(core213)
   .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), name := "okay-simple-free-213", publish / skip := true,
-    Compile / unmanagedSourceDirectories := Seq("free/src/main/scala", "machine/src/main/scala").map((ThisBuild / baseDirectory).value / _))
+    Compile / unmanagedSourceDirectories := Seq("free/src/main/scala", "machine/src/main/scala", "machine/src/main/scala-2").map((ThisBuild / baseDirectory).value / _))
 lazy val compat3on2 = (project in file("compat/scala3-on-2.13")).dependsOn(free213)
   .settings(scalaVersion := scala3, crossScalaVersions := Seq(scala3), libraryDependencies += munit,
     name := "okay-simple-compat-scala3-on-213", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))),
     Test / unmanagedSourceDirectories := Seq("suite/src/test/scala", "suite/src/test/impl").map((ThisBuild / baseDirectory).value / _))
+
+/** an effect, its handler and a program written in Scala 2.13, on the Scala 2.13 build */
+lazy val compat2 = (project in file("compat/scala2")).dependsOn(free213)
+  .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), libraryDependencies += munit,
+    name := "okay-simple-compat-scala2", publish / skip := true)
+
+/** Scala 3 code using the Scala 2.13 library's effect and program beside its own, in one row */
+lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
+  .settings(scalaVersion := scala3, crossScalaVersions := Seq(scala3), libraryDependencies += munit,
+    name := "okay-simple-compat-scala3", publish / skip := true,
+    projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
 lazy val root = (project in file(".")).aggregate(core, free, machine, suite, okaycore, suiteOkaycore, kernel, suiteKernel, compat2, compat3, core213, free213, compat3on2)
   .settings(publish / skip := true, crossScalaVersions := Nil)

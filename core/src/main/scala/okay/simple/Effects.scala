@@ -26,23 +26,23 @@ trait Effects extends Syntax {
   type +[R, E]
 
   /** `E` is in `R`, and `R` without that `E` is `Rest` */
-  type Split[E, R, Rest]
+  type Split[E <: Effect, R, Rest]
   /** `E` is in `R` */
-  type In[E, R]
+  type In[E <: Effect, R]
   /** every effect of `R` is in `S` */
   type Sub[R, S]
 
   /** a context bound, in both compilers: `def greet[R: Has[Reader % String]#L : Has[State % Int]#L]: Int ! R`, the
    * implicit parameters `In[Reader % String, R]`, `In[State % Int, R]` */
-  type Has[E] = { type L[R] = In[E, R] }
+  type Has[E <: Effect] = { type L[R] = In[E, R] }
 
-  implicit def splitOne[E]: Split[E, E, Pure]
-  implicit def splitLast[R, E]: Split[E, R + E, R]
-  implicit def splitInit[E, R, G, Rest](implicit s: Split[E, R, Rest]): Split[E, R + G, Rest + G]
-  implicit def in[E, R, Rest](implicit s: Split[E, R, Rest]): In[E, R]
+  implicit def splitOne[E <: Effect]: Split[E, E, Pure]
+  implicit def splitLast[R, E <: Effect]: Split[E, R + E, R]
+  implicit def splitInit[E <: Effect, R, G, Rest](implicit s: Split[E, R, Rest]): Split[E, R + G, Rest + G]
+  implicit def in[E <: Effect, R, Rest](implicit s: Split[E, R, Rest]): In[E, R]
   implicit def subPure[S]: Sub[Pure, S]
-  implicit def subOne[E, S](implicit e: In[E, S]): Sub[E, S]
-  implicit def subMore[R, E, S](implicit r: Sub[R, S], e: In[E, S]): Sub[R + E, S]
+  implicit def subOne[E <: Effect, S](implicit e: In[E, S]): Sub[E, S]
+  implicit def subMore[R, E <: Effect, S](implicit r: Sub[R, S], e: In[E, S]): Sub[R + E, S]
 
   def pure[A, R](a: A): A ! R
   def flatMap[A, B, R](p: A ! R)(f: A => B ! R): B ! R
@@ -50,28 +50,26 @@ trait Effects extends Syntax {
   def delay[A, R](p: => A ! R): A ! R
 
   /** an operation of `E`: `perform[State % Int].apply[R, Int](State.Get(s => s))` */
-  def perform[E](implicit o: Ops[E]): Perform[E, o.F] = new Perform[E, o.F]
-  final class Perform[E, F[_]] {
-    def apply[R, X](op: F[X])(implicit in: In[E, R]): X ! R = performOp[E, F, R, X](op)
+  def perform[E <: Effect]: Perform[E] = new Perform[E]
+  final class Perform[E <: Effect] {
+    def apply[R, X](op: Op[E, X])(implicit in: In[E, R]): X ! R = performOp[E, R, X](op)
   }
-  protected def performOp[E, F[_], R, X](op: F[X])(implicit in: In[E, R]): X ! R
+  protected def performOp[E <: Effect, R, X](op: Op[E, X])(implicit in: In[E, R]): X ! R
 
   /** the program with `E` taken from wherever it is in its row to the end, where `handleLast` takes it */
-  def split[E, R, Rest, A](p: A ! R)(implicit s: Split[E, R, Rest]): A ! (Rest + E)
+  def split[E <: Effect, R, Rest, A](p: A ! R)(implicit s: Split[E, R, Rest]): A ! (Rest + E)
   /** the program in a row of more effects */
   def embed[R, S, A](p: A ! R)(implicit s: Sub[R, S]): A ! S
   /** `E`, the last of the row, handled — deeply: its `k` the rest, under this handler, resumable any number of times */
-  def handleLast[E, F[_], R, A, B](p: A ! (R + E))(h: Handler[F, R, A, B])(implicit o: Ops.Aux[E, F]): B ! R
+  def handleLast[E <: Effect, R, A, B](p: A ! (R + E))(h: Handler[E, R, A, B]): B ! R
   def run[A](p: A ! Pure): A
 
-  /** a handler of the operations `F`: its value's clause and its operations' clause, over the row outside `R` */
-  trait Handler[F[_], R, A, B] {
+  /** a handler of the effect `E`: its value's clause, and its operations' clause — each operation of `E`'s,
+   * `Op[E, X]`, the type the name says — over the row outside, `R` */
+  trait Handler[E <: Effect, R, A, B] {
     def ret(a: A): B ! R
-    def op[X](op: F[X], k: X => B ! R): B ! R
+    def op[X](op: Op[E, X], k: X => B ! R): B ! R
   }
-
-  /** a handler of an effect with a parameter, `F % S`, its operations `F[S, X]` — with no type lambda to write */
-  abstract class HandlerOf[F[_, _], S, R, A, B] extends Handler[({ type L[x] = F[S, x] })#L, R, A, B]
 
   /** a stateful handler's state where an operation is: read and written by its clause, in place */
   trait Cell[S] { def get: S; def set(s: S): Unit }
@@ -82,31 +80,28 @@ trait Effects extends Syntax {
 
   /** a handler whose every clause resumes `k` once, at once, with its answer: an operation ANSWERED IN PLACE — an
    * implementation needs no `k` for it (`Reader`) */
-  trait TailHandler[F[_], R, A, B] {
+  trait TailHandler[E <: Effect, R, A, B] {
     def ret(a: A): B ! R
-    def answer[X](op: F[X]): X
+    def answer[X](op: Op[E, X]): X
   }
   /** the same with a state of its own, `cell` (`State`, `Writer`): a `k` taken by another handler and resumed twice
    * resumes the state of its time */
-  trait StatefulHandler[F[_], S, R, A, B] {
+  trait StatefulHandler[E <: Effect, S, R, A, B] {
     def ret(s: S, a: A): B ! R
-    def answer[X](cell: Cell[S], op: F[X]): X
+    def answer[X](cell: Cell[S], op: Op[E, X]): X
   }
-  abstract class TailHandlerOf[F[_, _], P, R, A, B] extends TailHandler[({ type L[x] = F[P, x] })#L, R, A, B]
-  abstract class StatefulHandlerOf[F[_, _], P, S, R, A, B] extends StatefulHandler[({ type L[x] = F[P, x] })#L, S, R, A, B]
 
   /** `E`, the last, handled by a handler answering in place. By default a `handleLast`; an implementation may do better */
-  def handleTailLast[E, F[_], R, A, B](p: A ! (R + E))(h: TailHandler[F, R, A, B])(implicit o: Ops.Aux[E, F]): B ! R =
-    handleLast[E, F, R, A, B](p)(new Handler[F, R, A, B] {
+  def handleTailLast[E <: Effect, R, A, B](p: A ! (R + E))(h: TailHandler[E, R, A, B]): B ! R =
+    handleLast[E, R, A, B](p)(new Handler[E, R, A, B] {
       def ret(a: A) = h.ret(a)
-      def op[X](op: F[X], k: X => B ! R) = delay(k(h.answer(op)))
+      def op[X](op: Op[E, X], k: X => B ! R) = delay(k(h.answer(op)))
     })
   /** `E`, the last, handled by a stateful handler answering in place, from the state `s0`. By default a `handleLast` */
-  def handleStatefulLast[E, F[_], S, R, A, B](p: A ! (R + E))(s0: S)(h: StatefulHandler[F, S, R, A, B])(
-      implicit o: Ops.Aux[E, F]): B ! R =
-    flatMap(handleLast[E, F, R, A, S => B ! R](p)(new Handler[F, R, A, S => B ! R] {
+  def handleStatefulLast[E <: Effect, S, R, A, B](p: A ! (R + E))(s0: S)(h: StatefulHandler[E, S, R, A, B]): B ! R =
+    flatMap(handleLast[E, R, A, S => B ! R](p)(new Handler[E, R, A, S => B ! R] {
       def ret(a: A) = pure((s: S) => h.ret(s, a))
-      def op[X](op: F[X], k: X => (S => B ! R) ! R) = pure { (s: S) =>
+      def op[X](op: Op[E, X], k: X => (S => B ! R) ! R) = pure { (s: S) =>
         val cell = new VarCell[S](s)
         val x = h.answer(cell, op)
         flatMap(k(x))((f: S => B ! R) => f(cell.get))
@@ -115,15 +110,15 @@ trait Effects extends Syntax {
 
   /** `E` handled from wherever it is in the row: by default `split`, then `handleLast`; an implementation may take it
    * from its place at once */
-  def handle[E, F[_], R, Rest, A, B](p: A ! R)(h: Handler[F, Rest, A, B])(implicit s: Split[E, R, Rest],
-      o: Ops.Aux[E, F]): B ! Rest = handleLast[E, F, Rest, A, B](split[E, R, Rest, A](p))(h)
+  def handle[E <: Effect, R, Rest, A, B](p: A ! R)(h: Handler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
+    handleLast[E, Rest, A, B](split[E, R, Rest, A](p))(h)
   /** the same, a handler answering in place */
-  def handleTail[E, F[_], R, Rest, A, B](p: A ! R)(h: TailHandler[F, Rest, A, B])(implicit s: Split[E, R, Rest],
-      o: Ops.Aux[E, F]): B ! Rest = handleTailLast[E, F, Rest, A, B](split[E, R, Rest, A](p))(h)
+  def handleTail[E <: Effect, R, Rest, A, B](p: A ! R)(h: TailHandler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
+    handleTailLast[E, Rest, A, B](split[E, R, Rest, A](p))(h)
   /** the same, a stateful handler answering in place, from `s0` */
-  def handleStateful[E, F[_], S, R, Rest, A, B](p: A ! R)(s0: S)(h: StatefulHandler[F, S, Rest, A, B])(
-      implicit s: Split[E, R, Rest], o: Ops.Aux[E, F]): B ! Rest =
-    handleStatefulLast[E, F, S, Rest, A, B](split[E, R, Rest, A](p))(s0)(h)
+  def handleStateful[E <: Effect, S, R, Rest, A, B](p: A ! R)(s0: S)(h: StatefulHandler[E, S, Rest, A, B])(
+      implicit s: Split[E, R, Rest]): B ! Rest =
+    handleStatefulLast[E, S, Rest, A, B](split[E, R, Rest, A](p))(s0)(h)
 
   implicit final class ProgramOps[A, R](p: A ! R) {
     def flatMap[B](f: A => B ! R): B ! R = Effects.this.flatMap(p)(f)

@@ -1,7 +1,7 @@
 package okay.simple.kernel
 
-import okay.kernel.{Answers, Effects => KEffects, Fn, General, Key, Op, Prog, Program, Step, Thunk, Translating, Type}
-import okay.simple.{Ops, Simple}
+import okay.kernel.{Answers, Effects => KEffects, Fn, General, Key, Op => KOp, Prog, Program, Step, Thunk, Translating, Type}
+import okay.simple.{Effect, Simple}
 import scala.annotation.unchecked.uncheckedVariance
 
 /**
@@ -23,23 +23,23 @@ final class OnKernel private (e: KEffects) extends Simple {
   type ![+A, R] = Prog[A @uncheckedVariance]
   type Pure = Nothing
   type +[R, E] = Nothing
-  type Split[E, R, Rest] = Place
-  type In[E, R] = Place
+  type Split[E <: Effect, R, Rest] = Place
+  type In[E <: Effect, R] = Place
   type Sub[R, S] = Vector[Int]
 
-  implicit def splitOne[E]: Place = places(0)
-  implicit def splitLast[R, E]: Place = places(0)
-  implicit def splitInit[E, R, G, Rest](implicit s: Place): Place = placeAt(s.at + 1)
-  implicit def in[E, R, Rest](implicit s: Place): Place = s
+  implicit def splitOne[E <: Effect]: Place = places(0)
+  implicit def splitLast[R, E <: Effect]: Place = places(0)
+  implicit def splitInit[E <: Effect, R, G, Rest](implicit s: Place): Place = placeAt(s.at + 1)
+  implicit def in[E <: Effect, R, Rest](implicit s: Place): Place = s
   implicit def subPure[S]: Vector[Int] = Vector()
-  implicit def subOne[E, S](implicit p: Place): Vector[Int] = Vector(p.at)
-  implicit def subMore[R, E, S](implicit r: Vector[Int], p: Place): Vector[Int] = p.at +: r
+  implicit def subOne[E <: Effect, S](implicit p: Place): Vector[Int] = Vector(p.at)
+  implicit def subMore[R, E <: Effect, S](implicit r: Vector[Int], p: Place): Vector[Int] = p.at +: r
 
   private def prog[A](p: Prog[A]): Prog[A] = p
   /** THE TRUSTED STEPS, the only casts of the bridge: an operation of okay-simple's key is a `Placed` (`placed`); at
    * place 0, of its handler's operations (`opOf`) */
-  private def placed[X](op: Op[X]): Placed[X] = op.asInstanceOf[Placed[X]]
-  private def opOf[F[_], X](op: Any): F[X] = op.asInstanceOf[F[X]]
+  private def placed[X](op: KOp[X]): Placed[X] = op.asInstanceOf[Placed[X]]
+  private def opOf[E <: Effect, X](op: Any): Op[E, X] = op.asInstanceOf[Op[E, X]]
   private def fn[A, B](f: A => B): Fn[A, B] = new Fn[A, B] { def apply(a: A): B = f(a) }
   private def program[A](p: => Prog[A]): Program[A] = new Program[A] { def in(e: KEffects): Prog[A] = p }
 
@@ -48,41 +48,40 @@ final class OnKernel private (e: KEffects) extends Simple {
     e.flatMap[A, B](prog(p), fn((a: A) => prog[B](f(a))))
   def delay[A, R](p: => Prog[A]): Prog[A] = e.delay[A](new Thunk[Prog[A]] { def get(): Prog[A] = prog(p) })
   private def performAt[X](at: Int, op: Any): Prog[X] = e.perform[X](new Placed[X](at, op))
-  protected def performOp[E, F[_], R, X](op: F[X])(implicit in: Place): Prog[X] = performAt[X](in.at, op)
+  protected def performOp[E <: Effect, R, X](op: Op[E, X])(implicit in: Place): Prog[X] = performAt[X](in.at, op)
 
   /** every operation through it with its place renamed by `f` */
   private def remap[A](p: Prog[A], f: Int => Int): Prog[A] =
     e.handle[A, A](new Translating[A, A] {
       def key(): Key[Any] = theKey
-      def translate[X](op: Op[X]): Program[X] = {
+      def translate[X](op: KOp[X]): Program[X] = {
         val o = placed(op)
         program(performAt[X](f(o.at), o.op))
       }
     }, program(prog(p)))
-  def split[E, R, Rest, A](p: Prog[A])(implicit s: Place): Prog[A] = {
+  def split[E <: Effect, R, Rest, A](p: Prog[A])(implicit s: Place): Prog[A] = {
     val at = s.at
     if (at == 0) p else remap[A](p, i => if (i == at) 0 else if (i < at) i + 1 else i)
   }
   def embed[R, S, A](p: Prog[A])(implicit s: Vector[Int]): Prog[A] = remap[A](p, s)
 
-  def handleLast[E, F[_], R, A, B](p: Prog[A])(h: Handler[F, R, A, B])(implicit o: Ops.Aux[E, F]): Prog[B] =
+  def handleLast[E <: Effect, R, A, B](p: Prog[A])(h: Handler[E, R, A, B]): Prog[B] =
     e.handle[A, B](new General[A, B] {
       def key(): Key[Any] = theKey
       def ret(a: A, ke: KEffects): Prog[B] = prog(h.ret(a))
-      def apply[X](op: Op[X], k: Fn[X, Prog[B]], ke: KEffects): Prog[B] = {
+      def apply[X](op: KOp[X], k: Fn[X, Prog[B]], ke: KEffects): Prog[B] = {
         val o = placed(op)
-        if (o.at == 0) prog(h.op[X](opOf[F, X](o.op), (x: X) => k.apply(x)))
+        if (o.at == 0) prog(h.op[X](opOf[E, X](o.op), (x: X) => k.apply(x)))
         else e.flatMap[X, B](performAt[X](o.at - 1, o.op), k)
       }
     }, program(prog(p)))
 
-  override def handleTailLast[E, F[_], R, A, B](p: Prog[A])(h: TailHandler[F, R, A, B])(
-      implicit o: Ops.Aux[E, F]): Prog[B] =
+  override def handleTailLast[E <: Effect, R, A, B](p: Prog[A])(h: TailHandler[E, R, A, B]): Prog[B] =
     flatMap[A, B, R](e.handle[A, A](new Translating[A, A] {
       def key(): Key[Any] = theKey
-      def translate[X](op: Op[X]): Program[X] = {
+      def translate[X](op: KOp[X]): Program[X] = {
         val o = placed(op)
-        if (o.at == 0) program(e.pure(h.answer[X](opOf[F, X](o.op))))
+        if (o.at == 0) program(e.pure(h.answer[X](opOf[E, X](o.op))))
         else program(performAt[X](o.at - 1, o.op))
       }
     }, program(prog(p))))(a => h.ret(a))
@@ -106,7 +105,7 @@ object OnKernel {
   val theKey: Key[Any] = Key.of[Any](Type.of("okay.simple"))
 
   /** an operation of okay-simple's: its place in its row, and the operation itself */
-  final class Placed[X](val at: Int, val op: Any) extends Op[X] {
+  final class Placed[X](val at: Int, val op: Any) extends KOp[X] {
     def key(): Key[Any] = theKey
     override def toString: String = s"$op at $at"
   }

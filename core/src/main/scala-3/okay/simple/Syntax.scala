@@ -1,8 +1,8 @@
 package okay.simple
 
-/** Scala 3's conveniences, over the same types. With Scala 3's precedence a row needs no parentheses,
- * `Int ! Reader % String + State % Int`; the operations of `F % S` for a handler, `Handler[State Of Int, R, A, B]`.
- * Scala 2 code needs none of these: a Scala 2 module reading Scala 3's build uses the interface's own forms */
+/** Scala 3's: an effect's operations by a match type on its name — Scala 3 selects no type from an abstract one. With
+ * Scala 3's precedence a row needs no parentheses, `Int ! Reader % String + State % Int` */
 trait Syntax { self: Effects =>
-  infix type Of[F[_, _], S] = [x] =>> F[S, x]
+  /** the operation of the effect `E` answered by an `X`: `Op[State % Int, X]` is `State[Int, X]` */
+  type Op[E <: Effect, X] = E match { case Name[f] => f[X] }
 }

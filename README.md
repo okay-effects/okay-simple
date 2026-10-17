@@ -36,7 +36,9 @@ Scala 2 too.
 |---|---|
 | `A ! R` | a program of value `A` over the row `R` |
 | `Pure`, `E`, `R + E` | a row: of no effect, of one, the row `R` and `E` after it — left to right |
+| `Effect`, `Name[F]` | an effect's name, a proper type, and the operations it names: `sealed trait Choose extends Name[Choose.Op]` |
 | `F % S` | the effect `F` with its parameter `S`: `State % Int`, its operations `State[Int, X]` |
+| `Op[E, X]` | the operation of `E` answered by an `X`: computed from the name, the same wherever it is asked |
 | `In[E, R]` | `E` is in `R` |
 | `Split[E, R, Rest]` | `E` is in `R`, at any place, and `R` without it is `Rest` |
 | `Sub[R, S]` | every effect of `R` is in `S` |
@@ -49,25 +51,25 @@ same for the two other shapes of handler, `handleTail` and `handleStateful` (`ha
 
 ## An effect and its handler
 
-An effect is a GADT of its operations, `F[X]` an operation answered by an `X`. Each operation says how its answer is
-made, `answer`, so a handler's clause needs no GADT inference — Scala 2 has none for a method's type parameter —
-and no cast:
+An effect is a GADT of its operations, `F[X]` an operation answered by an `X`, and its name says them. A handler is
+typed by the name, its clause by `Op[E, X]` — so an operation and the handler it goes to are of one type, computed
+from the name on both sides. Each operation says how its answer is made, `answer`, so a handler's clause needs no
+GADT inference (Scala 2 has none for a method's type parameter) and no cast:
 
 ```scala
-sealed trait Counter
+sealed trait Counter extends Name[Counter.Op]                               // the name and its operations
 object Counter {
   sealed trait Op[X]
   final case class Tick[X](answer: Unit => X) extends Op[X]
   final case class Peek[X](answer: Int => X) extends Op[X]
-  implicit val ops: Ops.Aux[Counter, Op] = Ops.of[Counter, Op]          // the name and its operations
 }
 
 def tick[R](implicit in: In[Counter, R]): Unit ! R = perform[Counter].apply[R, Unit](Counter.Tick(u => u))
 
 def counting[R, Rest, A](p: A ! R)(implicit s: Split[Counter, R, Rest]): (Int, A) ! Rest =
-  handle[Counter, Counter.Op, R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[Counter.Op, Rest, A, Int => (Int, A) ! Rest] {
+  handle[Counter, R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[Counter, Rest, A, Int => (Int, A) ! Rest] {
     def ret(a: A) = pure(n => pure((n, a)))
-    def op[X](op: Counter.Op[X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match {
+    def op[X](op: Op[Counter, X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match {
       case Counter.Tick(answer) => pure(n => k(answer(())).flatMap(f => f(n + 1)))
       case Counter.Peek(answer) => pure(n => k(answer(n)).flatMap(f => f(n)))
     }
@@ -75,10 +77,9 @@ def counting[R, Rest, A](p: A ! R)(implicit s: Split[Counter, R, Rest]): (Int, A
 ```
 
 A handler is deep: `k` is the rest of the program under the same handler, and it can be resumed any number of
-times (`Choose`'s `all` resumes it once per choice). An effect with a parameter has one `Ops` for all, `F % S`; its
-handler is a `HandlerOf[F, S, R, A, B]`, its operations `F[S, X]` with no type lambda to write. In Scala 3, an
-effect may be an `enum` with no `answer`, its clauses typed by GADT inference, and a handler's operations may be
-written `State Of Int`.
+times (`Choose`'s `all` resumes it once per choice). A handler of an effect with a parameter is typed by its name,
+`Handler[State % S, R, A, B]`, its clause by `Op[State % S, X]`, which is `State[S, X]`. In Scala 3, an effect's
+operations may be an `enum` with no `answer`, its clauses typed by GADT inference.
 
 The standard effects, each handled from anywhere in the row: `State` (`state(s0)`), `Reader` (`reader(e)`),
 `Writer` (`writer[W]`), `Error` (`attempt[E]`), `Choose` (`all`).
@@ -86,20 +87,21 @@ The standard effects, each handled from anywhere in the row: `State` (`state(s0)
 ## Scala 2 and Scala 3: two conveniences, one interface
 
 Why the row names effects by proper types: Scala 2 has no type alias whose result is a type constructor, so `%` and
-`+` cannot make an `F[_]` there. A name is what both compilers share, and `Ops` ties it to its operations. Scala 3
-alone could do with rows of higher kind; the interface does not, so that the two are one.
+`+` cannot make an `F[_]` there. A name is what both compilers share. `Op[E, X]` is each compiler's own: in Scala 2
+the name's member, `E#Ops[X]` (Scala 2 selects a type from an abstract one); in Scala 3 a match type on the name
+(Scala 3 selects none) — `core/src/main/scala-2`, `scala-3`.
 
 Compatible means: what code of one compiler makes, code of the other takes as it is — an effect, a handler, a
-program, a row type. One application has one build of the interface, made by one compiler. So everything Scala 2
-code needs lives in the source both compilers build, under the same names (`Has[E]#L`, `HandlerOf`); each
-compiler's `Syntax` (`core/src/main/scala-2`, `scala-3`) only adds what the other does not need. Proven by:
+program, a row type. One application has one build of the interface. A Scala 3 build's `Op` is a match type, which
+Scala 2 cannot read; so an application with Scala 2 code in it takes the Scala 2.13 build, which Scala 3 reads.
+Everything else is shared under the same names (`Has[E]#L` for a context bound in both). Proven by:
 
 | Module | What it shows |
 |---|---|
 | `suite` test, both compilers | the interface's suite, from one source, on each implementation |
-| `compat/scala2` | an effect, its handler and a program written in Scala 2.13, compiled against Scala 3's build (`-Ytasty-reader`) |
-| `compat/scala3` | Scala 3 code using that Scala 2.13 library beside its own, in one row, one run |
 | `compat/scala3-on-2.13` | the interface's suite compiled by Scala 3 against the build Scala 2.13 made |
+| `compat/scala2` | an effect, its handler and a program written in Scala 2.13, on the Scala 2.13 build |
+| `compat/scala3` | Scala 3 code using that Scala 2.13 library beside its own, in one row, one run |
 
 ## Implementations
 
@@ -110,18 +112,17 @@ compilers).
   counted from the end. `handleLast` answers place 0, and passes any other operation on: it makes a new node of it, one
   place in, and wraps the rest in itself — so an operation costs a node and a closure for every handler it crosses.
   Short, and easy to check.
-- **`machine/`, the fast one, typed**: a `@tailrec` loop over three typed things — the program `Prog[X]`; the
-  frames `Frames[X, V]`, the binds from `X` to the value `V` of the nearest level's body, aligned, each bind's output
-  the next one's input; the levels `Meta[V, Z]`, from `V` to the run's value `Z`, each a handler (general, answering
-  in place, or with a state of its own) or a remapping of places (`split`, `embed`) with the frames outside it. An
-  operation carries its place; it walks the levels outward by their fields (a remapping renaming the place, a handler
-  not its own taking one off), nothing allocated, to its handler, place 0. Answered in place, the answer goes straight
-  into the next frame — no `Done` made — a state written in its level. A general handler's clause gets `k`: the
-  frames inside and the levels crossed as a typed `Prefix`, put back on the stack where `k` is resumed, a stateful
-  level with the state it had when `k` was taken. The loop holds the hot cases only, small enough for the JIT to
-  compile whole; the rest is `cold`'s. ONE CAST, `opOf`: an operation found by its place is of its handler's
-  operations — a place is a number, which the compiler cannot see; the interface's `Split` and `In`, found by the
-  types of the row, guarantee it. Both compilers, from one source.
+- **`machine/`, the fast one, typed by the row**: a program is `Prog[R, A]`, of its row; an operation
+  `Perf(at: At[E, R], op: Op[E, X])`, its place in the row typed, the operation of the type its name says. A
+  `@tailrec` loop over the program, the frames `Frames[R, X, V]` (the binds from `X` to the value `V` of the nearest
+  level's body, aligned) and the levels `Meta[R, V, Z]`, indexed by the row the program inside them is at — a
+  handler of `E` at `T + E`, its outside at `T`; a remapping of places from a row to another (`split`, `embed`). An
+  answer in place goes straight into the next frame; a general handler's clause gets `k`, the frames inside and the
+  levels crossed as a typed `Prefix`, put back where it is resumed. The place is each compiler's own
+  (`machine/src/main/scala-2`, `scala-3`): in Scala 3 a typed path, matched against the levels — the handler found is
+  the operation's own by the types, NO CAST; in Scala 2 a number, one object per depth — Scala 2 cannot refine types
+  by a match, so three trusted steps (the handler found by the number is the operation's, its operation of its
+  handler's, a row whose last effect is taken is that effect after the rest).
 - **`okaycore/`, on okay-core's machine** (Scala 3), by okay-core's public API only: a program is okay-core's own
   `Cont`, nothing wrapped. An okay-simple place is okay-core's path (the last effect of an okay-simple row is the
   head of okay-core's), `Split` is okay-core's `Removed`, made of the place; a general handler is a `Deep`, one

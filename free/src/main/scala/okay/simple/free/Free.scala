@@ -1,6 +1,6 @@
 package okay.simple.free
 
-import okay.simple.{Ops, Simple}
+import okay.simple.{Effect, Simple}
 
 /**
  * THE REFERENCE IMPLEMENTATION: a free monad. A row is an ordered list and an operation carries its place in it,
@@ -48,36 +48,36 @@ private[free] object Free extends Simple {
   /** the places, one per depth, shared: no allocation where an operation is performed */
   private val places: Array[Place] = Array.tabulate(64)(Place(_))
   private def placeAt(i: Int): Place = if (i < places.length) places(i) else Place(i)
-  type Split[E, R, Rest] = Place
-  type In[E, R] = Place
+  type Split[E <: Effect, R, Rest] = Place
+  type In[E <: Effect, R] = Place
   type Sub[R, S] = Vector[Int]
 
-  implicit def splitOne[E]: Place = places(0)
-  implicit def splitLast[R, E]: Place = places(0)
-  implicit def splitInit[E, R, G, Rest](implicit s: Place): Place = placeAt(s.at + 1)
-  implicit def in[E, R, Rest](implicit s: Place): Place = s
+  implicit def splitOne[E <: Effect]: Place = places(0)
+  implicit def splitLast[R, E <: Effect]: Place = places(0)
+  implicit def splitInit[E <: Effect, R, G, Rest](implicit s: Place): Place = placeAt(s.at + 1)
+  implicit def in[E <: Effect, R, Rest](implicit s: Place): Place = s
   implicit def subPure[S]: Vector[Int] = Vector()
-  implicit def subOne[E, S](implicit e: Place): Vector[Int] = Vector(e.at)
-  implicit def subMore[R, E, S](implicit r: Vector[Int], e: Place): Vector[Int] = e.at +: r
+  implicit def subOne[E <: Effect, S](implicit e: Place): Vector[Int] = Vector(e.at)
+  implicit def subMore[R, E <: Effect, S](implicit r: Vector[Int], e: Place): Vector[Int] = e.at +: r
 
   def pure[A, R](a: A): Prog[A] = Done(a)
   def flatMap[A, B, R](p: Prog[A])(f: A => Prog[B]): Prog[B] = Bind(p, f)
   def delay[A, R](p: => Prog[A]): Prog[A] = Delay(() => p)
-  protected def performOp[E, F[_], R, X](op: F[X])(implicit in: Place): Prog[X] = Perf(in.at, op)
+  protected def performOp[E <: Effect, R, X](op: Op[E, X])(implicit in: Place): Prog[X] = Perf(in.at, op)
 
   private def remap[A](p: Prog[A], f: Int => Int): Prog[A] = Delay(() => step(p) match {
     case Value(a) => Done(a)
     case Operation(at, op, k) => Bind(Perf[Any](f(at), op), (x: Any) => remap(k(x), f))
   })
-  def split[E, R, Rest, A](p: Prog[A])(implicit s: Place): Prog[A] =
+  def split[E <: Effect, R, Rest, A](p: Prog[A])(implicit s: Place): Prog[A] =
     remap(p, i => if (i == s.at) 0 else if (i < s.at) i + 1 else i)
   def embed[R, S, A](p: Prog[A])(implicit s: Vector[Int]): Prog[A] = remap(p, s)
 
-  def handleLast[E, F[_], R, A, B](p: Prog[A])(h: Handler[F, R, A, B])(implicit o: Ops.Aux[E, F]): Prog[B] =
+  def handleLast[E <: Effect, R, A, B](p: Prog[A])(h: Handler[E, R, A, B]): Prog[B] =
     Delay(() => step(p) match {
       case Value(a) => h.ret(a)
-      case Operation(0, op, k) => h.op(op.asInstanceOf[F[Any]], (x: Any) => handleLast[E, F, R, A, B](k(x))(h))
-      case Operation(at, op, k) => Bind(Perf[Any](at - 1, op), (x: Any) => handleLast[E, F, R, A, B](k(x))(h))
+      case Operation(0, op, k) => h.op(op.asInstanceOf[Op[E, Any]], (x: Any) => handleLast[E, R, A, B](k(x))(h))
+      case Operation(at, op, k) => Bind(Perf[Any](at - 1, op), (x: Any) => handleLast[E, R, A, B](k(x))(h))
     })
 
   def run[A](p: Prog[A]): A = step(p) match {

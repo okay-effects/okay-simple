@@ -1,0 +1,21 @@
+"Benchmark","Mode","Threads","Samples","Score","Score Error (99.9%)","Unit","Param: impl"
+"okay.simple.bench.ImplementationsBenchmark.askAcross4","avgt",1,12,35.508174,0.883788,"us/op",machine
+"okay.simple.bench.ImplementationsBenchmark.askAcross4:gc.alloc.rate","avgt",1,12,11375.642086,277.778971,"MB/sec",machine
+"okay.simple.bench.ImplementationsBenchmark.askAcross4:gc.alloc.rate.norm","avgt",1,12,423472.525988,1.222265,"B/op",machine
+"okay.simple.bench.ImplementationsBenchmark.askAcross4:gc.count","avgt",1,12,104.000000,NaN,"counts",machine
+"okay.simple.bench.ImplementationsBenchmark.askAcross4:gc.time","avgt",1,12,69.000000,NaN,"ms",machine
+"okay.simple.bench.ImplementationsBenchmark.askNear","avgt",1,12,25.399135,0.215611,"us/op",machine
+"okay.simple.bench.ImplementationsBenchmark.askNear:gc.alloc.rate","avgt",1,12,12257.710624,103.594691,"MB/sec",machine
+"okay.simple.bench.ImplementationsBenchmark.askNear:gc.alloc.rate.norm","avgt",1,12,326496.178703,0.002524,"B/op",machine
+"okay.simple.bench.ImplementationsBenchmark.askNear:gc.count","avgt",1,12,112.000000,NaN,"counts",machine
+"okay.simple.bench.ImplementationsBenchmark.askNear:gc.time","avgt",1,12,65.000000,NaN,"ms",machine
+"okay.simple.bench.ImplementationsBenchmark.binds","avgt",1,12,11.346430,0.125905,"us/op",machine
+"okay.simple.bench.ImplementationsBenchmark.binds:gc.alloc.rate","avgt",1,12,11941.510717,131.836442,"MB/sec",machine
+"okay.simple.bench.ImplementationsBenchmark.binds:gc.alloc.rate.norm","avgt",1,12,142088.079422,0.000913,"B/op",machine
+"okay.simple.bench.ImplementationsBenchmark.binds:gc.count","avgt",1,12,110.000000,NaN,"counts",machine
+"okay.simple.bench.ImplementationsBenchmark.binds:gc.time","avgt",1,12,64.000000,NaN,"ms",machine
+"okay.simple.bench.ImplementationsBenchmark.stateLoop","avgt",1,12,26.681365,0.530163,"us/op",machine
+"okay.simple.bench.ImplementationsBenchmark.stateLoop:gc.alloc.rate","avgt",1,12,13102.067198,255.541479,"MB/sec",machine
+"okay.simple.bench.ImplementationsBenchmark.stateLoop:gc.alloc.rate.norm","avgt",1,12,366536.187619,0.004264,"B/op",machine
+"okay.simple.bench.ImplementationsBenchmark.stateLoop:gc.count","avgt",1,12,142.000000,NaN,"counts",machine
+"okay.simple.bench.ImplementationsBenchmark.stateLoop:gc.time","avgt",1,12,65.000000,NaN,"ms",machine

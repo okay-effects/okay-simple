@@ -13,18 +13,20 @@ class Scala3Suite extends munit.FunSuite {
   def greet[R: {Has[Reader % String]#L, Has[State % Int]#L}]: Int ! R =
     for { name <- ask[String, R]; n <- get[Int, R]; _ <- put[Int, R](n + name.length) } yield n
 
+  /** an effect of one's own: its operations an enum, its name a type of them */
   enum Counter[X]:
     case Tick extends Counter[Unit]
     case Peek extends Counter[Int]
-  given Ops.Aux[Counter.type, Counter] = Ops.of
+  sealed trait Counting extends Name[Counter]
 
-  def tick[R: Has[Counter.type]#L]: Unit ! R = perform[Counter.type].apply[R, Unit](Counter.Tick)
-  def peek[R: Has[Counter.type]#L]: Int ! R = perform[Counter.type].apply[R, Int](Counter.Peek)
+  def tick[R: Has[Counting]#L]: Unit ! R = perform[Counting].apply[R, Unit](Counter.Tick)
+  def peek[R: Has[Counting]#L]: Int ! R = perform[Counting].apply[R, Int](Counter.Peek)
 
-  def counting[R, Rest, A](p: A ! R)(using Split[Counter.type, R, Rest]): (Int, A) ! Rest =
-    handle[Counter.type, Counter, R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[Counter, Rest, A, Int => (Int, A) ! Rest]:
+  /** its clauses typed by Scala 3's GADT inference: no `answer` in the operations */
+  def counting[R, Rest, A](p: A ! R)(using Split[Counting, R, Rest]): (Int, A) ! Rest =
+    handle[Counting, R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[Counting, Rest, A, Int => (Int, A) ! Rest]:
       def ret(a: A) = pure(n => pure((n, a)))
-      def op[X](op: Counter[X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match
+      def op[X](op: Op[Counting, X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match
         case Counter.Tick => pure(n => k(()).flatMap(f => f(n + 1)))
         case Counter.Peek => pure(n => k(n).flatMap(f => f(n)))
     ).flatMap(f => f(0))
@@ -34,15 +36,15 @@ class Scala3Suite extends munit.FunSuite {
   }
 
   test("an effect of one's own, its clauses typed by GADT inference") {
-    type C = Counter.type + State % Int
+    type C = Counting + State % Int
     val p: Int ! C = tick[C].andThen(tick[C]).andThen(peek[C]).flatMap(n => put[Int, C](n * 10).as(n))
     assertEquals(run(state(0)(counting(p))), (20, (2, 2)))
   }
 
-  test("a handler written with Of") {
-    val h = new Handler[Reader Of String, Pure, Int, Int]:
+  test("a handler of an effect with a parameter, by its name") {
+    val h = new Handler[Reader % String, Pure, Int, Int]:
       def ret(a: Int) = pure(a)
-      def op[X](op: Reader[String, X], k: X => Int ! Pure) = op match
+      def op[X](op: Op[Reader % String, X], k: X => Int ! Pure) = op match
         case Reader.Ask(answer) => k(answer("abc"))
     assertEquals(run(handleLast(ask[String, Pure + Reader % String].map(_.length))(h)), 3)
   }
