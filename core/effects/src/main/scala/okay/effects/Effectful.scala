@@ -112,6 +112,17 @@ trait Effectful {
   def split[E[_], R[_], Rest[_], A](p: A ! R)(implicit s: Split[E, R, Rest]): A ! ({type L[x] = Sum[Rest, E, x]})#L
   /** the program in a row of more effects */
   def embed[R[_], S[_], A](p: A ! R)(implicit s: Sub[R, S]): A ! S
+  /** INTERPOSED: the program in `R + E`, its `E` — at `in` — moved to the new last place, its other effects where they
+   * are in `R`: what `intercept` handles, the `E` of `R` left to the handler further out. The implementation's */
+  protected[effects] def interposed[E[_], R[_], A](p: A ! R)(implicit in: In[E, R]): A ! ({type L[x] = Sum[R, E, x]})#L
+
+  /** `E` INTERCEPTED in `p`: each operation of `E` in `p` given to `h`'s clause, with `k` — the rest of `p`, still
+   * intercepted. The row stays `R`, `E` in it: the clause runs outside the interception, so an operation of `E` it
+   * performs (the one it was given, passed on, or any other) goes to `E`'s handler further out — to observe, change,
+   * refuse, answer here. Deep, as any handler */
+  def intercept[E[_], R[_], A, B](p: A ! R, h: Handler[E, R, A, B])(implicit in: In[E, R]): B ! R =
+    handleLast[E, R, A, B](interposed[E, R, A](p), h)
+
   /** `E`, the last of the row, handled — deeply: its `k` the rest, under this handler, resumable any number of times.
    * Of each of the four shapes of handler; for all but the general one an implementation may do better than the
    * defaults below */

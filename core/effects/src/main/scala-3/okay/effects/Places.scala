@@ -37,6 +37,16 @@ object Places:
     case i: Place.Init[e, r, g, rest] => initToEnd[E, r, g, rest](i.s)
     case _: Place.Absurd[r] => further[R]
 
+  /** the places of `R` renamed to `R + E`'s, `E`'s — at `at` — to the new last, the others one further in: what
+   * `intercept` handles */
+  def interposing[E[_], R[_]](at: Place[E, R, ?]): Renaming[R, R + E] = new Renaming[R, R + E]:
+    private val last = Place.Last[R, E]()
+    def apply[E2[_]](p: Place[E2, R, ?]): Place[E2, R + E, ?] = take(at, p) match
+      case _: Taken.Mine[e, r] => last
+      case _: Taken.Theirs[e, e2, r] => p match
+        case _: Place.Absurd[r2] => Place.Absurd[R + E]()
+        case _ => Place.Init(p)
+
   /** the places of `R` renamed to `R + G`'s: one further in */
   def further[R[_]]: Renaming[R, R + Void] = new Renaming[R, R + Void]:
     def apply[E[_]](at: Place[E, R, ?]): Place[E, R + Void, ?] = at match

@@ -328,6 +328,11 @@ private[machine] class Engine extends Runner {
     else Remap[R, Plus[Rest, E]#L, A](p, i => if (i == at) 0 else if (i < at) i + 1 else i)
   }
   def embed[R[_], S[_], A](p: Prog[R, A])(implicit s: Vector[Int]): Prog[S, A] = Remap[R, S, A](p, s)
+  /** `E`'s place to the new last, 0, the others one further in */
+  protected[effects] def interposed[E[_], R[_], A](p: Prog[R, A])(implicit in: Place): Prog[Plus[R, E]#L, A] = {
+    val at = in.n
+    Remap[R, Plus[R, E]#L, A](p, i => if (i == at) 0 else i + 1)
+  }
 
   def handleLast[E[_], R[_], A, B](p: Prog[Plus[R, E]#L, A], h: Handler[E, R, A, B]): Prog[R, B] =
     Handle(p, new Install[E, R, A, B] {

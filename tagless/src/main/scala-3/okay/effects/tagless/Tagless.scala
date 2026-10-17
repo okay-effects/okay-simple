@@ -101,6 +101,10 @@ object Tagless extends Effects:
   inline def embed[R[_], S[_], A](p: A ! R)(implicit s: Sub[R, S]): A ! S =
     Program.Of[A, S](fx => fx.embed[R, S, A](p.on(fx))(using s.on(fx)))
 
+  /** not inline: an implementation's `interposed`, protected, is called here, in this object */
+  protected[effects] def interposed[E[_], R[_], A](p: A ! R)(implicit in: In[E, R]): A ! (R + E) =
+    Program.Of[A, R + E](fx => fx.interposed[E, R, A](p.on(fx))(using in.on(fx)))
+
   /** the program run on the implementation in the implicit context */
   inline def run[A](p: A ! Pure)(using fx: Runner): A = fx.run[A](p.on(fx))
   /** a program whose one effect is `Lift[G, *]` as a `G[A]`, on the implementation in the implicit context */

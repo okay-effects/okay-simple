@@ -8,6 +8,7 @@ abstract class InterfaceSuite(fx: okay.effects.Runner) extends munit.FunSuite {
   val at = new AnswerTypes(fx)
   val more = new MoreStd(fx)
   val u = new Utilities(fx)
+  val ic = new Interception(fx)
 
   test("a program's effects handled in the row's order") {
     assertEquals(p.handledInOrder, (13, (List("hello, Ann"), 10)))
@@ -99,6 +100,21 @@ abstract class InterfaceSuite(fx: okay.effects.Runner) extends munit.FunSuite {
   }
   test("a store by key") {
     assertEquals(u.stored, (Map("b" -> 2), (None, Some(2))))
+  }
+  test("intercept: the operations observed, passed on, the effect working as it did") {
+    assertEquals(ic.observed, (List("put 1", "get", "put 11", "get"), (11, 11)))
+  }
+  test("intercept: two interceptors, the inner first") {
+    assertEquals(ic.nested._1.take(4), List("inner", "outer", "inner", "outer"))
+    assertEquals(ic.nested._2, (11, 11))
+  }
+  test("intercept: an operation changed, refused, answered here") {
+    assertEquals(ic.doubled, 42)
+    assertEquals(ic.evensOnly, List(2, 4, 6))
+    assertEquals(ic.answeredHere, (5, 100))
+  }
+  test("intercept in constant stack: 100 000 operations") {
+    assertEquals(ic.many(100000), (100000, 200000))
   }
   test("constant stack: 100 000 operations under three handlers, 100 000 binds") {
     assertEquals(p.counted(100000), (List(), (100000, ())))

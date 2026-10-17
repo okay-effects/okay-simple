@@ -31,6 +31,8 @@ final class TaglessRunner(val fx: Runner) extends Runner {
   def split[E[_], R[_], Rest[_], A](p: A ! R)(implicit s: Split[E, R, Rest]): A ! ({ type L[x] = Sum[Rest, E, x] })#L =
     Tagless.split[E, R, Rest, A](p)(s)
   def embed[R[_], S[_], A](p: A ! R)(implicit s: Sub[R, S]): A ! S = Tagless.embed[R, S, A](p)(s)
+  protected[effects] def interposed[E[_], R[_], A](p: A ! R)(implicit in: In[E, R]): A ! ({ type L[x] = Sum[R, E, x] })#L =
+    Tagless.interposed[E, R, A](p)(in)
   def run[A](p: A ! Pure): A = Tagless.run[A](p)(fx)
 
   def handleLast[E[_], R[_], A, B](p: A ! ({ type L[x] = Sum[R, E, x] })#L, h: Handler[E, R, A, B]): B ! R =

@@ -228,6 +228,8 @@ class OnFree extends Runner:
     case _: Place.Last[r, e] => p
     case _ => Free.delay(Free.remap(p, toEnd(s)))
   inline def embed[R[_], S[_], A](p: A ! R)(implicit s: Sub[R, S]): A ! S = Free.delay(Free.remap(p, s))
+  protected[effects] inline def interposed[E[_], R[_], A](p: A ! R)(implicit in: In[E, R]): A ! (R + E) =
+    Free.delay(Free.remap(p, Places.interposing(in)))
 
   // a handler takes its effect from its place at once: no `split`, no program renamed
   override inline def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: Handler[E, Rest, A, B])(

@@ -16,10 +16,10 @@ final class TaglessRunner(val fx: Runner) extends Runner:
   implicit inline def splitOne[E[_]]: Split[E, E, Pure] = Tagless.splitOne[E]
   implicit inline def splitLast[R[_], E[_]]: Split[E, R + E, R] = Tagless.splitLast[R, E]
   implicit inline def splitInit[E[_], R[_], G[_], Rest[_]](implicit s: Split[E, R, Rest]): Split[E, R + G, Rest + G] =
-    Tagless.splitInit[E, R, G, Rest](s)
+    Tagless.splitInit[E, R, G, Rest](using s)
   implicit inline def subPure[S[_]]: Sub[Pure, S] = Tagless.subPure[S]
-  implicit inline def subOne[E[_], S[_]](implicit e: In[E, S]): Sub[E, S] = Tagless.subOne[E, S](e)
-  implicit inline def subMore[R[_], E[_], S[_]](implicit r: Sub[R, S], e: In[E, S]): Sub[R + E, S] = Tagless.subMore[R, E, S](r, e)
+  implicit inline def subOne[E[_], S[_]](implicit e: In[E, S]): Sub[E, S] = Tagless.subOne[E, S](using e)
+  implicit inline def subMore[R[_], E[_], S[_]](implicit r: Sub[R, S], e: In[E, S]): Sub[R + E, S] = Tagless.subMore[R, E, S](using r, e)
 
   inline def pure[A, R[_]](a: A): A ! R = Tagless.pure[A, R](a)
   inline def flatMap[A, B, R[_]](p: A ! R)(f: A => B ! R): B ! R = Tagless.flatMap[A, B, R](p)(f)
@@ -27,19 +27,21 @@ final class TaglessRunner(val fx: Runner) extends Runner:
   inline def delay[A, R[_]](p: => A ! R): A ! R = Tagless.delay[A, R](p)
   protected[effects] inline def perform[E[_], R[_], X](op: E[X])(implicit in: In[E, R]): X ! R = Program.Performed[E, R, X](op, in)
 
-  inline def split[E[_], R[_], Rest[_], A](p: A ! R)(implicit s: Split[E, R, Rest]): A ! (Rest + E) = Tagless.split[E, R, Rest, A](p)(s)
-  inline def embed[R[_], S[_], A](p: A ! R)(implicit s: Sub[R, S]): A ! S = Tagless.embed[R, S, A](p)(s)
+  inline def split[E[_], R[_], Rest[_], A](p: A ! R)(implicit s: Split[E, R, Rest]): A ! (Rest + E) = Tagless.split[E, R, Rest, A](p)(using s)
+  inline def embed[R[_], S[_], A](p: A ! R)(implicit s: Sub[R, S]): A ! S = Tagless.embed[R, S, A](p)(using s)
+  protected[effects] inline def interposed[E[_], R[_], A](p: A ! R)(implicit in: In[E, R]): A ! (R + E) =
+    Tagless.interposed[E, R, A](p)(using in)
   inline def run[A](p: A ! Pure): A = Tagless.run[A](p)(using fx)
 
   inline def handleLast[E[_], R[_], A, B](p: A ! (R + E), h: Handler[E, R, A, B]): B ! R = Tagless.handleLast[E, R, A, B](p, h)
   // each shape the implementation's own, from its place
   override inline def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: Handler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
-    Tagless.handle[E, R, Rest, A, B](p, h)(s)
+    Tagless.handle[E, R, Rest, A, B](p, h)(using s)
   override inline def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: TailHandler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
-    Tagless.handle[E, R, Rest, A, B](p, h)(s)
+    Tagless.handle[E, R, Rest, A, B](p, h)(using s)
   override inline def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: AbortHandler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
-    Tagless.handle[E, R, Rest, A, B](p, h)(s)
+    Tagless.handle[E, R, Rest, A, B](p, h)(using s)
   override inline def handle[E[_], S, R[_], Rest[_], A, B](p: A ! R, s0: S, h: StatefulTailHandler[E, S, Rest, A, B])(
-      implicit s: Split[E, R, Rest]): B ! Rest = Tagless.handle[E, S, R, Rest, A, B](p, s0, h)(s)
+      implicit s: Split[E, R, Rest]): B ! Rest = Tagless.handle[E, S, R, Rest, A, B](p, s0, h)(using s)
   override inline def handle[E[_], S, R[_], Rest[_], A, B](p: A ! R, s0: S, h: StatefulHandler[E, S, Rest, A, B])(
-      implicit s: Split[E, R, Rest]): B ! Rest = Tagless.handle[E, S, R, Rest, A, B](p, s0, h)(s)
+      implicit s: Split[E, R, Rest]): B ! Rest = Tagless.handle[E, S, R, Rest, A, B](p, s0, h)(using s)

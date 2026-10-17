@@ -233,6 +233,8 @@ private[machine] class Engine extends Runner:
 
   def split[E[_], R[_], Rest[_], A](p: Prog[R, A])(implicit s: Split[E, R, Rest]): Prog[Rest + E, A] = moved(s, p)
   def embed[R[_], S[_], A](p: Prog[R, A])(implicit s: Sub[R, S]): Prog[S, A] = Prog.Remap(p, s)
+  protected[effects] def interposed[E[_], R[_], A](p: Prog[R, A])(implicit in: In[E, R]): Prog[R + E, A] =
+    Prog.Remap(p, Places.interposing(in))
 
   def handleLast[E[_], R[_], A, B](p: Prog[R + E, A], h: Handler[E, R, A, B]): Prog[R, B] =
     Prog.Handle(p, Level.General(h))

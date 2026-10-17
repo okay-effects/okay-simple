@@ -120,6 +120,11 @@ object Tagless extends Effects {
     def on(fx: Effects): fx.![A, S] = fx.embed[R, S, A](p.on(fx))(s.on(fx))
   }
 
+  protected[effects] def interposed[E[_], R[_], A](p: A ! R)(implicit in: In[E, R]): A ! ({ type L[x] = Sum[R, E, x] })#L =
+    new Program[A, ({ type L[x] = Sum[R, E, x] })#L] {
+      def on(fx: Effects): fx.![A, ({ type L[x] = Sum[R, E, x] })#L] = fx.interposed[E, R, A](p.on(fx))(in.on(fx))
+    }
+
   /** tagless run on `fx`: a `Runner`, for code that runs programs over the interface */
   def on(fx: Runner): TaglessRunner = new TaglessRunner(fx)
 

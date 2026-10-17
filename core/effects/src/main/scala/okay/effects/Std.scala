@@ -240,6 +240,24 @@ class Std[F <: Effects](val fx: F) {
   private def tellAll[W, R[_]](ws: List[W])(implicit in: In[({ type L[x] = Writer[W, x] })#L, R]): Unit ! R =
     ws.foldLeft(pure[Unit, R](()))((p, w) => p.flatMap(_ => tell[W, R](w)))
 
+  /** an observer of `E`'s operations: a program of the row, run before each is passed on */
+  trait Observe[E[_], R[_]] { def apply[X](op: E[X]): Unit ! R }
+  /** each of `p`'s operations of `E` seen by `f`, then passed on as it was: an audit trail, a count, a trace */
+  def observe[E[_], R[_], A](p: A ! R)(f: Observe[E, R])(implicit in: In[E, R]): A ! R =
+    intercept[E, R, A, A](p, new Handler[E, R, A, A] {
+      def ret(a: A) = pure(a)
+      def op[X](op: E[X], k: X => A ! R) = f[X](op).flatMap(_ => perform[E].apply[R, X](op)).flatMap(k)
+    })
+
+  /** around each operation of `E`: given it and its way on, `proceed` (passed on as it was), the program in its place —
+   * `proceed`, something before or after it, another operation, or an answer of its own and no `proceed` */
+  trait Around[E[_], R[_]] { def apply[X](op: E[X], proceed: X ! R): X ! R }
+  def around[E[_], R[_], A](p: A ! R)(f: Around[E, R])(implicit in: In[E, R]): A ! R =
+    intercept[E, R, A, A](p, new Handler[E, R, A, A] {
+      def ret(a: A) = pure(a)
+      def op[X](op: E[X], k: X => A ! R) = f[X](op, perform[E].apply[R, X](op)).flatMap(k)
+    })
+
   /** the value, or `None` if the program aborted: the rest dropped */
   def optional[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Abort, R, Rest]): Option[A] ! Rest =
     handle[Abort, R, Rest, A, Option[A]](p, new AbortHandler[Abort, Rest, A, Option[A]] {
