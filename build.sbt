@@ -15,8 +15,7 @@ def suiteOf(v: String): Seq[String] = Seq("tck/src/main/scala", s"tck/src/main/s
 def crossBuilt: Seq[Def.Setting[?]] = Seq(
   crossScalaVersions := Seq(scala3, scala2),
   scalacOptions ++= (if (scalaVersion.value.startsWith("3")) Seq("-deprecation", "-feature")
-                     // the machine's classes are members of one object's trait: no outer reference to tell apart
-                     else Seq("-deprecation", "-feature", "-Xlint", "-Wconf:msg=outer reference in this type test:s")),
+                     else Seq("-deprecation", "-feature", "-Xlint")),
   libraryDependencies += munit)
 
 /** THE INTERFACE: the types and the primitives, the standard effects written on them — no implementation */
@@ -102,7 +101,6 @@ lazy val effects213 = (project in file("compat/effects-2.13"))
     Compile / unmanagedSourceDirectories := Seq("effects/src/main/scala", "effects/src/main/scala-2").map((ThisBuild / baseDirectory).value / _))
 lazy val machine213 = (project in file("compat/machine-2.13")).dependsOn(effects213)
   .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), name := "okay-effects-machine-213", publish / skip := true,
-    scalacOptions += "-Wconf:msg=outer reference in this type test:s",
     Compile / unmanagedSourceDirectories := Seq("machine/src/main/scala", "machine/src/main/scala-2").map((ThisBuild / baseDirectory).value / _))
 lazy val compat3on2 = (project in file("compat/scala3-on-2.13")).dependsOn(machine213)
   .settings(scalaVersion := scala3, crossScalaVersions := Seq(scala3), libraryDependencies += munit,
