@@ -4,5 +4,5 @@ package okay.api
  * Scala 3's precedence a row needs no parentheses, `Int ! Reader % String + State % Int` */
 trait Syntax { self: Effects =>
   /** the operation of the effect `E` answered by an `X`: `Op[State % Int, X]` is `State[Int, X]` */
-  type Op[E <: Effect, X] = E match { case Name[f] => f[X] }
+  type Op[E <: Effect, X] = OpOf[E, X]
 }

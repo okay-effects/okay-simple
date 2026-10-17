@@ -23,7 +23,7 @@ private[machine] trait MachineTypes extends Effects {
   final abstract class PureRow
   final abstract class Plus[R, E]
   type Pure = PureRow
-  type +[R, E] = Plus[R, E]
+  type +[R, E <: Effect] = Plus[R, E]
   type ![+A, R] = Prog[R, A]
 
   /** the place of `E` in the row `R` */

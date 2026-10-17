@@ -110,17 +110,17 @@ Everything else is shared under the same names (`Has[E]#L` for a context bound i
 All behind the same interface, all run by the same suites (`suite/`; `machine` and the protocol's bridge by both
 compilers).
 
-- **`simple/`, the fast one, typed by the row**: a program is `Prog[R, A]`, of its row; an operation
-  `Perf(at: At[E, R], op: Op[E, X])`, its place in the row typed, the operation of the type its name says. A
-  `@tailrec` loop over the program, the frames `Frames[R, X, V]` (the binds from `X` to the value `V` of the nearest
-  level's body, aligned) and the levels `Meta[R, V, Z]`, indexed by the row the program inside them is at — a
-  handler of `E` at `T + E`, its outside at `T`; a remapping of places from a row to another (`split`, `embed`). An
-  answer in place goes straight into the next frame; a general handler's clause gets `k`, the frames inside and the
-  levels crossed as a typed `Prefix`, put back where it is resumed. The place is each compiler's own
-  (`simple/src/main/scala-2`, `scala-3`): in Scala 3 a typed path, matched against the levels — the handler found is
-  the operation's own by the types, NO CAST; in Scala 2 a number, one object per depth — Scala 2 cannot refine types
-  by a match, so three trusted steps (the handler found by the number is the operation's, its operation of its
-  handler's, a row whose last effect is taken is that effect after the rest).
+- **`simple/`, the machine, one per compiler** — the same interface, the same suites, `okay.simple.machine.Simple`:
+  - **Scala 3's own** (`simple/src/main/scala-3`): typed by Scala 3's GADT inference throughout, NO CAST. A program
+    is `Prog[R, A]`, of its row; an operation `Perf(at, op)`, its place a typed path (`LastPlace`, `InitPlace`,
+    `OnePlace` — the `Split` evidence itself), its operation `Op[E, X]`. The frames `Frames[R, X, V]` aligned, the
+    levels `Meta[R, V, Z]` indexed by the row; a path matched against a handler's level is, by the types, that
+    handler's operation. The machine's data and loop live in an object, static: no outer pointer in a node, no
+    outer test in a match (in a class they cost 8 B an object and a test a step); a handler is kept as the
+    object's own shape of it, wrapped once where it is installed.
+  - **Scala 2's** (`simple/src/main/scala-2`): the same design where Scala 2 can follow it — Scala 2 has no GADT
+    inference, so a place is a shared number, three trusted steps where an operation meets its handler, and
+    methods each level means for itself (`last`, `top`, `returned`, `stepOut`) where Scala 3 matches.
 - **`core/`, on okay-core's machine** (Scala 3), by okay-core's public API only: a program is okay-core's own
   `Cont`, nothing wrapped. An okay-simple place is okay-core's path (the last effect of an okay-simple row is the
   head of okay-core's), `Split` is okay-core's `Removed`, made of the place; a general handler is a `Deep`, one

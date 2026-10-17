@@ -26,7 +26,7 @@ private[machine] trait Places extends MachineTypes {
 
   implicit def splitOne[E <: Effect]: Place = places(0)
   implicit def splitLast[R, E <: Effect]: Place = places(0)
-  implicit def splitInit[E <: Effect, R, G, Rest](implicit s: Place): Place = placeAt(s.n + 1)
+  implicit def splitInit[E <: Effect, R, G <: Effect, Rest](implicit s: Place): Place = placeAt(s.n + 1)
   implicit def in[E <: Effect, R, Rest](implicit s: Place): Place = s
   implicit def subPure[S]: Vector[Int] = Vector()
   implicit def subOne[E <: Effect, S](implicit e: Place): Vector[Int] = Vector(e.n)

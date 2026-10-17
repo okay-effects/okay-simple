@@ -17,6 +17,10 @@ final abstract class *[F[_]] extends Name[F]
 /** the effect `F` with its parameter `S`, a name: `State % Int`, its operations `State[Int, X]` */
 final abstract class %[F[_, _], S] extends Name[({ type L[x] = F[S, x] })#L]
 
+/** a stateful handler's state where an operation is: read and written by its clause, in place — of no
+ * implementation's, so that one's static code takes it as it is */
+trait Cell[S] { def get: S; def set(s: S): Unit }
+
 /**
  * THE INTERFACE: the types of programs and rows and the primitives on them — no machine, no representation. An
  * implementation is seen through this trait only, so its types are abstract to its users: a program, a row, the
@@ -43,8 +47,8 @@ trait Effects extends Syntax {
   type ![+A, R]
   /** the row of no effect */
   type Pure
-  /** the row `R` and the effect `E` after it */
-  type +[R, E]
+  /** the row `R` and the effect `E` after it: a row holds effects */
+  type +[R, E <: Effect]
 
   /** `E` is in `R`, and `R` without that `E` is `Rest` */
   type Split[E <: Effect, R, Rest]
@@ -59,7 +63,7 @@ trait Effects extends Syntax {
 
   implicit def splitOne[E <: Effect]: Split[E, E, Pure]
   implicit def splitLast[R, E <: Effect]: Split[E, R + E, R]
-  implicit def splitInit[E <: Effect, R, G, Rest](implicit s: Split[E, R, Rest]): Split[E, R + G, Rest + G]
+  implicit def splitInit[E <: Effect, R, G <: Effect, Rest](implicit s: Split[E, R, Rest]): Split[E, R + G, Rest + G]
   implicit def in[E <: Effect, R, Rest](implicit s: Split[E, R, Rest]): In[E, R]
   implicit def subPure[S]: Sub[Pure, S]
   implicit def subOne[E <: Effect, S](implicit e: In[E, S]): Sub[E, S]
@@ -93,7 +97,8 @@ trait Effects extends Syntax {
   }
 
   /** a stateful handler's state where an operation is: read and written by its clause, in place */
-  trait Cell[S] { def get: S; def set(s: S): Unit }
+  /** a stateful handler's state where an operation is (`okay.api.Cell`) */
+  type Cell[S] = okay.api.Cell[S]
   private final class VarCell[S](private var s: S) extends Cell[S] {
     def get: S = s
     def set(t: S): Unit = s = t

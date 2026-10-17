@@ -44,6 +44,8 @@ lazy val kernel = (project in file("kernel")).dependsOn(std)
  * okay-core's bridge on Scala 3 */
 lazy val suiteKernel = (project in file("suite-kernel")).dependsOn(kernel, std)
   .settings(crossBuilt, name := "okay-api-suite-kernel", publish / skip := true, resolvers += Resolver.mavenLocal,
+    // the protocol's Java implementations on the classpath: one class loader, not sbt's layers cached across ++
+    Test / classLoaderLayeringStrategy := ClassLoaderLayeringStrategy.Flat,
     libraryDependencies ++= Seq(
       "dev.okay" %% "okay-kernel-steps" % "0.2.0-SNAPSHOT" % Test,
       "dev.okay" % "okay-java" % "0.2.0-SNAPSHOT" % Test) ++

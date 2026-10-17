@@ -21,7 +21,7 @@ private[core] class OnCore extends Effects {
 
   type ![+A, R] = Cont[Row, Nothing, Nothing, A]
   type Pure = Nothing
-  type +[R, E] = Nothing
+  type +[R, E <: Effect] = Nothing
   type Split[E <: Effect, R, Rest] = Slot
   type In[E <: Effect, R] = Slot
   type Sub[R, S] = Vector[Int]
@@ -59,7 +59,7 @@ private[core] class OnCore extends Effects {
   private def placeAt(i: Int): Place = slot(i).place
   implicit def splitOne[E <: Effect]: Split[E, E, Pure] = slots(0)
   implicit def splitLast[R, E <: Effect]: Split[E, R + E, R] = slots(0)
-  implicit def splitInit[E <: Effect, R, G, Rest](implicit s: Split[E, R, Rest]): Split[E, R + G, Rest + G] = slot(s.depth + 1)
+  implicit def splitInit[E <: Effect, R, G <: Effect, Rest](implicit s: Split[E, R, Rest]): Split[E, R + G, Rest + G] = slot(s.depth + 1)
   implicit def in[E <: Effect, R, Rest](implicit s: Split[E, R, Rest]): In[E, R] = s
   implicit def subPure[S]: Sub[Pure, S] = Vector()
   implicit def subOne[E <: Effect, S](implicit e: In[E, S]): Sub[E, S] = Vector(e.depth)

@@ -23,14 +23,14 @@ class OnKernel private (e: KEffects) extends Effects {
 
   type ![+A, R] = Prog[A @uncheckedVariance]
   type Pure = Nothing
-  type +[R, E] = Nothing
+  type +[R, E <: Effect] = Nothing
   type Split[E <: Effect, R, Rest] = Place
   type In[E <: Effect, R] = Place
   type Sub[R, S] = Vector[Int]
 
   implicit def splitOne[E <: Effect]: Place = places(0)
   implicit def splitLast[R, E <: Effect]: Place = places(0)
-  implicit def splitInit[E <: Effect, R, G, Rest](implicit s: Place): Place = placeAt(s.at + 1)
+  implicit def splitInit[E <: Effect, R, G <: Effect, Rest](implicit s: Place): Place = placeAt(s.at + 1)
   implicit def in[E <: Effect, R, Rest](implicit s: Place): Place = s
   implicit def subPure[S]: Vector[Int] = Vector()
   implicit def subOne[E <: Effect, S](implicit p: Place): Vector[Int] = Vector(p.at)
