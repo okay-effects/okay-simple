@@ -68,12 +68,6 @@ private[simple] object Machine:
     case State[E[_], T[_], A, B, S](h: StatefulTailClauses[E, S, A, Prog[T, B]], cell: Cell.Var[S])
         extends Level[E, T, A, B]
 
-    /** an operation found here answered in place, no `k` */
-    inline def answers: Boolean = this match
-      case _: Tail[e, t, a, b] => true
-      case _: State[e, t, a, b, s] => true
-      case _ => false
-
   /** the level as it is to be installed, or put back by a `k`: a stateful one with a cell of its own, from the
    * state it has now */
   inline def fresh[E[_], T[_], A, B](lv: Level[E, T, A, B]): Level[E, T, A, B] = lv match
@@ -87,12 +81,6 @@ private[simple] object Machine:
     case t: Level.Tail[e, t2, a2, b] => t.h.ret(a)
     case s: Level.State[e, t, a2, b, st] => s.h.ret(s.cell.state, a)
     case x: Level.Abort[e, t, a2, b] => x.h.ret(a)
-
-  /** an operation answered in place, by a level that `answers` */
-  inline def answer[E[_], X](lv: Level[E, ?, ?, ?], op: E[X]): X = lv match
-    case t: Level.Tail[e, t2, a, b] => t.h.answer[X](op)
-    case s: Level.State[e, t2, a, b, st] => s.h.answer[X](s.cell, op)
-    case _ => throw IllegalStateException("not answered in place")
 
   // -- THE LEVELS: the program inside at `R`, its body's value `V`, the run's `Z`
 
@@ -127,13 +115,19 @@ private[simple] object Machine:
 
   // -- THE LOOP
 
-  /** the handler `at` is answered by, walked by the path */
-  @tailrec private def found[E[_], R[_], V, Z](at: Place[E, R, ?], m: Meta[R, V, Z]): Level[E, ?, ?, ?] = m match
-    case l: Meta.Handler[e, t, a, b, w, z] => (at: @unchecked) match
-      case _: Place.Last[r, e2] => l.lv
-      case ip: Place.Init[e2, r, g, rest] => found[E, t, w, Z](ip.s, l.m)
-    case r: Meta.Remapped[r1, r2, a, w, z] => found[E, r2, w, Z](r.rename(at), r.m)
-    case _: Meta.Top[z] => throw IllegalStateException(s"an operation no handler took, at $at")
+  /** the handler `at` is answered by, walked by the path. An operation at the empty effect's place, or past every
+   * handler — in the row of no effect, where its only place is `Only[Void]` — is an operation of `Void`: there is
+   * none, absurd */
+  @tailrec private def found[E[_], X, R[_], V, Z](at: Place[E, R, ?], op: E[X], m: Meta[R, V, Z]): Level[E, ?, ?, ?] =
+    m match
+      case l: Meta.Handler[e, t, a, b, w, z] => (at: @unchecked) match
+        case _: Place.Last[r, e2] => l.lv
+        case ip: Place.Init[e2, r, g, rest] => found[E, X, t, w, Z](ip.s, op, l.m)
+        case _: Place.Absurd[r] => op.absurd
+      case r: Meta.Remapped[r1, r2, a, w, z] => found[E, X, r2, w, Z](r.rename(at), op, r.m)
+      case _: Meta.Top[z] => (at: @unchecked) match
+        case _: Place.Only[e2] => op.absurd
+        case _: Place.Absurd[r] => op.absurd
 
   @tailrec private def loop[R[_], X, V, Z](c: Prog[R, X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Z = c match
     case d: Prog.Done[r, x] => fs match
@@ -146,15 +140,19 @@ private[simple] object Machine:
           loop(g.c, g.fs, g.m)
     case b: Prog.Bind[r, y, x] => loop[R, y, V, Z](b.p, Frames.Then[R, y, x, V](b.f, fs), m)
     case b: Prog.Mapping[r, y, x] => loop[R, y, V, Z](b.p, Frames.Mapped[R, y, x, V](b.f, fs), m)
-    case p: Prog.Perf[r, e, x] =>
-      val lv = found[e, R, V, Z](p.at, m)
-      if lv.answers then
-        // answered in place, the answer straight into the next frame: no `Done` made
-        val x = answer[e, x](lv, p.op)
+    case p: Prog.Perf[r, e, x] => found[e, x, R, V, Z](p.at, p.op, m) match
+      // answered in place, the answer straight into the next frame: no `Done` made
+      case t: Level.Tail[e2, t2, a2, b2] =>
+        val v = t.h.answer[x](p.op)
         fs match
-          case t: Frames.Then[r2, a2, y, v] => loop[R, y, V, Z](t.f(x), t.rest, m)
-          case _ => loop[R, X, V, Z](Prog.Done(x), fs, m)
-      else
+          case f: Frames.Then[r2, a3, y, w] => loop[R, y, V, Z](f.f(v), f.rest, m)
+          case _ => loop[R, X, V, Z](Prog.Done(v), fs, m)
+      case s: Level.State[e2, t2, a2, b2, st] =>
+        val v = s.h.answer[x](s.cell, p.op)
+        fs match
+          case f: Frames.Then[r2, a3, y, w] => loop[R, y, V, Z](f.f(v), f.rest, m)
+          case _ => loop[R, X, V, Z](Prog.Done(v), fs, m)
+      case _ =>
         val g = walk[e, R, x, V, R, V, Z](p.at, p.op, fs, Prefix.Empty[R, V](), m)
         loop(g.c, g.fs, g.m)
     case d: Prog.Delay[r, x] => loop[R, X, V, Z](d.p(), fs, m)
@@ -170,7 +168,8 @@ private[simple] object Machine:
       case _: Frames.End[r2, v] => m match
         case l: Meta.Handler[e, t, a, b, w, z] => Go[t, b, w, Z](ret(l.lv, d.a), l.outside, l.m)
         case l: Meta.Remapped[r1, r2, a, w, z] => Go[r2, a, w, Z](Prog.Done(d.a), l.outside, l.m)
-        case _: Meta.Top[z] => throw IllegalStateException("the top is the loop's")
+        // the run's end: the loop's, given back to it as it is
+        case _: Meta.Top[z] => Go[R, X, V, Z](c, fs, m)
     case h: Prog.Handle[e, t, a, b] =>
       Go[R + e, a, a, Z](h.p, Frames.End(), Meta.Handler[e, R, a, b, V, Z](fresh(h.lv), fs, m))
     case r: Prog.Remap[r1, r2, a] => Go[r1, a, a, Z](r.p, Frames.End(), Meta.Remapped[r1, R, a, V, Z](r.rename, fs, m))
@@ -194,12 +193,18 @@ private[simple] object Machine:
         case g: Level.Abort[e3, t3, a3, b3] =>
           // the rest dropped: the frames inside and the levels crossed left behind, no `k`
           Go[t, b, w, Z](g.h.abort[X](op), l.outside, l.m)
-        case _ => throw IllegalStateException("answered in place")
+        // answered in place: on where the operation is, with the levels crossed put back
+        case t: Level.Tail[e3, t3, a3, b3] => Go[R0, X, V0, Z](Prog.Done(t.h.answer[X](op)), inner, put(pre, m))
+        case s: Level.State[e3, t3, a3, b3, st] =>
+          Go[R0, X, V0, Z](Prog.Done(s.h.answer[X](s.cell, op)), inner, put(pre, m))
       case ip: Place.Init[e2, r, g, rest] =>
         walk[E, R0, X, V0, t, w, Z](ip.s, op, inner, Prefix.Handler(pre, fresh(l.lv), l.outside), l.m)
+      case _: Place.Absurd[r] => op.absurd
     case r: Meta.Remapped[r1, r2, a, w, z] =>
       walk[E, R0, X, V0, r2, w, Z](r.rename(at), op, inner, Prefix.Remapped(pre, r.rename, r.outside), r.m)
-    case _: Meta.Top[z] => throw IllegalStateException(s"an operation no handler took, at $at")
+    case _: Meta.Top[z] => (at: @unchecked) match
+      case _: Place.Only[e2] => op.absurd
+      case _: Place.Absurd[r] => op.absurd
 
   inline def run[A](p: Prog[PureRow, A]): A = loop[PureRow, A, A, A](p, Frames.End(), Meta.Top())
 

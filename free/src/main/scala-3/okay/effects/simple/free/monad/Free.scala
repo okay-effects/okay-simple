@@ -52,8 +52,10 @@ object Free:
     case Perform(o) => absurd(o)
 
   /** an operation of the row of no effect: there is none */
-  inline def absurd[X](o: At[Void, X]): Nothing = o match
-    case pl: At.Placed[r, e, x] => pl.at match
+  def absurd[X](o: At[Void, X]): Nothing = o match
+    // `@unchecked`: the checker asks for `Absurd` here and calls it unreachable once written — no operation is at
+    // the empty effect's place, its operation a `Void[X]`, of which there is none
+    case pl: At.Placed[r, e, x] => (pl.at: @unchecked) match
       case _: Place.Only[e2] => pl.op.absurd
 
   /** the program `p`, built when the run gets to it */
@@ -72,8 +74,10 @@ object Free:
       case pl: At.Placed[r, e, x3] => (pl.at: @unchecked) match
         case _: Place.Last[r2, e2] => eff[x3](pl.op, ret)
         case i: Place.Init[e2, r2, g, rest] => Inject(At.Placed(i.s, pl.op), ret)
+        case _: Place.Absurd[r9] => pl.op.absurd
     case j: Inject[f, y, a] => j.op match
       case pl: At.Placed[r, e, x3] => (pl.at: @unchecked) match
+        case _: Place.Absurd[r9] => pl.op.absurd
         // the handler's: its clause, `k` a trampoline — the rest built when the run outside gets to it
         case _: Place.Last[r2, e2] => eff[x3](pl.op, (x: x3) => Delay(() => handle(j.k(x))(ret, eff)))
         // passed on, one place nearer: the rest under this handler, given back to the handler outside
@@ -88,6 +92,7 @@ object Free:
         case pl: At.Placed[r, e, x3] => (pl.at: @unchecked) match
           case _: Place.Last[r2, e2] => eff[x3](pl.op, (x: x3) => Delay(() => handle(b.f(x))(ret, eff)))
           case i: Place.Init[e2, r2, g, rest] => Inject(At.Placed(i.s, pl.op), (x: x3) => handle(b.f(x))(ret, eff))
+          case _: Place.Absurd[r9] => pl.op.absurd
 
   /** the same with a state of its own, from `s`: each clause gets the state of its time, `k` resumed with the answer
    * and the state to go on from — each resumption its own */
@@ -101,11 +106,13 @@ object Free:
       case pl: At.Placed[r, e, x3] => (pl.at: @unchecked) match
         case _: Place.Last[r2, e2] => eff[x3](s, pl.op, (x: x3, s1: S) => ret(s1, x))
         case i: Place.Init[e2, r2, g, rest] => Inject(At.Placed(i.s, pl.op), (x: x3) => ret(s, x))
+        case _: Place.Absurd[r9] => pl.op.absurd
     case j: Inject[f, y, a] => j.op match
       case pl: At.Placed[r, e, x3] => (pl.at: @unchecked) match
         case _: Place.Last[r2, e2] =>
           eff[x3](s, pl.op, (x: x3, s1: S) => Delay(() => handle(j.k(x), s1)(ret, eff)))
         case i: Place.Init[e2, r2, g, rest] => Inject(At.Placed(i.s, pl.op), (x: x3) => handle(j.k(x), s)(ret, eff))
+        case _: Place.Absurd[r9] => pl.op.absurd
     case d: Delay[f, a] => stating(d.p(), s, ret, eff)
     case b: Bind[f, x, a] => b.m match
       case Return(x) => stating(b.f(x), s, ret, eff)
@@ -117,6 +124,7 @@ object Free:
           case _: Place.Last[r2, e2] =>
             eff[x3](s, pl.op, (x: x3, s1: S) => Delay(() => handle(b.f(x), s1)(ret, eff)))
           case i: Place.Init[e2, r2, g, rest] => Inject(At.Placed(i.s, pl.op), (x: x3) => handle(b.f(x), s)(ret, eff))
+          case _: Place.Absurd[r9] => pl.op.absurd
 
   /** `E`, the last of `R + E`, handled by a handler ANSWERING IN PLACE: each operation of `E`'s answered by `ans`,
    * the run going on at once with the answer — no `k`, no trampoline */
@@ -137,12 +145,14 @@ object Free:
         case i: Place.Init[e2, r2, g, rest] =>
           val now = cell.state
           Inject(At.Placed(i.s, pl.op), (x: x3) => ret(now, x))
+        case _: Place.Absurd[r9] => pl.op.absurd
     case j: Inject[f, y, a] => j.op match
       case pl: At.Placed[r, e, x3] => (pl.at: @unchecked) match
         case _: Place.Last[r2, e2] => answering(j.k(ans[x3](cell, pl.op)), cell, ret, ans)
         case i: Place.Init[e2, r2, g, rest] =>
           val now = cell.state
           Inject(At.Placed(i.s, pl.op), (x: x3) => answer(j.k(x), now)(ret, ans))
+        case _: Place.Absurd[r9] => pl.op.absurd
     case d: Delay[f, a] => answering(d.p(), cell, ret, ans)
     case b: Bind[f, x, a] => b.m match
       case Return(x) => answering(b.f(x), cell, ret, ans)
@@ -155,6 +165,7 @@ object Free:
           case i: Place.Init[e2, r2, g, rest] =>
             val now = cell.state
             Inject(At.Placed(i.s, pl.op), (x: x3) => answer(b.f(x), now)(ret, ans))
+          case _: Place.Absurd[r9] => pl.op.absurd
 
   /** `p`'s places renamed from `R1`'s to `R2`'s */
   inline def remap[R1[_], R2[_], A](p: A ! R1, rename: Renaming[R1, R2]): A ! R2 = remapping(p, rename)

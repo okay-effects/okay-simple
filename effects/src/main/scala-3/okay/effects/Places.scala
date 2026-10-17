@@ -22,6 +22,9 @@ object Places:
     case Last[R[_], E[_]]() extends Place[E, R + E, R]
     /** one further in than the last, `G` */
     case Init[E[_], R[_], G[_], Rest[_]](s: Place[E, R, Rest]) extends Place[E, R + G, Rest + G]
+    /** THE EMPTY EFFECT, in every row: `Void`, of no operation — so no operation is ever at this place, and an
+     * implementation walking to it holds an operation of `Void`, absurd. What `Pure`'s places are renamed to */
+    case Absurd[R[_]]() extends Place[Void, R, R]
 
   /** places renamed from `R1` to `R2`, typed: a function, not data */
   trait Renaming[R1[_], R2[_]]:
@@ -32,6 +35,13 @@ object Places:
     case _: Place.Only[e] => onlyToEnd[E]
     case _: Place.Last[r, e] => same[R]
     case i: Place.Init[e, r, g, rest] => initToEnd[E, r, g, rest](i.s)
+    case _: Place.Absurd[r] => further[R]
+
+  /** the places of `R` renamed to `R + G`'s: one further in */
+  def further[R[_]]: Renaming[R, R + Void] = new Renaming[R, R + Void]:
+    def apply[E[_]](at: Place[E, R, ?]): Place[E, R + Void, ?] = at match
+      case a: Place.Absurd[r] => Place.Absurd[R + Void]()
+      case _ => Place.Init(at)
 
   def same[R[_]]: Renaming[R, R] = new Renaming[R, R]:
     def apply[E[_]](at: Place[E, R, ?]): Place[E, R, ?] = at
@@ -40,6 +50,7 @@ object Places:
     private val last = Place.Last[Void, E]()
     def apply[E2[_]](at: Place[E2, E, ?]): Place[E2, Void + E, ?] = (at: @unchecked) match
       case _: Place.Only[e] => last
+      case _: Place.Absurd[r] => Place.Absurd[Void + E]()
 
   private def initToEnd[E[_], R[_], G[_], Rest[_]](s: Place[E, R, Rest]): Renaming[R + G, Rest + G + E] =
     new Renaming[R + G, Rest + G + E]:
@@ -49,17 +60,24 @@ object Places:
       private val inner = toEnd(s)
       def apply[E2[_]](at: Place[E2, R + G, ?]): Place[E2, Rest + G + E, ?] = (at: @unchecked) match
         case _: Place.Last[r, g] => gNow
+        case _: Place.Absurd[r] => Place.Absurd[Rest + G + E]()
         case ip: Place.Init[e2, r, g, rest] => (inner(ip.s): @unchecked) match
           case _: Place.Last[r3, e3] => eNow
           case ip2: Place.Init[e4, r4, g4, rest4] => Place.Init(Place.Init[E2, Rest, G, rest4](ip2.s))
+          case _: Place.Absurd[r5] => Place.Absurd[Rest + G + E]()
 
-  /** `Sub`'s three steps: no place in `Void`; a row of one, its place in `S`; `R + E`, `R`'s and `E`'s */
+  /** `Sub`'s three steps: `Pure`'s places — of `Void` only — the empty effect's in `S`; a row of one, its place in
+   * `S`; `R + E`, `R`'s and `E`'s */
   def subPure[S[_]]: Renaming[Void, S] = new Renaming[Void, S]:
-    def apply[E[_]](at: Place[E, Void, ?]): Place[E, S, ?] = throw IllegalStateException("no place in Pure")
+    def apply[E[_]](at: Place[E, Void, ?]): Place[E, S, ?] = (at: @unchecked) match
+      case _: Place.Only[e] => Place.Absurd[S]()
+      case _: Place.Absurd[r] => Place.Absurd[S]()
   def subOne[E[_], S[_]](e: Place[E, S, ?]): Renaming[E, S] = new Renaming[E, S]:
     def apply[E2[_]](at: Place[E2, E, ?]): Place[E2, S, ?] = (at: @unchecked) match
       case _: Place.Only[e] => e
+      case _: Place.Absurd[r] => Place.Absurd[S]()
   def subMore[R[_], E[_], S[_]](r: Renaming[R, S], e: Place[E, S, ?]): Renaming[R + E, S] = new Renaming[R + E, S]:
     def apply[E2[_]](at: Place[E2, R + E, ?]): Place[E2, S, ?] = (at: @unchecked) match
       case _: Place.Last[r1, e1] => e
       case ip: Place.Init[e2, r2, g, rest] => r(ip.s)
+      case _: Place.Absurd[r] => Place.Absurd[S]()
