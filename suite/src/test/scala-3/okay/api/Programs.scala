@@ -44,7 +44,7 @@ class Programs(val fx: Std):
    * `Pure + E` */
   type RS = Reader % String + State % Int
   def asked: Int ! RS = ask[String, RS].flatMap(n => get[Int, RS].map(_ + n.length))
-  def splitThenHandle = run(state(1)(handleLast(split[Reader % String, RS, Pure + State % Int, Int](asked))(
+  def splitThenHandle = run(state(1)(handleLast(split[Reader % String, RS, Pure + State % Int, Int](asked),
     new Handler[Reader % String, Pure + State % Int, Int, Int]:
       def ret(a: Int) = pure(a * 10)
       def op[X](op: Reader[String, X], k: X => Int ! (Pure + State % Int)) = op match

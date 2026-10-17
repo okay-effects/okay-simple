@@ -22,7 +22,7 @@ class Scala3Suite extends munit.FunSuite:
 
   /** its clauses typed by Scala 3's GADT inference: no `answer` in the operations */
   def counting[R[_], Rest[_], A](p: A ! R)(using Split[Counter, R, Rest]): (Int, A) ! Rest =
-    handle[Counter, R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[Counter, Rest, A, Int => (Int, A) ! Rest]:
+    handle[Counter, R, Rest, A, Int => (Int, A) ! Rest](p, new Handler[Counter, Rest, A, Int => (Int, A) ! Rest]:
       def ret(a: A) = pure(n => pure((n, a)))
       def op[X](op: Counter[X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match
         case Counter.Tick => pure(n => k(()).flatMap(f => f(n + 1)))
@@ -42,7 +42,7 @@ class Scala3Suite extends munit.FunSuite:
       def ret(a: Int) = pure(a)
       def op[X](op: Reader[String, X], k: X => Int ! Pure) = op match
         case Reader.Ask(answer) => k(answer("abc"))
-    assertEquals(run(handleLast(ask[String, Pure + Reader % String].map(_.length))(h)), 3)
+    assertEquals(run(handleLast(ask[String, Pure + Reader % String].map(_.length), h)), 3)
 
   test("`*[F]` is `F`: code written alike for both compilers still compiles"):
     def among3[R[_]: Has[*[Choose]]]: Int ! R = among[Int, R](List(1, 2, 3))

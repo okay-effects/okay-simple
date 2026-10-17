@@ -49,8 +49,6 @@ trait Effectful {
   type ![+A, R[_]]
   /** the row of no effect */
   type Pure[X] = Void[X]
-  /** the operation of `E` answered by an `X`: an `E[X]` */
-  type Op[E[_], X] = E[X]
 
   /** `E` is in `R`, and `R` without that `E` is `Rest` */
   type Split[E[_], R[_], Rest[_]]
@@ -84,8 +82,10 @@ trait Effectful {
   def split[E[_], R[_], Rest[_], A](p: A ! R)(implicit s: Split[E, R, Rest]): A ! ({ type L[x] = Sum[Rest, E, x] })#L
   /** the program in a row of more effects */
   def embed[R[_], S[_], A](p: A ! R)(implicit s: Sub[R, S]): A ! S
-  /** `E`, the last of the row, handled — deeply: its `k` the rest, under this handler, resumable any number of times */
-  def handleLast[E[_], R[_], A, B](p: A ! ({ type L[x] = Sum[R, E, x] })#L)(h: Handler[E, R, A, B]): B ! R
+  /** `E`, the last of the row, handled — deeply: its `k` the rest, under this handler, resumable any number of times.
+   * Of each of the three shapes of handler; for the two answering in place an implementation may do better than the
+   * defaults below */
+  def handleLast[E[_], R[_], A, B](p: A ! ({ type L[x] = Sum[R, E, x] })#L, h: Handler[E, R, A, B]): B ! R
   def run[A](p: A ! Pure): A
 
   /** a handler of `E`: its value's clause, and its operations' clause — each an `E[X]` — over the row outside, `R` */
@@ -99,37 +99,34 @@ trait Effectful {
   /** a stateful handler's state where an operation is (`okay.api.Cell`) */
   type Cell[S] = okay.api.Cell[S]
 
-  /** `E`, the last, handled by a handler answering in place. By default a `handleLast` of a general handler giving
-   * the answer to `k`; an implementation may do better */
-  def handleTailLast[E[_], R[_], A, B](p: A ! ({ type L[x] = Sum[R, E, x] })#L)(h: TailHandler[E, R, A, B]): B ! R =
-    handleLast[E, R, A, B](p)(new Clauses[E, A, B ! R] {
+  /** `E`, the last, handled by a handler answering in place. By default a general handler giving the answer to `k` */
+  def handleLast[E[_], R[_], A, B](p: A ! ({ type L[x] = Sum[R, E, x] })#L, h: TailHandler[E, R, A, B]): B ! R =
+    handleLast[E, R, A, B](p, new Clauses[E, A, B ! R] {
       def ret(a: A): B ! R = h.ret(a)
       def op[X](op: E[X], k: X => B ! R): B ! R = delay(k(h.answer(op)))
     })
-  /** `E`, the last, handled by a stateful handler answering in place, from the state `s0`. By default a `handleLast`
-   * of a general handler of functions of the state */
-  def handleStatefulLast[E[_], S, R[_], A, B](p: A ! ({ type L[x] = Sum[R, E, x] })#L)(s0: S)(
-      h: StatefulHandler[E, S, R, A, B]): B ! R =
-    flatMap(handleLast[E, R, A, S => B ! R](p)(new Clauses[E, A, (S => B ! R) ! R] {
+  /** `E`, the last, handled by a stateful handler answering in place, from the state `s0`. By default a general
+   * handler of functions of the state */
+  def handleLast[E[_], S, R[_], A, B](p: A ! ({ type L[x] = Sum[R, E, x] })#L, s0: S, h: StatefulHandler[E, S, R, A, B]): B ! R =
+    flatMap(handleLast[E, R, A, S => B ! R](p, new Clauses[E, A, (S => B ! R) ! R] {
       def ret(a: A): (S => B ! R) ! R = pure((s: S) => h.ret(s, a))
       def op[X](op: E[X], k: X => (S => B ! R) ! R): (S => B ! R) ! R = pure { (s: S) =>
-        val cell = new Effectful.VarCell[S](s)
+        var now = s
+        val cell = new Cell[S] { def get: S = now; def set(t: S): Unit = now = t }
         val x = h.answer(cell, op)
         flatMap(k(x))((f: S => B ! R) => f(cell.get))
       }
     }))((f: S => B ! R) => f(s0))
 
-  /** `E` handled from wherever it is in the row: by default `split`, then `handleLast`; an implementation may take it
-   * from its place at once */
-  def handle[E[_], R[_], Rest[_], A, B](p: A ! R)(h: Handler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
-    handleLast[E, Rest, A, B](split[E, R, Rest, A](p))(h)
-  /** the same, a handler answering in place */
-  def handleTail[E[_], R[_], Rest[_], A, B](p: A ! R)(h: TailHandler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
-    handleTailLast[E, Rest, A, B](split[E, R, Rest, A](p))(h)
-  /** the same, a stateful handler answering in place, from `s0` */
-  def handleStateful[E[_], S, R[_], Rest[_], A, B](p: A ! R)(s0: S)(h: StatefulHandler[E, S, Rest, A, B])(
+  /** `E` handled from wherever it is in the row, by a handler of any of the three shapes: by default `split`, then
+   * `handleLast`; an implementation may take it from its place at once */
+  def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: Handler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
+    handleLast[E, Rest, A, B](split[E, R, Rest, A](p), h)
+  def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: TailHandler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
+    handleLast[E, Rest, A, B](split[E, R, Rest, A](p), h)
+  def handle[E[_], S, R[_], Rest[_], A, B](p: A ! R, s0: S, h: StatefulHandler[E, S, Rest, A, B])(
       implicit s: Split[E, R, Rest]): B ! Rest =
-    handleStatefulLast[E, S, Rest, A, B](split[E, R, Rest, A](p))(s0)(h)
+    handleLast[E, S, Rest, A, B](split[E, R, Rest, A](p), s0, h)
 
   implicit final class ProgramOps[A, R[_]](p: A ! R) {
     def flatMap[B](f: A => B ! R): B ! R = Effectful.this.flatMap(p)(f)
@@ -138,12 +135,5 @@ trait Effectful {
     def andThen[B](q: => B ! R): B ! R = flatMap(_ => q)
     /** this program in a row of more effects */
     def into[S[_]](implicit s: Sub[R, S]): A ! S = embed[R, S, A](p)
-  }
-}
-
-object Effectful {
-  private final class VarCell[S](private var s: S) extends Cell[S] {
-    def get: S = s
-    def set(t: S): Unit = s = t
   }
 }

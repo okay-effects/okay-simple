@@ -5,8 +5,8 @@ import scala.annotation.tailrec
 
 /**
  * THE MACHINE'S TYPES, typed by the row. A program is `Prog[R, A]`, of the value `A` at the row `R`; an operation of
- * `E` is `Perf(at: At[E, R], op: Op[E, X])` — its place in the row, typed, and the operation of the type its name
- * says. The run is a typed loop over three things:
+ * `E` is `Perf(at: At[E, R], op: E[X])` — its place in the row, typed, and the operation. The run is a typed loop
+ * over three things:
  *
  *  - the program, `Prog[R, X]`;
  *  - the FRAMES, `Frames[R, X, V]`: the binds at the row `R` from the value `X` to the value `V` of the nearest
@@ -34,7 +34,7 @@ private[machine] trait MachineTypes extends Effects {
   final case class Done[R[_], A](a: A) extends Prog[R, A]
   final case class Bind[R[_], X, A](p: Prog[R, X], f: X => Prog[R, A]) extends Prog[R, A]
   final case class Delay[R[_], A](p: () => Prog[R, A]) extends Prog[R, A]
-  final case class Perf[R[_], E[_], X](at: At[E, R], op: Op[E, X]) extends Prog[R, X]
+  final case class Perf[R[_], E[_], X](at: At[E, R], op: E[X]) extends Prog[R, X]
   final case class HandleGeneral[E[_], R[_], A, B](p: Prog[Plus[R, E]#L, A], h: Handler[E, R, A, B]) extends Prog[R, B]
   final case class HandleTail[E[_], R[_], A, B](p: Prog[Plus[R, E]#L, A], h: TailHandler[E, R, A, B]) extends Prog[R, B]
   final case class HandleState[E[_], S, R[_], A, B](p: Prog[Plus[R, E]#L, A], s0: S, h: StatefulHandler[E, S, R, A, B])
@@ -79,7 +79,7 @@ private[machine] trait MachineTypes extends Effects {
   sealed trait Handling[E[_]] {
     def kind: Int
     /** an operation answered in place: of a handler answering in place, or a stateful one */
-    def answer[X](op: Op[E, X]): X
+    def answer[X](op: E[X]): X
   }
   /** a handler of `E`'s level, the program inside at `T + E`, its body's value `A`; the frames outside it from `B`
    * to `W` at `T`, the levels outside them */
@@ -90,7 +90,7 @@ private[machine] trait MachineTypes extends Effects {
     def crossed[R0[_], V0](pre: Prefix[R0, V0, Plus[T, E]#L, A]): Prefix[R0, V0, T, W]
     def stepOut[R0[_], V0](pre: Prefix[R0, V0, Plus[T, E]#L, A]): Out[R0, V0, Z] = out(crossed(pre), m)
     /** the operation's `k` taken, its clause run: of a general handler only */
-    def found[R0[_], X, V0](op: Op[E, X], inner: Frames[R0, X, V0], pre: Prefix[R0, V0, Plus[T, E]#L, A]): Next[Z] =
+    def found[R0[_], X, V0](op: E[X], inner: Frames[R0, X, V0], pre: Prefix[R0, V0, Plus[T, E]#L, A]): Next[Z] =
       throw new IllegalStateException("answered in place")
     override def foundAny[R0[_], X, V0](op: Any, inner: Frames[R0, X, V0], pre: Prefix[R0, V0, Plus[T, E]#L, A]): Next[Z] =
       found[R0, X, V0](opAs[E, X](op), inner, pre)
@@ -98,11 +98,11 @@ private[machine] trait MachineTypes extends Effects {
   final class GeneralLevel[E[_], T[_], A, B, W, Z](val h: Handler[E, T, A, B], outside: Frames[T, B, W],
       m: Meta[T, W, Z]) extends HandlerLevel[E, T, A, B, W, Z](GeneralKind, outside, m) {
     def returned(v: A): Next[Z] = next[T, B, W, Z](h.ret(v), outside, m)
-    def answer[X](op: Op[E, X]): X = throw new IllegalStateException("not answered in place")
+    def answer[X](op: E[X]): X = throw new IllegalStateException("not answered in place")
     def crossed[R0[_], V0](pre: Prefix[R0, V0, Plus[T, E]#L, A]): Prefix[R0, V0, T, W] = new Prefix[R0, V0, T, W] {
       def put[Z2](m2: Meta[T, W, Z2]): Meta[R0, V0, Z2] = pre.put(new GeneralLevel(h, outside, m2))
     }
-    override def found[R0[_], X, V0](op: Op[E, X], inner: Frames[R0, X, V0], pre: Prefix[R0, V0, Plus[T, E]#L, A]): Next[Z] = {
+    override def found[R0[_], X, V0](op: E[X], inner: Frames[R0, X, V0], pre: Prefix[R0, V0, Plus[T, E]#L, A]): Next[Z] = {
       val k = new K[T, X, B] {
         def at[W2, Z2](x: X, fs: Frames[T, B, W2], m2: Meta[T, W2, Z2]): Next[Z2] =
           next[R0, X, V0, Z2](Done(x), inner, pre.put(new GeneralLevel(h, fs, m2)))
@@ -113,7 +113,7 @@ private[machine] trait MachineTypes extends Effects {
   final class TailLevel[E[_], T[_], A, B, W, Z](val h: TailHandler[E, T, A, B], outside: Frames[T, B, W],
       m: Meta[T, W, Z]) extends HandlerLevel[E, T, A, B, W, Z](TailKind, outside, m) {
     def returned(v: A): Next[Z] = next[T, B, W, Z](h.ret(v), outside, m)
-    def answer[X](op: Op[E, X]): X = h.answer[X](op)
+    def answer[X](op: E[X]): X = h.answer[X](op)
     def crossed[R0[_], V0](pre: Prefix[R0, V0, Plus[T, E]#L, A]): Prefix[R0, V0, T, W] = new Prefix[R0, V0, T, W] {
       def put[Z2](m2: Meta[T, W, Z2]): Meta[R0, V0, Z2] = pre.put(new TailLevel(h, outside, m2))
     }
@@ -124,7 +124,7 @@ private[machine] trait MachineTypes extends Effects {
     def returned(v: A): Next[Z] = next[T, B, W, Z](h.ret(state, v), outside, m)
     def get: S = state
     def set(s: S): Unit = state = s
-    def answer[X](op: Op[E, X]): X = h.answer[X](this, op)
+    def answer[X](op: E[X]): X = h.answer[X](this, op)
     /** put back with the state it has now, each time */
     def crossed[R0[_], V0](pre: Prefix[R0, V0, Plus[T, E]#L, A]): Prefix[R0, V0, T, W] = {
       val now = state
@@ -185,12 +185,12 @@ private[machine] trait MachineTypes extends Effects {
   /** the place an operation is performed at, of its evidence */
   def placeOf[E[_], R[_]](in: In[E, R]): At[E, R]
   /** Scala 2's trusted step, an operation found by its number of its handler's operations; never in Scala 3's */
-  def opAs[E[_], X](op: Any): Op[E, X]
+  def opAs[E[_], X](op: Any): E[X]
 
   /** the handler of `E` answering `at` from `m` */
   def levelOf[E[_], R[_], V, Z](at: At[E, R], m: Meta[R, V, Z]): Handling[E]
   /** an operation to its general handler: the levels it crosses taken as `k`'s, the clause run outside them */
-  def capture[E[_], R[_], X, V, Z](at: At[E, R], op: Op[E, X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Next[Z]
+  def capture[E[_], R[_], X, V, Z](at: At[E, R], op: E[X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Next[Z]
 }
 
 /**
@@ -258,12 +258,12 @@ private[machine] class Machine extends Places {
   def pure[A, R[_]](a: A): Prog[R, A] = Done(a)
   def flatMap[A, B, R[_]](p: Prog[R, A])(f: A => Prog[R, B]): Prog[R, B] = Bind(p, f)
   def delay[A, R[_]](p: => Prog[R, A]): Prog[R, A] = Delay(() => p)
-  protected def performOp[E[_], R[_], X](op: Op[E, X])(implicit in: In[E, R]): Prog[R, X] = Perf[R, E, X](placeOf(in), op)
+  protected def performOp[E[_], R[_], X](op: E[X])(implicit in: In[E, R]): Prog[R, X] = Perf[R, E, X](placeOf(in), op)
 
-  def handleLast[E[_], R[_], A, B](p: Prog[Plus[R, E]#L, A])(h: Handler[E, R, A, B]): Prog[R, B] = HandleGeneral(p, h)
-  override def handleTailLast[E[_], R[_], A, B](p: Prog[Plus[R, E]#L, A])(h: TailHandler[E, R, A, B]): Prog[R, B] =
+  def handleLast[E[_], R[_], A, B](p: Prog[Plus[R, E]#L, A], h: Handler[E, R, A, B]): Prog[R, B] = HandleGeneral(p, h)
+  override def handleLast[E[_], R[_], A, B](p: Prog[Plus[R, E]#L, A], h: TailHandler[E, R, A, B]): Prog[R, B] =
     HandleTail(p, h)
-  override def handleStatefulLast[E[_], S, R[_], A, B](p: Prog[Plus[R, E]#L, A])(s0: S)(h: StatefulHandler[E, S, R, A, B]): Prog[R, B] =
+  override def handleLast[E[_], S, R[_], A, B](p: Prog[Plus[R, E]#L, A], s0: S, h: StatefulHandler[E, S, R, A, B]): Prog[R, B] =
     HandleState(p, s0, h)
   def run[A](p: Prog[PureRow, A]): A = loop[PureRow, A, A, A](p, new Last[PureRow, A], new Top[A])
 }

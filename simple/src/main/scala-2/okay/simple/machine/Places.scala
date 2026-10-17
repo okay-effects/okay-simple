@@ -34,7 +34,7 @@ private[machine] trait Places extends MachineTypes {
   def placeOf[E[_], R[_]](in: Place): Place = in
 
   private def handlerOf[E[_]](l: Level0): Handling[E] = l.asInstanceOf[Handling[E]]
-  def opAs[E[_], X](op: Any): Op[E, X] = op.asInstanceOf[Op[E, X]]
+  def opAs[E[_], X](op: Any): E[X] = op.asInstanceOf[E[X]]
   private def sameRow[R[_], R2[_], A](p: Prog[R, A]): Prog[R2, A] = p.asInstanceOf[Prog[R2, A]]
 
   def split[E[_], R[_], Rest[_], A](p: Prog[R, A])(implicit s: Place): Prog[Plus[Rest, E]#L, A] = {
@@ -60,7 +60,7 @@ private[machine] trait Places extends MachineTypes {
     handlerOf[E](l)
   }
 
-  def capture[E[_], R[_], X, V, Z](at: Place, op: Op[E, X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Next[Z] =
+  def capture[E[_], R[_], X, V, Z](at: Place, op: E[X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Next[Z] =
     walk[R, X, V, R, V, Z](at.n, op, fs, none[R, V], m)
 
   /** to the operation's general handler, the levels crossed taken onto `pre`; each step the level's own, typed */

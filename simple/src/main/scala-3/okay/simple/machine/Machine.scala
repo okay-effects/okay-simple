@@ -254,9 +254,9 @@ private[machine] class Machine extends Effects:
   def split[E[_], R[_], Rest[_], A](p: Prog[R, A])(implicit s: Split[E, R, Rest]): Prog[Rest + E, A] = s.moved(p)
   def embed[R[_], S[_], A](p: Prog[R, A])(implicit s: Sub[R, S]): Prog[S, A] = Remap(p, s)
 
-  def handleLast[E[_], R[_], A, B](p: Prog[R + E, A])(h: Handler[E, R, A, B]): Prog[R, B] = HandleGeneral(p, h)
-  override def handleTailLast[E[_], R[_], A, B](p: Prog[R + E, A])(h: TailHandler[E, R, A, B]): Prog[R, B] =
+  def handleLast[E[_], R[_], A, B](p: Prog[R + E, A], h: Handler[E, R, A, B]): Prog[R, B] = HandleGeneral(p, h)
+  override def handleLast[E[_], R[_], A, B](p: Prog[R + E, A], h: TailHandler[E, R, A, B]): Prog[R, B] =
     HandleTail(p, h)
-  override def handleStatefulLast[E[_], S, R[_], A, B](p: Prog[R + E, A])(s0: S)(h: StatefulHandler[E, S, R, A, B]): Prog[R, B] =
+  override def handleLast[E[_], S, R[_], A, B](p: Prog[R + E, A], s0: S, h: StatefulHandler[E, S, R, A, B]): Prog[R, B] =
     HandleState(p, s0, h)
   def run[A](p: Prog[PureRow, A]): A = Machine.run(p)

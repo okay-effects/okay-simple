@@ -59,7 +59,7 @@ run(reader("Ann")(state(10)(writer[String](greet[Row]))))
 | the row `R` and `E` after it, left to right | `R + E` | `(R + E)#L`, of names |
 | an effect of the operations `F[X]` | `F`: `Choose` | `F`; among names `*[F]` |
 | an effect of the operations `F[S, X]`, with its parameter | `F % S`: `State % Int` | `(F % S)#L`; among names `F % S` |
-| the operation of `E` answered by an `X` | `E[X]`, also `Op[E, X]` | the same |
+| the operation of `E` answered by an `X` | `E[X]` | the same |
 | `E` is in `R`; a context bound of it | `In[E, R]`; `Has[E]` | `In[E, R]`; `Has[E]#L` |
 | `E` is in `R`, at any place, and `R` without it is `Rest` | `Split[E, R, Rest]` | the same |
 | every effect of `R` is in `S` | `Sub[R, S]` | the same |
@@ -72,8 +72,8 @@ a row as both read it, `({ type L[x] = Sum[R, E, x] })#L`.
 
 The evidence is found by implicit search, the same in both, from `splitOne`, `splitLast`, `splitInit` (`E`
 further in). `handle` takes `E` from wherever it is in the row: by default `split(p)`, moving `E` to the end of the
-row, then `handleLast`, taking the last effect; an implementation may take it from its place at once. The same for
-the two other shapes of handler, `handleTail` and `handleStateful` (`handleTailLast`, `handleStatefulLast`).
+row, then `handleLast`, taking the last effect; an implementation may take it from its place at once. Both take a
+handler of any of the three shapes: `handle(p, h)`, `handle(p, s0, h)` for a stateful one.
 `p.into[S]` puts a program in a row of more effects.
 
 ## An effect and its handler
@@ -89,7 +89,7 @@ enum Counter[X]:
 def tick[R[_]: Has[Counter]]: Unit ! R = perform[Counter](Counter.Tick)
 
 def counting[R[_], Rest[_], A](p: A ! R)(using Split[Counter, R, Rest]): (Int, A) ! Rest =
-  handle[Counter, R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[Counter, Rest, A, Int => (Int, A) ! Rest]:
+  handle[Counter, R, Rest, A, Int => (Int, A) ! Rest](p, new Handler[Counter, Rest, A, Int => (Int, A) ! Rest]:
     def ret(a: A) = pure(n => pure((n, a)))
     def op[X](op: Counter[X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match
       case Counter.Tick => pure(n => k(()).flatMap(f => f(n + 1)))
@@ -110,7 +110,7 @@ object Counter {
 def tick[R[_]](implicit in: In[Counter, R]): Unit ! R = perform[Counter].apply[R, Unit](Counter.Tick(u => u))
 
 def counting[R[_], Rest[_], A](p: A ! R)(implicit s: Split[Counter, R, Rest]): (Int, A) ! Rest =
-  handle[Counter, R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[Counter, Rest, A, Int => (Int, A) ! Rest] {
+  handle[Counter, R, Rest, A, Int => (Int, A) ! Rest](p, new Handler[Counter, Rest, A, Int => (Int, A) ! Rest] {
     def ret(a: A) = pure(n => pure((n, a)))
     def op[X](op: Counter[X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match {
       case Counter.Tick(answer) => pure(n => k(answer(())).flatMap(f => f(n + 1)))
@@ -165,8 +165,8 @@ compilers).
   `Cont`, nothing wrapped. An okay-simple place is okay-core's path (the last effect of an okay-simple row is the
   head of okay-core's), `Split` is okay-core's `Removed`, made of the place; a general handler is a `Deep`, one
   answering in place an `Answering`, a stateful one okay-core's `Stateful`, installed by okay-core's `handle` at the
-  `Removed` — the effect taken from its place at once (the interface's `handle`, `handleTail`,
-  `handleStateful`, which the standard handlers use). A `split` on its own is `widen` and a handler translating
+  `Removed` — the effect taken from its place at once (the interface's `handle`, of each shape, which the
+  standard handlers use). A `split` on its own is `widen` and a handler translating
   the effect to the fresh head; an `embed` a handler translating each effect to its place. Built against okay-core's
   artifact (`okay-core::okay-core:0.1.0-SNAPSHOT`, published from okay-core's master: `sbt coreJVM/publishLocal`).
 

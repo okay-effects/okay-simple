@@ -34,11 +34,11 @@ class OnKernel private (e: KEffects) extends Effects {
   def split[E[_], R[_], Rest[_], A](p: Prog[A])(implicit s: Place): Prog[A] = k.toEnd(p, s.at)
   def embed[R[_], S[_], A](p: Prog[A])(implicit s: Vector[Int]): Prog[A] = k.remap[A](p, s)
 
-  def handleLast[E[_], R[_], A, B](p: Prog[A])(h: Handler[E, R, A, B]): Prog[B] =
+  def handleLast[E[_], R[_], A, B](p: Prog[A], h: Handler[E, R, A, B]): Prog[B] =
     k.general[A, B](p, a => h.ret(a), new Clause[B] {
       def apply[X](op: Any, kx: X => Prog[B]): Prog[B] = h.op[X](opOf[E, X](op), kx)
     })
-  override def handleTailLast[E[_], R[_], A, B](p: Prog[A])(h: TailHandler[E, R, A, B]): Prog[B] =
+  override def handleLast[E[_], R[_], A, B](p: Prog[A], h: TailHandler[E, R, A, B]): Prog[B] =
     k.answering[A, B](p, a => h.ret(a), new Answer { def apply[X](op: Any): X = h.answer[X](opOf[E, X](op)) })
 
   def run[A](p: Prog[A]): A = k.run(p)

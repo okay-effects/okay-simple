@@ -42,7 +42,7 @@ object Std {
  * implementation itself, which knows nothing of them. So `import Simple._` gives everything: the interface's types
  * and primitives, the effects (`State`, `Reader`, `Writer`, `Error`, `Choose`) and their operations and handlers.
  * Each handler takes its effect from anywhere in the row; the parameter named, the rest inferred: `writer[String](p)`.
- * A handler answering in place is the implementation's `handleTail` / `handleStateful`: answered its own way.
+ * A handler answering in place is the implementation's `handle` of its shape: answered its own way.
  * An effect with a parameter is written here as both compilers read it, `({ type L[x] = State[S, x] })#L` — Scala 3's
  * `State % S`, Scala 2's `(State % S)#L`.
  */
@@ -71,9 +71,9 @@ trait Std extends Effects {
   def state[S](s0: S): StateHandler[S] = new StateHandler(s0)
   final class StateHandler[S](s0: S) {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = State[S, x] })#L, R, Rest]): (S, A) ! Rest =
-      handleStateful[({ type L[x] = State[S, x] })#L, S, R, Rest, A, (S, A)](p)(s0)(new StatefulHandler[({ type L[x] = State[S, x] })#L, S, Rest, A, (S, A)] {
+      handle[({ type L[x] = State[S, x] })#L, S, R, Rest, A, (S, A)](p, s0, new StatefulHandler[({ type L[x] = State[S, x] })#L, S, Rest, A, (S, A)] {
         def ret(s: S, a: A) = pure((s, a))
-        def answer[X](cell: Cell[S], op: Op[({ type L[x] = State[S, x] })#L, X]): X = op match {
+        def answer[X](cell: Cell[S], op: State[S, X]): X = op match {
           case Std.State.Get(answer) => answer(cell.get)
           case Std.State.Put(s1, answer) => cell.set(s1); answer(())
         }
@@ -84,9 +84,9 @@ trait Std extends Effects {
   def reader[E](e: E): ReaderHandler[E] = new ReaderHandler(e)
   final class ReaderHandler[E](e: E) {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Reader[E, x] })#L, R, Rest]): A ! Rest =
-      handleTail[({ type L[x] = Reader[E, x] })#L, R, Rest, A, A](p)(new TailHandler[({ type L[x] = Reader[E, x] })#L, Rest, A, A] {
+      handle[({ type L[x] = Reader[E, x] })#L, R, Rest, A, A](p, new TailHandler[({ type L[x] = Reader[E, x] })#L, Rest, A, A] {
         def ret(a: A) = pure(a)
-        def answer[X](op: Op[({ type L[x] = Reader[E, x] })#L, X]): X = op match { case Std.Reader.Ask(answer) => answer(e) }
+        def answer[X](op: Reader[E, X]): X = op match { case Std.Reader.Ask(answer) => answer(e) }
       })
   }
 
@@ -94,10 +94,10 @@ trait Std extends Effects {
   def writer[W]: WriterHandler[W] = new WriterHandler[W]
   final class WriterHandler[W] {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Writer[W, x] })#L, R, Rest]): (List[W], A) ! Rest =
-      handleStateful[({ type L[x] = Writer[W, x] })#L, List[W], R, Rest, A, (List[W], A)](p)(Nil)(
+      handle[({ type L[x] = Writer[W, x] })#L, List[W], R, Rest, A, (List[W], A)](p, Nil,
         new StatefulHandler[({ type L[x] = Writer[W, x] })#L, List[W], Rest, A, (List[W], A)] {
           def ret(ws: List[W], a: A) = pure((ws.reverse, a))
-          def answer[X](cell: Cell[List[W]], op: Op[({ type L[x] = Writer[W, x] })#L, X]): X = op match {
+          def answer[X](cell: Cell[List[W]], op: Writer[W, X]): X = op match {
             case Std.Writer.Tell(w, answer) => cell.set(w :: cell.get); answer(())
           }
         })
@@ -107,17 +107,17 @@ trait Std extends Effects {
   def attempt[E]: ErrorHandler[E] = new ErrorHandler[E]
   final class ErrorHandler[E] {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Error[E, x] })#L, R, Rest]): Either[E, A] ! Rest =
-      handle[({ type L[x] = Error[E, x] })#L, R, Rest, A, Either[E, A]](p)(new Handler[({ type L[x] = Error[E, x] })#L, Rest, A, Either[E, A]] {
+      handle[({ type L[x] = Error[E, x] })#L, R, Rest, A, Either[E, A]](p, new Handler[({ type L[x] = Error[E, x] })#L, Rest, A, Either[E, A]] {
         def ret(a: A) = pure(Right(a))
-        def op[X](op: Op[({ type L[x] = Error[E, x] })#L, X], k: X => Either[E, A] ! Rest) = op match { case Std.Error.Raise(e) => pure(Left(e)) }
+        def op[X](op: Error[E, X], k: X => Either[E, A] ! Rest) = op match { case Std.Error.Raise(e) => pure(Left(e)) }
       })
   }
 
   /** every way the program can go: `k` resumed once for each choice */
   def all[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): List[A] ! Rest =
-    handle[Choose, R, Rest, A, List[A]](p)(new Handler[Choose, Rest, A, List[A]] {
+    handle[Choose, R, Rest, A, List[A]](p, new Handler[Choose, Rest, A, List[A]] {
       def ret(a: A) = pure(List(a))
-      def op[X](op: Op[Choose, X], k: X => List[A] ! Rest) = op match {
+      def op[X](op: Choose[X], k: X => List[A] ! Rest) = op match {
         case Std.Choose.Among(xs) => xs.foldLeft(pure[List[A], Rest](Nil))((acc, x) => acc.flatMap(l => k(x).map(l ++ _)))
       }
     })

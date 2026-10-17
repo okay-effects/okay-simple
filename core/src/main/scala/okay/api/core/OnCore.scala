@@ -107,15 +107,15 @@ private[core] class OnCore extends Effects {
     s.indices.foldLeft(p)((q, i) => moving(q, head, placeAt(n - 1 - i + s(i))))
   }
 
-  def handleLast[E[_], R[_], A, B](p: P[A])(h: Handler[E, R, A, B]): P[B] = taking(p, deep(h), head)
-  override def handleTailLast[E[_], R[_], A, B](p: P[A])(h: TailHandler[E, R, A, B]): P[B] =
+  def handleLast[E[_], R[_], A, B](p: P[A], h: Handler[E, R, A, B]): P[B] = taking(p, deep(h), head)
+  override def handleLast[E[_], R[_], A, B](p: P[A], h: TailHandler[E, R, A, B]): P[B] =
     passing(p, answering(h), head)
-  override def handleStatefulLast[E[_], S, R[_], A, B](p: P[A])(s0: S)(h: StatefulHandler[E, S, R, A, B]): P[B] = keeping(p, stateful(s0, h), head)
+  override def handleLast[E[_], S, R[_], A, B](p: P[A], s0: S, h: StatefulHandler[E, S, R, A, B]): P[B] = keeping(p, stateful(s0, h), head)
 
-  override def handle[E[_], R[_], Rest[_], A, B](p: P[A])(h: Handler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): P[B] = taking(p, deep(h), s.removed)
-  override def handleTail[E[_], R[_], Rest[_], A, B](p: P[A])(h: TailHandler[E, Rest, A, B])(
+  override def handle[E[_], R[_], Rest[_], A, B](p: P[A], h: Handler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): P[B] = taking(p, deep(h), s.removed)
+  override def handle[E[_], R[_], Rest[_], A, B](p: P[A], h: TailHandler[E, Rest, A, B])(
       implicit s: Split[E, R, Rest]): P[B] = passing(p, answering(h), s.removed)
-  override def handleStateful[E[_], S, R[_], Rest[_], A, B](p: P[A])(s0: S)(h: StatefulHandler[E, S, Rest, A, B])(
+  override def handle[E[_], S, R[_], Rest[_], A, B](p: P[A], s0: S, h: StatefulHandler[E, S, Rest, A, B])(
       implicit s: Split[E, R, Rest]): P[B] = keeping(p, stateful(s0, h), s.removed)
 
   def run[A](p: P[A]): A = p.asInstanceOf[Cont[okay.one.row.Pure, Nothing, Nothing, A]].run
