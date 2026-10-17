@@ -90,8 +90,8 @@ lazy val interopTofu = (project in file("interop/tofu")).dependsOn(interopCats, 
 lazy val tagless = (project in file("tagless")).dependsOn(effects, machine % Test, free % Test, tck % Test)
   .settings(crossBuilt, name := "okay-effects-tagless")
 
-/** MORE EFFECTS, each a module over the interface in `modules/`, both compilers, checked on the machine and on `Free` */
-def effectModule(dir: String, artifact: String): Project = Project(dir, file("modules/" + dir)).dependsOn(effects, machine % Test, free % Test)
+/** MORE EFFECTS, each a module over the interface in `modules/`, both compilers, checked on the machine, on `Free`, on tagless */
+def effectModule(dir: String, artifact: String): Project = Project(dir, file("modules/" + dir)).dependsOn(effects, machine % Test, free % Test, tagless % Test)
   .settings(crossBuilt, name := artifact)
 /** cooperative threads in turns, a channel between them */
 lazy val concurrent = effectModule("concurrent", "okay-effects-concurrent")

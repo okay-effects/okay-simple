@@ -36,3 +36,4 @@ abstract class ProbabilityChecks(val fx0: Runner) extends munit.FunSuite {
 
 class ProbabilityOnMachine extends ProbabilityChecks(Machine)
 class ProbabilityOnFree extends ProbabilityChecks(Free)
+class ProbabilityOnTagless extends ProbabilityChecks(okay.effects.tagless.Tagless.on(Machine))

@@ -35,3 +35,4 @@ abstract class ResourcesChecks(val fx0: Runner) extends munit.FunSuite {
 
 class ResourcesOnMachine extends ResourcesChecks(Machine)
 class ResourcesOnFree extends ResourcesChecks(Free)
+class ResourcesOnTagless extends ResourcesChecks(okay.effects.tagless.Tagless.on(Machine))

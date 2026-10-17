@@ -35,3 +35,4 @@ abstract class ResilienceChecks(val fx0: Runner) extends munit.FunSuite {
 
 class ResilienceOnMachine extends ResilienceChecks(Machine)
 class ResilienceOnFree extends ResilienceChecks(Free)
+class ResilienceOnTagless extends ResilienceChecks(okay.effects.tagless.Tagless.on(Machine))

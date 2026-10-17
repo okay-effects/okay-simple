@@ -46,3 +46,4 @@ abstract class LogicChecks(val fx0: Runner) extends munit.FunSuite {
 
 class LogicOnMachine extends LogicChecks(Machine)
 class LogicOnFree extends LogicChecks(Free)
+class LogicOnTagless extends LogicChecks(okay.effects.tagless.Tagless.on(Machine))

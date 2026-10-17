@@ -209,7 +209,7 @@ observer (`Seen.at`, an operation's place), tagless on the implementation given.
 
 ## More effects
 
-Modules over the interface, in `modules/`, one source for both compilers, each checked on the machine and on `Free`; each a class
+Modules over the interface, in `modules/`, one source for both compilers, each checked on the machine, on `Free` and on tagless; each a class
 over an implementation, `Concurrent(fx)`, `Io(fx)`, ...:
 
 | Module | What it gives |

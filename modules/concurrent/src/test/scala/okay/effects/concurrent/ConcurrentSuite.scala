@@ -41,3 +41,4 @@ abstract class ConcurrentChecks(val fx0: Runner) extends munit.FunSuite {
 
 class ConcurrentOnMachine extends ConcurrentChecks(Machine)
 class ConcurrentOnFree extends ConcurrentChecks(Free)
+class ConcurrentOnTagless extends ConcurrentChecks(okay.effects.tagless.Tagless.on(Machine))

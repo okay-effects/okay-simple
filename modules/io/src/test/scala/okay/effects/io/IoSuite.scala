@@ -37,3 +37,4 @@ abstract class IoChecks(val fx0: Runner) extends munit.FunSuite {
 
 class IoOnMachine extends IoChecks(Machine)
 class IoOnFree extends IoChecks(Free)
+class IoOnTagless extends IoChecks(okay.effects.tagless.Tagless.on(Machine))

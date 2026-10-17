@@ -33,3 +33,4 @@ abstract class TransactionsChecks(val fx0: Runner) extends munit.FunSuite {
 
 class TransactionsOnMachine extends TransactionsChecks(Machine)
 class TransactionsOnFree extends TransactionsChecks(Free)
+class TransactionsOnTagless extends TransactionsChecks(okay.effects.tagless.Tagless.on(Machine))

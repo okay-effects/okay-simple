@@ -31,3 +31,4 @@ abstract class ParsingChecks(val fx0: Runner) extends munit.FunSuite {
 
 class ParsingOnMachine extends ParsingChecks(Machine)
 class ParsingOnFree extends ParsingChecks(Free)
+class ParsingOnTagless extends ParsingChecks(okay.effects.tagless.Tagless.on(Machine))
