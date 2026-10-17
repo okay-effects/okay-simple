@@ -1,5 +1,6 @@
 package okay.effects.stream
 
+import scala.collection.immutable.Queue
 import okay.effects.{Effects, Std}
 
 /**
@@ -77,6 +78,14 @@ class Streams[F <: Effects](val fx: F) {
   def eval[O, R[_]](p: O ! R): Stream[O, R] = new Stream[O, R](() => p.flatMap(o => emitted(o, empty[O, R])))
   /** an element made by `p` each pull — endless */
   def repeatEval[O, R[_]](p: O ! R): Stream[O, R] = new Stream[O, R](() => p.flatMap(o => emitted(o, repeatEval[O, R](p))))
+
+  /** THE STREAMS MERGED, IN TURN: one element of each in turn, a stream that has ended left out — no channel, no
+   * buffer: each pull the next stream's own */
+  def merge[O, R[_]](ss: List[Stream[O, R]]): Stream[O, R] = mergeQueue[O, R](Queue.empty[Stream[O, R]] ++ ss)
+  private def mergeQueue[O, R[_]](q: Queue[Stream[O, R]]): Stream[O, R] = new Stream[O, R](() => q.dequeueOption match {
+    case None => ended
+    case Some((s, rest)) => s.pull().flatMap(_.fold(mergeQueue[O, R](rest).pull())((o, r) => emitted(o, mergeQueue[O, R](rest.enqueue(r)))))
+  })
 
   /** a generator — a program `emit`ting `O` — as a stream of the row outside its `Yield`: pulled as far as asked, the
    * generator run that far, its rest the stream's */

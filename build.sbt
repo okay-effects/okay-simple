@@ -122,7 +122,7 @@ lazy val resilience = effectModule("resilience", "okay-effects-resilience")
 /** lazy streams pulled by effects; to and from generators */
 lazy val stream = effectModule("stream", "okay-effects-stream")
 /** asynchrony with no runtime of its own: a program waiting on callbacks, driven to a `Future`; timers per platform */
-lazy val async = effectModule("async", "okay-effects-async")
+lazy val async = effectModule("async", "okay-effects-async").dependsOn(stream)
 
 /** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
 lazy val bench = (project in file("bench")).dependsOn(machine.jvm, free.jvm, tagless.jvm).enablePlugins(JmhPlugin)

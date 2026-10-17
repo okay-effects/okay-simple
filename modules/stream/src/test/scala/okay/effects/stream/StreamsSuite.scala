@@ -30,9 +30,19 @@ abstract class StreamsChecks(val fx0: Runner) extends munit.FunSuite {
     assertEquals(list(unfold[Int, Int, P](10)(n => if (n == 0) None else Some((n, n / 2)))), List(10, 5, 2, 1))
   }
 
+  test("merge: one of each in turn, an ended one left out") {
+    assertEquals(list(merge[String, P](List(emits[String, P](List("a1", "a2", "a3")), emits[String, P](List("b1")),
+      emits[String, P](List("c1", "c2"))))), List("a1", "b1", "c1", "a2", "c2", "a3"))
+    assertEquals(list(merge[Int, P](Nil)), Nil)
+    assertEquals(list(merge[Int, P](List(iterate[Int, P](0)(_ + 2), iterate[Int, P](1)(_ + 2))).take(6)), List(0, 1, 2, 3, 4, 5))
+  }
   type St[X] = State[Int, X]
   type Wr[X] = Writer[String, X]
   type SW[X] = Sum[({ type L[x] = Sum[Void, Wr, x] })#L, St, X]
+  test("merge pulls each stream only as far as asked, its effects in turn") {
+    def counted(name: String): Stream[String, St] = repeatEval[String, St](modify[Int, St](_ + 1).flatMap(_ => get[Int, St]).map(n => s"$name$n"))
+    assertEquals(fx0.run(state(0)(merge[String, St](List(counted("a"), counted("b"))).take(4).toList)), (4, List("a1", "b2", "a3", "b4")))
+  }
   test("effects in a stream: each element made by one, each pull only as far as asked") {
     val counted = repeatEval[Int, St](modify[Int, St](_ + 1).flatMap(_ => get[Int, St])).take(3).toList
     assertEquals(fx0.run(state(0)(counted)), (3, List(1, 2, 3)))
