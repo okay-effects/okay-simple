@@ -90,6 +90,18 @@ lazy val interopTofu = (project in file("interop/tofu")).dependsOn(interopCats, 
 lazy val tagless = (project in file("tagless")).dependsOn(effects, machine % Test, free % Test, tck % Test)
   .settings(crossBuilt, name := "okay-effects-tagless")
 
+/** MORE EFFECTS, each a module over the interface, both compilers, checked on the machine and on `Free` */
+def effectModule(dir: String, artifact: String): Project = Project(dir, file(dir)).dependsOn(effects, machine % Test, free % Test)
+  .settings(crossBuilt, name := artifact)
+/** cooperative threads in turns, a channel between them */
+lazy val concurrent = effectModule("concurrent", "okay-effects-concurrent")
+/** resources released at a scope's end */
+lazy val resource = effectModule("resource", "okay-effects-resource")
+/** the console, the clock, the environment: the world's handlers and pure ones */
+lazy val io = effectModule("io", "okay-effects-io")
+/** random choices: the exact distribution, or sampled */
+lazy val probability = effectModule("probability", "okay-effects-probability")
+
 /** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
 lazy val bench = (project in file("bench")).dependsOn(machine, free, tagless).enablePlugins(JmhPlugin)
   .settings(crossScalaVersions := Seq(scala3, scala2), name := "okay-effects-bench", publish / skip := true)
@@ -124,8 +136,8 @@ lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
     name := "okay-effects-compat-scala3", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
-lazy val root = (project in file(".")).aggregate(effects, tck, machine, suite, free, suiteFree, tagless, interopCats, interopZio, interopTofu, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2)
+lazy val root = (project in file(".")).aggregate(effects, tck, machine, suite, free, suiteFree, tagless, concurrent, resource, io, probability, interopCats, interopZio, interopTofu, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
 /** everything: the interface's suites by both compilers, then the two compilers in one application */
-addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteFree/test ; tagless/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++2.13.18 suite/test ; suiteFree/test ; tagless/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test")
+addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++2.13.18 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test")
