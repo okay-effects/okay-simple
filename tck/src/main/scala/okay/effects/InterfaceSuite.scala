@@ -7,6 +7,7 @@ abstract class InterfaceSuite(fx: okay.effects.Runner) extends munit.FunSuite {
   val d = new ShiftReset(fx)
   val at = new AnswerTypes(fx)
   val more = new MoreStd(fx)
+  val u = new Utilities(fx)
 
   test("a program's effects handled in the row's order") {
     assertEquals(p.handledInOrder, (13, (List("hello, Ann"), 10)))
@@ -68,6 +69,36 @@ abstract class InterfaceSuite(fx: okay.effects.Runner) extends munit.FunSuite {
   test("recover: what was raised to a program in its place") {
     assertEquals(more.recovered, 4)
     assertEquals(more.unraised, 7)
+  }
+  test("local: the environment changed inside, the same outside; in a row of more") {
+    assertEquals(u.locally, (10, 20, 10))
+    assertEquals(u.localInRow, (List("e=42"), 42))
+  }
+  test("listen and censor: what was told inside, told outside too") {
+    assertEquals(u.listened, (List("a", "b", "c"), (List("b", "c"), 3)))
+    assertEquals(u.censored, (List("a", "B"), 1))
+  }
+  test("gets, getAndSet, guard") {
+    assertEquals(u.stateWords, (7, (50, 5)))
+    assertEquals(u.guarded, List(3, 6, 9))
+  }
+  test("abort: the rest dropped, the state outside kept") {
+    assertEquals(u.aborted, (1, None))
+    assertEquals(u.notAborted, Some(3))
+  }
+  test("fresh numbers, and in each branch the supply of its time") {
+    assertEquals(u.freshOnes, List(100L, 101L, 102L))
+    assertEquals(u.freshEachBranch, List((1, 1L), (2, 1L)))
+    assertEquals(u.freshThroughBranches, List((1, 1L), (2, 2L)))
+  }
+  test("random from a seed: the same seed, the same numbers") {
+    assertEquals(u.randoms(42), u.randoms(42))
+    assert(u.randoms(42) != u.randoms(43))
+    assert(u.randoms(42).forall(n => n >= 0 && n < 100))
+    assert(u.doubleInRange)
+  }
+  test("a store by key") {
+    assertEquals(u.stored, (Map("b" -> 2), (None, Some(2))))
   }
   test("constant stack: 100 000 operations under three handlers, 100 000 binds") {
     assertEquals(p.counted(100000), (List(), (100000, ())))

@@ -51,6 +51,42 @@ object Std {
     final case class Emit[O, X](o: O, answer: Unit => X) extends Yield[O, X]
   }
 
+  /** an early end with no value: `Exit()`, the rest dropped — `optional` gives `None` */
+  sealed trait Abort[X]
+  object Abort {
+    final case class Exit[X]() extends Abort[X]
+  }
+
+  /** a supply of fresh numbers: `Next`, each one never given before in the run */
+  sealed trait Fresh[X]
+  object Fresh {
+    final case class Next[X](answer: Long => X) extends Fresh[X]
+  }
+
+  /** random numbers, from a seed: `NextLong`, the next of a generator kept by the handler — the same seed, the same
+   * numbers; a `k` resumed twice resumes the generator of its time */
+  sealed trait Random[X]
+  object Random {
+    final case class NextLong[X](answer: Long => X) extends Random[X]
+  }
+
+  /** A STORE OF VALUES `V` BY KEY `K`: in a row `({ type L[x] = Store[K, V, x] })#L`, Scala 3's `[x] =>> Store[K, V, x]` */
+  sealed trait Store[K, V, X]
+  object Store {
+    final case class Load[K, V, X](k: K, answer: Option[V] => X) extends Store[K, V, X]
+    final case class Save[K, V, X](k: K, v: V, answer: Unit => X) extends Store[K, V, X]
+    final case class Remove[K, V, X](k: K, answer: Unit => X) extends Store[K, V, X]
+  }
+
+  /** splitmix64's step: the next state and its number */
+  private[effects] def splitmix(s: Long): (Long, Long) = {
+    val n = s + 0x9e3779b97f4a7c15L
+    var z = n
+    z = (z ^ (z >>> 30)) * 0xbf58476d1ce4e5b9L
+    z = (z ^ (z >>> 27)) * 0x94d049bb133111ebL
+    (n, z ^ (z >>> 31))
+  }
+
   /** DELIMITED CONTROL: `Shift(f)`, `f` given the rest of the program up to the nearest `reset`, of the answer program
    * `P` (`B ! R`) */
   sealed trait Control[P, X]
@@ -89,6 +125,14 @@ class Std[F <: Effects](val fx: F) {
   type Lift[G[_], X] = Std.Lift[G, X]
   val Lift: Std.Lift.type = Std.Lift
   type Lowering[G[_]] = Std.Lowering[G]
+  type Abort[X] = Std.Abort[X]
+  val Abort: Std.Abort.type = Std.Abort
+  type Fresh[X] = Std.Fresh[X]
+  val Fresh: Std.Fresh.type = Std.Fresh
+  type Random[X] = Std.Random[X]
+  val Random: Std.Random.type = Std.Random
+  type Store[K, V, X] = Std.Store[K, V, X]
+  val Store: Std.Store.type = Std.Store
 
   def get[S, R[_]](implicit in: In[({ type L[x] = State[S, x] })#L, R]): S ! R = perform[({ type L[x] = State[S, x] })#L].apply[R, S](Std.State.Get(s => s))
   def put[S, R[_]](s: S)(implicit in: In[({ type L[x] = State[S, x] })#L, R]): Unit ! R = perform[({ type L[x] = State[S, x] })#L].apply[R, Unit](Std.State.Put(s, u => u))
@@ -101,6 +145,31 @@ class Std[F <: Effects](val fx: F) {
   def lift[G[_], X, R[_]](ga: G[X])(implicit in: In[({ type L[x] = Lift[G, x] })#L, R]): X ! R =
     perform[({ type L[x] = Lift[G, x] })#L].apply[R, X](Std.Lift.Of(ga))
   def emit[O, R[_]](o: O)(implicit in: In[({ type L[x] = Yield[O, x] })#L, R]): Unit ! R = perform[({ type L[x] = Yield[O, x] })#L].apply[R, Unit](Std.Yield.Emit(o, u => u))
+
+  /** the state through `f` */
+  def gets[S, A, R[_]](f: S => A)(implicit in: In[({ type L[x] = State[S, x] })#L, R]): A ! R = get[S, R].map(f)
+  /** the state set to `s`, the one before given */
+  def getAndSet[S, R[_]](s: S)(implicit in: In[({ type L[x] = State[S, x] })#L, R]): S ! R =
+    get[S, R].flatMap(old => put[S, R](s).as(old))
+  /** a choice going on only where `cond` holds */
+  def guard[R[_]](cond: Boolean)(implicit in: In[Choose, R]): Unit ! R = if (cond) pure[Unit, R](()) else fail[Unit, R]
+  /** the program ended here, with no value */
+  def abort[X, R[_]](implicit in: In[Abort, R]): X ! R = perform[Abort].apply[R, X](Std.Abort.Exit[X]())
+  /** a number never given before in this run */
+  def fresh[R[_]](implicit in: In[Fresh, R]): Long ! R = perform[Fresh].apply[R, Long](Std.Fresh.Next(n => n))
+  def nextLong[R[_]](implicit in: In[Random, R]): Long ! R = perform[Random].apply[R, Long](Std.Random.NextLong(n => n))
+  /** a number in `[0, bound)`, `bound` positive */
+  def nextInt[R[_]](bound: Int)(implicit in: In[Random, R]): Int ! R =
+    perform[Random].apply[R, Int](Std.Random.NextLong(n => java.lang.Math.floorMod(n, bound.toLong).toInt))
+  /** a number in `[0, 1)` */
+  def nextDouble[R[_]](implicit in: In[Random, R]): Double ! R =
+    perform[Random].apply[R, Double](Std.Random.NextLong(n => (n >>> 11) * 1.1102230246251565e-16))
+  def load[K, V, R[_]](k: K)(implicit in: In[({ type L[x] = Store[K, V, x] })#L, R]): Option[V] ! R =
+    perform[({ type L[x] = Store[K, V, x] })#L].apply[R, Option[V]](Std.Store.Load[K, V, Option[V]](k, v => v))
+  def save[K, V, R[_]](k: K, v: V)(implicit in: In[({ type L[x] = Store[K, V, x] })#L, R]): Unit ! R =
+    perform[({ type L[x] = Store[K, V, x] })#L].apply[R, Unit](Std.Store.Save[K, V, Unit](k, v, u => u))
+  def remove[K, V, R[_]](k: K)(implicit in: In[({ type L[x] = Store[K, V, x] })#L, R]): Unit ! R =
+    perform[({ type L[x] = Store[K, V, x] })#L].apply[R, Unit](Std.Store.Remove[K, V, Unit](k, u => u))
 
   /** the final state and the value; a `k` resumed twice resumes the state of its time. Answered in place */
   def state[S](s0: S): StateHandler[S] = new StateHandler(s0)
@@ -146,6 +215,75 @@ class Std[F <: Effects](val fx: F) {
         def ret(a: A) = pure(Right(a))
         def abort[X](op: Error[E, X]) = op match { case Std.Error.Raise(e) => pure(Left(e)) }
       })
+  }
+
+  /** the program's `Reader` answered by `f` of the environment outside: `p`'s asks see `f(e)`, the row's own `Reader`
+   * stays — `p` handled by a reader of its own, its row back where it was (`Sub[Rest, R]`) */
+  def local[E](f: E => E): LocalHandler[E] = new LocalHandler(f)
+  final class LocalHandler[E](f: E => E) {
+    def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Reader[E, x] })#L, R, Rest], back: Sub[Rest, R]): A ! R =
+      ask[E, R](sp).flatMap(e => reader[E](f(e))(p).into[R])
+  }
+
+  /** what `p` told, with its value — told outside too, when `p` ends */
+  def listen[W]: ListenHandler[W] = new ListenHandler[W]
+  final class ListenHandler[W] {
+    def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Writer[W, x] })#L, R, Rest], back: Sub[Rest, R]): (List[W], A) ! R =
+      writer[W](p).into[R].flatMap { case (ws, a) => tellAll[W, R](ws)(sp).as((ws, a)) }
+  }
+  /** what `p` told, through `f`, told outside when `p` ends */
+  def censor[W](f: List[W] => List[W]): CensorHandler[W] = new CensorHandler[W](f)
+  final class CensorHandler[W](f: List[W] => List[W]) {
+    def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Writer[W, x] })#L, R, Rest], back: Sub[Rest, R]): A ! R =
+      writer[W](p).into[R].flatMap { case (ws, a) => tellAll[W, R](f(ws))(sp).as(a) }
+  }
+  private def tellAll[W, R[_]](ws: List[W])(implicit in: In[({ type L[x] = Writer[W, x] })#L, R]): Unit ! R =
+    ws.foldLeft(pure[Unit, R](()))((p, w) => p.flatMap(_ => tell[W, R](w)))
+
+  /** the value, or `None` if the program aborted: the rest dropped */
+  def optional[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Abort, R, Rest]): Option[A] ! Rest =
+    handle[Abort, R, Rest, A, Option[A]](p, new AbortHandler[Abort, Rest, A, Option[A]] {
+      def ret(a: A) = pure(Some(a))
+      def abort[X](op: Abort[X]) = pure(None)
+    })
+
+  /** fresh numbers from `n0` on. Answered in place */
+  def freshFrom(n0: Long): FreshHandler = new FreshHandler(n0)
+  final class FreshHandler(n0: Long) {
+    def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Fresh, R, Rest]): A ! Rest =
+      handle[Fresh, Long, R, Rest, A, A](p, n0, new StatefulTailHandler[Fresh, Long, Rest, A, A] {
+        def ret(n: Long, a: A) = pure(a)
+        def answer[X](cell: Cell[Long], op: Fresh[X]): X = op match {
+          case Std.Fresh.Next(answer) => val n = cell.get; cell.set(n + 1); answer(n)
+        }
+      })
+  }
+
+  /** random numbers from `seed` (splitmix64). Answered in place */
+  def random(seed: Long): RandomHandler = new RandomHandler(seed)
+  final class RandomHandler(seed: Long) {
+    def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Random, R, Rest]): A ! Rest =
+      handle[Random, Long, R, Rest, A, A](p, seed, new StatefulTailHandler[Random, Long, Rest, A, A] {
+        def ret(s: Long, a: A) = pure(a)
+        def answer[X](cell: Cell[Long], op: Random[X]): X = op match {
+          case Std.Random.NextLong(answer) => val (s, n) = Std.splitmix(cell.get); cell.set(s); answer(n)
+        }
+      })
+  }
+
+  /** the store's final map and the value, from `m0`. Answered in place */
+  def store[K, V](m0: Map[K, V]): StoreHandler[K, V] = new StoreHandler(m0)
+  final class StoreHandler[K, V](m0: Map[K, V]) {
+    def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Store[K, V, x] })#L, R, Rest]): (Map[K, V], A) ! Rest =
+      handle[({ type L[x] = Store[K, V, x] })#L, Map[K, V], R, Rest, A, (Map[K, V], A)](p, m0,
+        new StatefulTailHandler[({ type L[x] = Store[K, V, x] })#L, Map[K, V], Rest, A, (Map[K, V], A)] {
+          def ret(m: Map[K, V], a: A) = pure((m, a))
+          def answer[X](cell: Cell[Map[K, V]], op: Store[K, V, X]): X = op match {
+            case Std.Store.Load(k, answer) => answer(cell.get.get(k))
+            case Std.Store.Save(k, v, answer) => cell.set(cell.get.updated(k, v)); answer(())
+            case Std.Store.Remove(k, answer) => cell.set(cell.get - k); answer(())
+          }
+        })
   }
 
   /** `shift`: the rest of the program up to the nearest `reset` taken as `k`, a function — resumable any number of
