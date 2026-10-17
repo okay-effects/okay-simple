@@ -1,0 +1,49 @@
+package okay.simple
+
+import okay.simple.free.FreeEffects
+
+/** Scala 3's conveniences over the same interface: no parentheses in a row, context bounds, a handler of `F Of S`,
+ * an effect of one's own whose clauses Scala 3's GADT inference types with no `answer` */
+class Scala3Suite extends munit.FunSuite {
+  val fx = FreeEffects.effects
+  import fx.*
+
+  type Row = Reader % String + State % Int
+
+  def greet[R: {Has[Reader % String]#L, Has[State % Int]#L}]: Int ! R =
+    for { name <- ask[String, R]; n <- get[Int, R]; _ <- put[Int, R](n + name.length) } yield n
+
+  enum Counter[X]:
+    case Tick extends Counter[Unit]
+    case Peek extends Counter[Int]
+  given Ops.Aux[Counter.type, Counter] = Ops.of
+
+  def tick[R: Has[Counter.type]#L]: Unit ! R = perform[Counter.type].apply[R, Unit](Counter.Tick)
+  def peek[R: Has[Counter.type]#L]: Int ! R = perform[Counter.type].apply[R, Int](Counter.Peek)
+
+  def counting[R, Rest, A](p: A ! R)(using Split[Counter.type, R, Rest]): (Int, A) ! Rest =
+    handleAny[Counter.type, Counter, R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[Counter, Rest, A, Int => (Int, A) ! Rest]:
+      def ret(a: A) = pure(n => pure((n, a)))
+      def op[X](op: Counter[X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match
+        case Counter.Tick => pure(n => k(()).flatMap(f => f(n + 1)))
+        case Counter.Peek => pure(n => k(n).flatMap(f => f(n)))
+    ).flatMap(f => f(0))
+
+  test("a row with no parentheses, a program by context bounds") {
+    assertEquals(run(state(1)(reader("Ann")(greet[Row]))), (4, 1))
+  }
+
+  test("an effect of one's own, its clauses typed by GADT inference") {
+    type C = Counter.type + State % Int
+    val p: Int ! C = tick[C].andThen(tick[C]).andThen(peek[C]).flatMap(n => put[Int, C](n * 10).as(n))
+    assertEquals(run(state(0)(counting(p))), (20, (2, 2)))
+  }
+
+  test("a handler written with Of") {
+    val h = new Handler[Reader Of String, Pure, Int, Int]:
+      def ret(a: Int) = pure(a)
+      def op[X](op: Reader[String, X], k: X => Int ! Pure) = op match
+        case Reader.Ask(answer) => k(answer("abc"))
+    assertEquals(run(handle(ask[String, Pure + Reader % String].map(_.length))(h)), 3)
+  }
+}
