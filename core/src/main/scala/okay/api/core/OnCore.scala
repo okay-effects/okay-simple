@@ -58,7 +58,6 @@ private[core] class OnCore extends Effects {
   implicit def splitOne[E[_]]: Split[E, E, Pure] = slots(0)
   implicit def splitLast[R[_], E[_]]: Split[E, R + E, R] = slots(0)
   implicit def splitInit[E[_], R[_], G[_], Rest[_]](implicit s: Split[E, R, Rest]): Split[E, R + G, Rest + G] = slot(s.depth + 1)
-  implicit def in[E[_], R[_], Rest[_]](implicit s: Split[E, R, Rest]): In[E, R] = s
   implicit def subPure[S[_]]: Sub[Pure, S] = Vector()
   implicit def subOne[E[_], S[_]](implicit e: In[E, S]): Sub[E, S] = Vector(e.depth)
   implicit def subMore[R[_], E[_], S[_]](implicit r: Sub[R, S], e: In[E, S]): Sub[R + E, S] = e.depth +: r

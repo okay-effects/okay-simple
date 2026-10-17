@@ -18,7 +18,6 @@ class OnKernel private (e: KEffects) extends Effects {
   implicit def splitOne[E[_]]: Place = placeAt(0)
   implicit def splitLast[R[_], E[_]]: Place = placeAt(0)
   implicit def splitInit[E[_], R[_], G[_], Rest[_]](implicit s: Place): Place = placeAt(s.at + 1)
-  implicit def in[E[_], R[_], Rest[_]](implicit s: Place): Place = s
   implicit def subPure[S[_]]: Vector[Int] = Vector()
   implicit def subOne[E[_], S[_]](implicit p: Place): Vector[Int] = Vector(p.at)
   implicit def subMore[R[_], E[_], S[_]](implicit r: Vector[Int], p: Place): Vector[Int] = p.at +: r

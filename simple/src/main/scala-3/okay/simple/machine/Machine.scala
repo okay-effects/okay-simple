@@ -71,6 +71,8 @@ private[machine] object Machine:
   final case class Done[R[_], A](a: A) extends Prog[R, A]
   final case class Bind[R[_], X, A](p: Prog[R, X], f: X => Prog[R, A]) extends Prog[R, A]
   final case class Delay[R[_], A](p: () => Prog[R, A]) extends Prog[R, A]
+  /** a value through `f`: one step, no program made of it */
+  final case class Mapping[R[_], X, A](p: Prog[R, X], f: X => A) extends Prog[R, A]
   final case class Perf[R[_], E[_], X](at: Place[E, R, ?], op: E[X]) extends Prog[R, X]
   final case class HandleGeneral[E[_], R[_], A, B](p: Prog[R + E, A], h: Clauses[E, A, Prog[R, B]]) extends Prog[R, B]
   final case class HandleTail[E[_], R[_], A, B](p: Prog[R + E, A], h: TailClauses[E, A, Prog[R, B]]) extends Prog[R, B]
@@ -84,6 +86,8 @@ private[machine] object Machine:
   sealed abstract class Frames[R[_], -X, +V]
   final class Last[R[_], V] extends Frames[R, V, V]
   final class Then[R[_], X, Y, V](val f: X => Prog[R, Y], val rest: Frames[R, Y, V]) extends Frames[R, X, V]
+  /** a map pending: the value through `f`, on into `rest` */
+  final class Mapped[R[_], X, Y, V](val f: X => Y, val rest: Frames[R, Y, V]) extends Frames[R, X, V]
 
   // -- THE LEVELS: the program inside at `R`, its body's value `V`, the run's `Z`
 
@@ -164,12 +168,14 @@ private[machine] object Machine:
   @tailrec private def loop[R[_], X, V, Z](c: Prog[R, X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Z = c match
     case d: Done[r, x] => fs match
       case t: Then[r2, a, y, v] => loop[R, y, V, Z](t.f(d.a), t.rest, m)
+      case t: Mapped[r2, a, y, v] => loop[R, y, V, Z](Done(t.f(d.a)), t.rest, m)
       case _: Last[r2, v] => m match
         case _: Top[z] => d.a
         case _ =>
           val g = cold[R, X, V, Z](c, fs, m).go
           loop(g.c, g.fs, g.m)
     case b: Bind[r, y, x] => loop[R, y, V, Z](b.p, Then[R, y, x, V](b.f, fs), m)
+    case b: Mapping[r, y, x] => loop[R, y, V, Z](b.p, Mapped[R, y, x, V](b.f, fs), m)
     case p: Perf[r, e, x] => inPlace[e, R, V, Z](p.at, m) match
       case h: InPlace[e2, t, a, b, w, z] =>
         // answered in place, the answer straight into the next frame: no `Done` made
@@ -189,6 +195,7 @@ private[machine] object Machine:
   private def cold[R[_], X, V, Z](c: Prog[R, X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Next[Z] = c match
     case d: Done[r, x] => fs match
       case t: Then[r2, a, y, v] => Next(Go[R, y, V, Z](t.f(d.a), t.rest, m))
+      case t: Mapped[r2, a, y, v] => Next(Go[R, y, V, Z](Done(t.f(d.a)), t.rest, m))
       case _: Last[r2, v] => m match
         case l: HandlerLevel[e, t, a, b, w, z] => Next(Go[t, b, w, Z](l.ret(d.a), l.outside, l.m))
         case l: RemapLevel[r1, r2, a, w, z] => Next(Go[r2, a, w, Z](Done(d.a), l.outside, l.m))
@@ -201,6 +208,7 @@ private[machine] object Machine:
     case r: Resume[r, x, b] => r.k.resume[V, Z](r.x, fs, m)
     case p: Perf[r, e, x] => walk[e, R, x, V, R, V, Z](p.at, p.op, fs, none[R, V], m)
     case b: Bind[r, y, x] => Next(Go[R, y, V, Z](b.p, Then[R, y, x, V](b.f, fs), m))
+    case b: Mapping[r, y, x] => Next(Go[R, y, V, Z](b.p, Mapped[R, y, x, V](b.f, fs), m))
     case d: Delay[r, x] => Next(Go[R, X, V, Z](d.p(), fs, m))
 
   /** an operation to its general handler: the levels it crosses taken onto `pre`, `k` made, the clause run outside */
@@ -233,7 +241,6 @@ private[machine] class Machine extends Effects:
   implicit def splitLast[R[_], E[_]]: Split[E, R + E, R] = LastPlace[R, E]()
   implicit def splitInit[E[_], R[_], G[_], Rest[_]](implicit s: Split[E, R, Rest]): Split[E, R + G, Rest + G] =
     InitPlace[E, R, G, Rest](s)
-  implicit def in[E[_], R[_], Rest[_]](implicit s: Split[E, R, Rest]): In[E, R] = s
   implicit def subPure[S[_]]: Sub[Pure, S] = new Renaming[PureRow, S]:
     def apply[E[_]](at: Place[E, PureRow, ?]): Place[E, S, ?] = throw IllegalStateException("no place in Pure")
   implicit def subOne[E[_], S[_]](implicit e: In[E, S]): Sub[E, S] = new Renaming[E, S]:
@@ -248,6 +255,7 @@ private[machine] class Machine extends Effects:
 
   def pure[A, R[_]](a: A): Prog[R, A] = Done(a)
   def flatMap[A, B, R[_]](p: Prog[R, A])(f: A => Prog[R, B]): Prog[R, B] = Bind(p, f)
+  override def map[A, B, R[_]](p: Prog[R, A])(f: A => B): Prog[R, B] = Mapping(p, f)
   def delay[A, R[_]](p: => Prog[R, A]): Prog[R, A] = Delay(() => p)
   protected def performOp[E[_], R[_], X](op: E[X])(implicit in: In[E, R]): Prog[R, X] = Perf[R, E, X](in, op)
 
