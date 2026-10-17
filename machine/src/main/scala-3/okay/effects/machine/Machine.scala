@@ -1,4 +1,4 @@
-package okay.effects.simple.machine
+package okay.effects.machine
 
 import okay.effects.{AbortClauses, Cell, Clauses, Effects, StatefulClauses, StatefulTailClauses, Void, TailClauses}
 import okay.effects.Places
@@ -23,7 +23,7 @@ import scala.annotation.tailrec
  */
 /** the machine's data and its loop: in an object, static — no outer pointer in a node or a level, no outer test in
  * a match */
-private[simple] object Machine:
+private[effects] object Machine:
   type PureRow[X] = Void[X]
   /** a program at `R` at `Rest + E`: itself if `R` is that already, else remapped */
   inline def moved[E[_], R[_], Rest[_], A](at: Place[E, R, Rest], p: Prog[R, A]): Prog[Rest + E, A] = at match
@@ -209,7 +209,7 @@ private[simple] object Machine:
   inline def run[A](p: Prog[PureRow, A]): A = loop[PureRow, A, A, A](p, Frames.End(), Meta.Top())
 
 /** the interface over the machine: its types the object's, a handler kept as it is given */
-private[simple] class Machine extends Effects:
+private[effects] class Machine extends Effects:
   import Machine.*
 
   type ![+A, R[_]] = Prog[R, A]

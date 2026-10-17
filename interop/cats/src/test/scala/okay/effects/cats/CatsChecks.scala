@@ -7,7 +7,7 @@ import cats.instances.list._
 import cats.instances.option._
 import okay.effects.{Effects, Std}
 import okay.effects.simple.Machine
-import okay.effects.simple.free.Free
+import okay.effects.free.Free
 
 /** cats over the effects, on an implementation */
 abstract class CatsChecks(val fx0: Effects) extends munit.FunSuite {

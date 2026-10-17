@@ -2,7 +2,7 @@ package okay.effects.zio
 
 import okay.effects.Effects
 import okay.effects.simple.Machine
-import okay.effects.simple.free.Free
+import okay.effects.free.Free
 import zio.{Runtime, Unsafe, ZIO}
 
 /** ZIO over the effects, on an implementation */

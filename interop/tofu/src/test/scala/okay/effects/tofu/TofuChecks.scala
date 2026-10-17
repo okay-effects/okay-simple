@@ -3,7 +3,7 @@ package okay.effects.tofu
 import okay.effects.{Effects, Std, Sum, Void}
 import okay.effects.cats.Cats
 import okay.effects.simple.Machine
-import okay.effects.simple.free.Free
+import okay.effects.free.Free
 
 /** tofu's typeclasses over the effects, on an implementation */
 abstract class TofuChecks(val fx0: Effects) extends munit.FunSuite {

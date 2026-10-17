@@ -1,4 +1,4 @@
-package okay.effects.simple.machine
+package okay.effects.machine
 
 import okay.effects.{AbortClauses, Cell, Clauses, Effects, StatefulClauses, StatefulTailClauses, Sum, TailClauses, Void}
 import scala.annotation.tailrec
@@ -21,7 +21,7 @@ import scala.annotation.tailrec
  * levels crossed become `k`'s `Prefix`, put back where `k` is resumed — a stateful level with the state of its time.
  * The machine's data in an object: no outer pointer in a node or a level.
  */
-private[simple] object Machine {
+private[effects] object Machine {
   type PureRow[X] = Void[X]
   /** the row `R + E`: `Plus[R, E]#L` */
   final abstract class Plus[R[_], E[_]] { type L[X] = Sum[R, E, X] }
@@ -290,7 +290,7 @@ private[simple] object Machine {
 }
 
 /** the interface over the machine: its types the object's, a handler installed as its level */
-private[simple] class Machine extends Effects {
+private[effects] class Machine extends Effects {
   import Machine._
 
   type ![+A, R[_]] = Prog[R, A]

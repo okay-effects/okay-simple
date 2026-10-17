@@ -1,4 +1,4 @@
-package okay.effects.simple.free.monad
+package okay.effects.free.monad
 
 import okay.effects.{Cell, Effects, Void}
 import okay.effects.Places

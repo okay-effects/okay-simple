@@ -1,6 +1,6 @@
 package okay.effects.examples
 
-import okay.effects.simple.free.Free
+import okay.effects.free.Free
 
 /** the examples ON THE `Free` MONAD: `sbt "examples/runMain okay.effects.examples.OnFree"` */
 object OnFree {

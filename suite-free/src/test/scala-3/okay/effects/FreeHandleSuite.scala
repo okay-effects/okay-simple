@@ -1,8 +1,8 @@
 package okay.effects
 
 import okay.effects.Places.{+, Place}
-import okay.effects.simple.free.monad.{At, Free}
-import okay.effects.simple.free.monad.Free.!
+import okay.effects.free.monad.{At, Free}
+import okay.effects.free.monad.Free.!
 
 /** the `Free` monad's own handler, on its own: an operation of the last effect to its clause, any other passed on */
 class FreeHandleSuite extends munit.FunSuite:

@@ -54,7 +54,7 @@ class ImplementationsBenchmark {
 
   @Setup def setup(): Unit = lanes = new Lanes(impl match {
     case "machine" => Machine
-    case _ => okay.effects.simple.free.Free
+    case _ => okay.effects.free.Free
   })
 
   @Benchmark def binds: Int = lanes.binds
