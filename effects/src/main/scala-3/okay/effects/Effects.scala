@@ -21,6 +21,9 @@ trait Effects extends Effectful:
   /** a context bound: `def greet[R[_]: {Has[Reader % String], Has[State % Int]}]: Int ! R` */
   type Has[E[_]] = [R[_]] =>> In[E, R]
 
+  /** the standard effects on this implementation: `import Machine.std.*` */
+  final lazy val std: Std[this.type] = new Std[this.type](this)
+
   /** a program's methods: `p.flatMap(f)`, `p.map(f)`, `p.into[S]` — extensions, no object made for them */
   extension [A, R[_]](p: A ! R)
     @targetName("programFlatMap") inline def flatMap[B](f: A => B ! R): B ! R = Effects.this.flatMap[A, B, R](p)(f)

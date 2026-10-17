@@ -1,10 +1,10 @@
 package okay.effects
 
-import okay.effects.Std
 
 /** programs written on the interface, Scala 3's: whatever implementation `fx` is */
-class Programs(val fx: Std):
+class Programs(val fx: Effects):
   import fx.*
+  import fx.std.*
 
   /** row-polymorphic: in any row that has these, at any place */
   def greet[R[_]: {Has[Reader % String], Has[Writer % String], Has[State % Int]}]: Int ! R =

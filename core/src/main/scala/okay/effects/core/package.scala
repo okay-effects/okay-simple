@@ -1,9 +1,7 @@
 package okay.effects
 
-import okay.effects.Std
-
 package object core {
-  /** okay-effects' interface on OKAY-CORE'S MACHINE, with the standard effects, seen through the interface only:
-   * `import okay.effects.core.Core._` */
-  val Core: Std = new OnCore with Std
+  /** okay-effects' interface on OKAY-CORE'S MACHINE, seen through the interface only: `import okay.effects.core.Core._`,
+   * and its standard effects `import okay.effects.core.Core.std._` */
+  val Core: Effects = new OnCore
 }

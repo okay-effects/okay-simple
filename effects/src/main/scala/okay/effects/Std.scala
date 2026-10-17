@@ -34,17 +34,18 @@ object Std {
 }
 
 /**
- * THE STANDARD EFFECTS' OPERATIONS AND HANDLERS, written once on the interface, for both compilers: a trait over any
- * implementation,
- * mixed in where an implementation is offered — `val Machine: Std = new Machine with Std` — not into the
- * implementation itself, which knows nothing of them. So `import Machine._` gives everything: the interface's types
- * and primitives, the effects (`State`, `Reader`, `Writer`, `Error`, `Choose`) and their operations and handlers.
- * Each handler takes its effect from anywhere in the row; the parameter named, the rest inferred: `writer[String](p)`.
- * A handler answering in place is the implementation's `handle` of its shape: answered its own way.
+ * THE STANDARD EFFECTS' OPERATIONS AND HANDLERS, written once on the interface, for both compilers: over any
+ * implementation `fx`, apart from it — the implementation knows nothing of them, and offers them as its `std`, a
+ * member of the interface. So two imports, the implementation's and its standard effects':
+ * `import Machine._; import Machine.std._`. The effects (`State`, `Reader`, `Writer`, `Error`, `Choose`), their
+ * operations and their handlers, each handler taking its effect from anywhere in the row; the parameter named, the
+ * rest inferred: `writer[String](p)`. A handler answering in place is the implementation's `handle` of its shape.
  * An effect with a parameter is written here as both compilers read it, `({ type L[x] = State[S, x] })#L` — Scala 3's
  * `State % S`, Scala 2's `(State % S)#L`.
  */
-trait Std extends Effects {
+final class Std[F <: Effects](val fx: F) {
+  import fx._
+
   type State[S, X] = Std.State[S, X]
   val State: Std.State.type = Std.State
   type Reader[E, X] = Std.Reader[E, X]

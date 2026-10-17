@@ -1,7 +1,6 @@
 package okay.effects.compat
 
 import okay.effects._
-import okay.effects.Std
 
 /** AN EFFECT OF ONE'S OWN IN SCALA 2.13: its operations a GADT, each saying how its answer is made */
 sealed trait Counter[X]
@@ -11,8 +10,9 @@ object Counter {
 }
 
 /** its operations, its handler and a program — on the interface, compiled by scalac 2.13 against Scala 3's build */
-class Counting(val fx: Std) {
+class Counting(val fx: Effects) {
   import fx._
+  import fx.std._
 
   def tick[R[_]](implicit in: In[Counter, R]): Unit ! R = perform[Counter].apply[R, Unit](Counter.Tick(u => u))
   def peek[R[_]](implicit in: In[Counter, R]): Int ! R = perform[Counter].apply[R, Int](Counter.Peek(n => n))

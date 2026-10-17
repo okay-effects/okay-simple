@@ -3,6 +3,7 @@ package okay.effects
 /** README's program as it is, Scala 2's: one import gives the types, the primitives, the effects and their handlers */
 class ReadmeSuite extends munit.FunSuite {
   import okay.effects.simple.Machine._
+  import okay.effects.simple.Machine.std._
 
   def greet[R[_]](implicit r: In[(Reader % String)#L, R], w: In[(Writer % String)#L, R], s: In[(State % Int)#L, R]): Int ! R =
     for {

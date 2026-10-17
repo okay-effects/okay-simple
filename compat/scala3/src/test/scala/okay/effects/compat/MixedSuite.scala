@@ -8,6 +8,7 @@ import okay.effects.simple.Machine
 class MixedSuite extends munit.FunSuite {
   val counting = new Counting(Machine)
   import counting.fx.*
+  import counting.fx.std.*
 
   /** a Scala 3 program over Scala 2's effect: context bounds; the rows by the 2.13 build's names */
   def countedState[R[_]: {Has[Counter]#L, Has[(State % Int)#L]#L}]: Int ! R =

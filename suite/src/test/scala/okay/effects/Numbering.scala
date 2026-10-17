@@ -1,6 +1,5 @@
 package okay.effects
 
-import okay.effects.Std
 
 /** AN EFFECT FOR A STATEFUL GENERAL HANDLER: numbers given out, and forks — each branch resumed with its own state */
 sealed trait Gen[X]
@@ -14,8 +13,9 @@ object Gen {
 }
 
 /** programs and the handler, one source for both compilers: a row of one effect, or of two by aliases */
-class Numbering(val fx: Std) {
+class Numbering(val fx: Effects) {
   import fx._
+  import fx.std._
 
   def next[R[_]](implicit in: In[Gen, R]): Int ! R = perform[Gen].apply[R, Int](Gen.Next(n => n))
   def fork[R[_]](implicit in: In[Gen, R]): Boolean ! R = perform[Gen].apply[R, Boolean](Gen.Fork(b => b))

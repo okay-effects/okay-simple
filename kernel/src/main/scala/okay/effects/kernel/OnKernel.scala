@@ -2,7 +2,6 @@ package okay.effects.kernel
 
 import okay.kernel.{Effects => KEffects, Prog}
 import okay.effects.Effects
-import okay.effects.Std
 import scala.annotation.unchecked.uncheckedVariance
 
 /** okay-effects' interface on okay-kernel's protocol (`Protocol`), for both compilers: its rows' places numbers */
@@ -44,7 +43,6 @@ class OnKernel private (e: KEffects) extends Effects {
 }
 
 object OnKernel {
-  /** okay-effects' interface on the implementation `e` of the protocol, with the standard effects, seen through the
-   * interface only */
-  def on(e: KEffects): Std = new OnKernel(e) with Std
+  /** okay-effects' interface on the implementation `e` of the protocol, seen through the interface only; its standard effects its `std` */
+  def on(e: KEffects): Effects = new OnKernel(e)
 }

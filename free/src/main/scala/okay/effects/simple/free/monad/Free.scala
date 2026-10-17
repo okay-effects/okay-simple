@@ -13,8 +13,8 @@ enum Free[+F[_], +A]:
   case Bind[F[_], X, A](m: Free[F, X], f: X => Free[F, A]) extends Free[F, A]
   /** the program `p()`, built when the run gets to it */
   case Delay[F[_], A](p: () => Free[F, A]) extends Free[F, A]
-  def flatMap[G[x] >: F[x], B](f: A => Free[G, B]): Free[G, B] = Bind(this, f)
-  def map[B](f: A => B) = flatMap(a => Return(f(a)))
+  inline def flatMap[G[x] >: F[x], B](f: A => Free[G, B]): Free[G, B] = Bind(this, f)
+  inline def map[B](f: A => B) = flatMap(a => Return(f(a)))
 
 /**
  * THE MONAD'S HANDLERS, over rows of typed places. A program over the row `R` is a `Free` of `R`'s operations,
@@ -45,22 +45,22 @@ object Free:
     case Perform(o) => absurd(o)
 
   /** an operation of the row of no effect: there is none */
-  def absurd[X](o: At[Void, X]): Nothing = o match
+  inline def absurd[X](o: At[Void, X]): Nothing = o match
     case pl: At.Placed[r, e, x] => pl.at match
       case _: Place.Only[e2] => pl.op.absurd
 
   /** the program `p`, built when the run gets to it */
-  def delay[A, R[_]](p: => A ! R): A ! R = Delay(() => p)
+  inline def delay[A, R[_]](p: => A ! R): A ! R = Delay(() => p)
 
   /** `E`, the last of `R + E`, handled deeply: `ret` the value's clause, `eff` an operation's, its `k` the rest under
    * the same handler, resumable any number of times */
-  def handle[E[_], R[_], A, B](p: A ! (R + E))(ret: A => B ! R, eff: [X] => (E[X], X => B ! R) => B ! R): B ! R =
+  inline def handle[E[_], R[_], A, B](p: A ! (R + E))(ret: A => B ! R, eff: [X] => (E[X], X => B ! R) => B ! R): B ! R =
     handle[E, R, A, B, Unit](p, ())((_, a) => ret(a), [X] => (_: Unit, op: E[X], k: (X, Unit) => B ! R) =>
       eff[X](op, (x: X) => k(x, ())))
 
   /** the same with a state of its own, from `s`: each clause gets the state of its time, `k` resumed with the answer
    * and the state to go on from — each resumption its own */
-  def handle[E[_], R[_], A, B, S](p: A ! (R + E), s: S)(ret: (S, A) => B ! R,
+  inline def handle[E[_], R[_], A, B, S](p: A ! (R + E), s: S)(ret: (S, A) => B ! R,
       eff: [X] => (S, E[X], (X, S) => B ! R) => B ! R): B ! R = handling(p, s, ret, eff)
 
   @tailrec private def handling[E[_], R[_], A, B, S](p: A ! (R + E), s: S, ret: (S, A) => B ! R,
@@ -84,12 +84,12 @@ object Free:
 
   /** `E`, the last of `R + E`, handled by a handler ANSWERING IN PLACE: each operation of `E`'s answered by `ans`,
    * the run going on at once with the answer — no `k`, no trampoline */
-  def answer[E[_], R[_], A, B](p: A ! (R + E))(ret: A => B ! R, ans: [X] => E[X] => X): B ! R =
+  inline def answer[E[_], R[_], A, B](p: A ! (R + E))(ret: A => B ! R, ans: [X] => E[X] => X): B ! R =
     answer[E, R, A, B, Unit](p, ())((_, a) => ret(a), [X] => (_: Cell[Unit], op: E[X]) => ans[X](op))
 
   /** the same with a state of its own, from `s`, in a cell `ans` reads and writes: one cell a run of the handler, and
    * where an operation is passed on, the rest goes on from a cell of its own, of the state of its time */
-  def answer[E[_], R[_], A, B, S](p: A ! (R + E), s: S)(ret: (S, A) => B ! R,
+  inline def answer[E[_], R[_], A, B, S](p: A ! (R + E), s: S)(ret: (S, A) => B ! R,
       ans: [X] => (Cell[S], E[X]) => X): B ! R = answering(p, Cell.Var(s), ret, ans)
 
   @tailrec private def answering[E[_], R[_], A, B, S](p: A ! (R + E), cell: Cell.Var[S], ret: (S, A) => B ! R,
@@ -109,7 +109,7 @@ object Free:
             Bind(Perform(At.Placed(i.s, pl.op)), (x: x) => answer(b.f(x), now)(ret, ans))
 
   /** `p`'s places renamed from `R1`'s to `R2`'s */
-  def remap[R1[_], R2[_], A](p: A ! R1, rename: Renaming[R1, R2]): A ! R2 = remapping(p, rename)
+  inline def remap[R1[_], R2[_], A](p: A ! R1, rename: Renaming[R1, R2]): A ! R2 = remapping(p, rename)
 
   @tailrec private def remapping[R1[_], R2[_], A](p: A ! R1, rename: Renaming[R1, R2]): A ! R2 = p match
     case Return(a) => Return(a)
@@ -130,7 +130,7 @@ enum At[R[_], X]:
 
 /** THE INTERFACE ON THE `Free` MONAD: a program a `Free`, the evidence typed places, every handler `Free.handle` or
  * `Free.handle`, or one answering in place `Free.answer` */
-private[free] class OnFree extends Effects:
+class OnFree extends Effects:
   import Free.{!, Bind, Perform, Return}
 
   type ![+A, R[_]] = Free.![A, R]
@@ -139,30 +139,30 @@ private[free] class OnFree extends Effects:
   type In[E[_], R[_]] = Place[E, R, ?]
   type Sub[R[_], S[_]] = Renaming[R, S]
 
-  implicit def splitOne[E[_]]: Split[E, E, Pure] = Place.Only[E]()
-  implicit def splitLast[R[_], E[_]]: Split[E, R + E, R] = Place.Last[R, E]()
-  implicit def splitInit[E[_], R[_], G[_], Rest[_]](implicit s: Split[E, R, Rest]): Split[E, R + G, Rest + G] =
+  implicit inline def splitOne[E[_]]: Split[E, E, Pure] = Place.Only[E]()
+  implicit inline def splitLast[R[_], E[_]]: Split[E, R + E, R] = Place.Last[R, E]()
+  implicit inline def splitInit[E[_], R[_], G[_], Rest[_]](implicit s: Split[E, R, Rest]): Split[E, R + G, Rest + G] =
     Place.Init[E, R, G, Rest](s)
-  implicit def subPure[S[_]]: Sub[Pure, S] = Places.subPure[S]
-  implicit def subOne[E[_], S[_]](implicit e: In[E, S]): Sub[E, S] = Places.subOne(e)
-  implicit def subMore[R[_], E[_], S[_]](implicit r: Sub[R, S], e: In[E, S]): Sub[R + E, S] = Places.subMore(r, e)
+  implicit inline def subPure[S[_]]: Sub[Pure, S] = Places.subPure[S]
+  implicit inline def subOne[E[_], S[_]](implicit e: In[E, S]): Sub[E, S] = Places.subOne(e)
+  implicit inline def subMore[R[_], E[_], S[_]](implicit r: Sub[R, S], e: In[E, S]): Sub[R + E, S] = Places.subMore(r, e)
 
-  def pure[A, R[_]](a: A): A ! R = Return(a)
-  def flatMap[A, B, R[_]](p: A ! R)(f: A => B ! R): B ! R = Bind(p, f)
-  def delay[A, R[_]](p: => A ! R): A ! R = Free.delay(p)
-  override def perform[E[_], R[_], X](op: E[X])(implicit in: In[E, R]): X ! R = Perform(At.Placed(in, op))
+  inline def pure[A, R[_]](a: A): A ! R = Return(a)
+  inline def flatMap[A, B, R[_]](p: A ! R)(f: A => B ! R): B ! R = Bind(p, f)
+  inline def delay[A, R[_]](p: => A ! R): A ! R = Free.delay(p)
+  override inline def perform[E[_], R[_], X](op: E[X])(implicit in: In[E, R]): X ! R = Perform(At.Placed(in, op))
 
-  def split[E[_], R[_], Rest[_], A](p: A ! R)(implicit s: Split[E, R, Rest]): A ! (Rest + E) = s match
+  inline def split[E[_], R[_], Rest[_], A](p: A ! R)(implicit s: Split[E, R, Rest]): A ! (Rest + E) = s match
     case _: Place.Last[r, e] => p
     case _ => Free.delay(Free.remap(p, toEnd(s)))
-  def embed[R[_], S[_], A](p: A ! R)(implicit s: Sub[R, S]): A ! S = Free.delay(Free.remap(p, s))
+  inline def embed[R[_], S[_], A](p: A ! R)(implicit s: Sub[R, S]): A ! S = Free.delay(Free.remap(p, s))
 
-  def handleLast[E[_], R[_], A, B](p: A ! (R + E), h: Handler[E, R, A, B]): B ! R =
+  inline def handleLast[E[_], R[_], A, B](p: A ! (R + E), h: Handler[E, R, A, B]): B ! R =
     Free.delay(Free.handle(p)(h.ret, [X] => (op: E[X], k: X => B ! R) => h.op[X](op, k)))
-  override def handleLast[E[_], R[_], A, B](p: A ! (R + E), h: TailHandler[E, R, A, B]): B ! R =
+  override inline def handleLast[E[_], R[_], A, B](p: A ! (R + E), h: TailHandler[E, R, A, B]): B ! R =
     Free.delay(Free.answer(p)(h.ret, [X] => (op: E[X]) => h.answer[X](op)))
-  override def handleLast[E[_], S, R[_], A, B](p: A ! (R + E), s0: S, h: StatefulTailHandler[E, S, R, A, B]): B ! R =
+  override inline def handleLast[E[_], S, R[_], A, B](p: A ! (R + E), s0: S, h: StatefulTailHandler[E, S, R, A, B]): B ! R =
     Free.delay(Free.answer(p, s0)(h.ret, [X] => (cell: Cell[S], op: E[X]) => h.answer[X](cell, op)))
-  override def handleLast[E[_], S, R[_], A, B](p: A ! (R + E), s0: S, h: StatefulHandler[E, S, R, A, B]): B ! R =
+  override inline def handleLast[E[_], S, R[_], A, B](p: A ! (R + E), s0: S, h: StatefulHandler[E, S, R, A, B]): B ! R =
     Free.delay(Free.handle(p, s0)(h.ret, [X] => (s: S, op: E[X], k: (X, S) => B ! R) => h.op[X](s, op, k)))
-  def run[A](p: A ! Pure): A = Free.run(p)
+  inline def run[A](p: A ! Pure): A = Free.run(p)

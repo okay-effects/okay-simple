@@ -1,11 +1,11 @@
 package okay.effects
 
-import okay.effects.Std
 
 /** programs written on the interface, as Scala 2 writes them: whatever implementation `fx` is. A row by names,
  * taken as its constructor, `#L`; one precedence for all infix types, each `%` in parentheses */
-class Programs(val fx: Std) {
+class Programs(val fx: Effects) {
   import fx._
+  import fx.std._
 
   /** row-polymorphic: in any row that has these, at any place */
   def greet[R[_]](implicit r: In[(Reader % String)#L, R], w: In[(Writer % String)#L, R], s: In[(State % Int)#L, R]): Int ! R =

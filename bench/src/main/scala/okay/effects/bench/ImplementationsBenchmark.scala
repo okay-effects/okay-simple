@@ -6,12 +6,12 @@ import okay.effects.*
 import okay.effects.simple.Machine
 import okay.effects.core.Core
 import okay.effects.kernel.OnKernel
-import okay.effects.Std
 
 /** the same programs on each implementation, n = 1000: binds alone; `ask` under its handler; `ask` across four
  * handlers of other effects; a state's get and put */
-class Lanes(val fx: Std) {
+class Lanes(val fx: Effects) {
   import fx.*
+  import fx.std.*
   val n = 1000
 
   def binds: Int = run((1 to n).foldLeft(pure[Int, Pure](0))((p, _) => p.map(_ + 1)))

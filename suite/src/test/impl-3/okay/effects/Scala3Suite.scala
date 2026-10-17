@@ -6,6 +6,7 @@ import okay.effects.simple.Machine
  * an enum whose clauses Scala 3's GADT inference types */
 class Scala3Suite extends munit.FunSuite:
   import Machine.*
+  import Machine.std.*
 
   type Row = Reader % String + State % Int
 
