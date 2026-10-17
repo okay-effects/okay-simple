@@ -1,7 +1,8 @@
 package okay.api.kernel
 
 import okay.kernel.{Answers, Effects => KEffects, Fn, General, Key, Op => KOp, Prog, Program, Step, Thunk, Translating, Type}
-import okay.api.{Effect, Std}
+import okay.api.Effect
+import okay.std.Std
 import scala.annotation.unchecked.uncheckedVariance
 
 /**

@@ -1,6 +1,7 @@
 package okay.api.compat
 
 import okay.api._
+import okay.std._
 
 /** AN EFFECT OF ONE'S OWN IN SCALA 2.13: its operations a GADT, each saying how its answer is made */
 sealed trait Counter[X]

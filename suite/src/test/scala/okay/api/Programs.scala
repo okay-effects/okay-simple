@@ -1,5 +1,7 @@
 package okay.api
 
+import okay.std._
+
 /** programs written on the interface: whatever implementation `fx` is */
 class Programs(val fx: Std) {
   import fx._

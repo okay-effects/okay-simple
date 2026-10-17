@@ -3,7 +3,8 @@ package okay.api.core
 import okay.one.{Cont, !}
 import okay.one.handler.{Answering, Deep, Stateful, Translate}
 import okay.one.row.{+:, In, Plain, Pure, Removed, Row}
-import okay.api.{Effect, Std}
+import okay.api.Effect
+import okay.std.Std
 
 /**
  * okay-simple's interface ON OKAY-CORE'S MACHINE, by okay-core's public API: a program is okay-core's own `Cont`,

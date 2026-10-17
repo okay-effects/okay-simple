@@ -1,4 +1,6 @@
-package okay.api
+package okay.std
+
+import okay.api._
 
 /** the standard effects: each a GADT of its operations. An operation says how its answer is made, `answer`, so a
  * handler's clause needs no GADT inference — Scala 2 has none for a method's type parameter — and no cast */

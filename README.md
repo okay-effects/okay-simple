@@ -1,7 +1,8 @@
 # okay-simple
 
-One simple interface for effect systems, for Scala 3 and Scala 2.13: the types `!`, `+`, `%`, the functions
-`perform`, `handle`, `split`, `run`, and the standard effects written once on them. The interface fixes no
+One simple interface for effect systems, for Scala 3 and Scala 2.13: the types `!`, `+`, `%`, `*`, the functions
+`perform`, `handle`, `split`, `run` (module `api`, package `okay.api`), and the standard effects written once on them
+(module `std`, package `okay.std`). The interface fixes no
 implementation: a program, a row and the evidence that an effect is in a row are abstract types, and an
 implementation makes them what it likes. `simple/` is its own implementation; `core/` runs the same programs
 on okay-core's machine, `kernel/` on okay-kernel's protocol.
@@ -9,8 +10,8 @@ on okay-core's machine, `kernel/` on okay-kernel's protocol.
 ## A program
 
 ```scala
-import okay.api._
-val fx: Simple = okay.simple.machine.MachineEffects.effects
+import okay.api._, okay.std._
+val fx: Std = okay.simple.machine.MachineEffects.effects
 import fx._
 
 // in any row that has these three, at any place

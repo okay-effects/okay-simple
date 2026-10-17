@@ -1,6 +1,7 @@
 package okay.api.compat
 
 import okay.api.*
+import okay.std.*
 import okay.simple.machine.MachineEffects
 
 /** ONE APPLICATION OF TWO COMPILERS: Scala 3 code takes the effect, the handler and the program Scala 2.13 compiled,

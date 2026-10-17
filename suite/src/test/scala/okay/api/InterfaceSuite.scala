@@ -1,5 +1,7 @@
 package okay.api
 
+import okay.std._
+
 /** the interface's suite, compiled by both compilers, on each implementation */
 abstract class InterfaceSuite(fx: Std) extends munit.FunSuite {
   val p = new Programs(fx)

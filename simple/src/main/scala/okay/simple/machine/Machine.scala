@@ -1,6 +1,7 @@
 package okay.simple.machine
 
-import okay.api.{Effect, Std}
+import okay.api.Effect
+import okay.std.Std
 import scala.annotation.tailrec
 
 /**
