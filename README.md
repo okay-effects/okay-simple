@@ -3,8 +3,8 @@
 One simple interface for effect systems, for Scala 3 and Scala 2.13: the types `!`, `+`, `%`, the functions
 `perform`, `handle`, `split`, `run`, and the standard effects written once on them. The interface fixes no
 implementation: a program, a row and the evidence that an effect is in a row are abstract types, and an
-implementation makes them what it likes. `free/` is the reference implementation, `machine/` the fast one, and
-`okaycore/` runs the same programs on okay-core's machine.
+implementation makes them what it likes. `machine/` is its own implementation; `okaycore/` runs the same programs
+on okay-core's machine, `kernel/` on okay-kernel's protocol.
 
 ## A program
 
@@ -106,13 +106,9 @@ Everything else is shared under the same names (`Has[E]#L` for a context bound i
 
 ## Implementations
 
-All behind the same interface, all run by the same suites (`suite/`; `free`, `machine` and the protocol's bridge by both
+All behind the same interface, all run by the same suites (`suite/`; `machine` and the protocol's bridge by both
 compilers).
 
-- **`free/`, the reference**: a free monad. A row is an ordered list and an operation carries its place in it,
-  counted from the end. `handleLast` answers place 0, and passes any other operation on: it makes a new node of it, one
-  place in, and wraps the rest in itself — so an operation costs a node and a closure for every handler it crosses.
-  Short, and easy to check.
 - **`machine/`, the fast one, typed by the row**: a program is `Prog[R, A]`, of its row; an operation
   `Perf(at: At[E, R], op: Op[E, X])`, its place in the row typed, the operation of the type its name says. A
   `@tailrec` loop over the program, the frames `Frames[R, X, V]` (the binds from `X` to the value `V` of the nearest
@@ -151,7 +147,8 @@ Three shapes of handler: a general one, `Handler`, whose clause gets `k`; one an
 clause resuming `k` once, at once (`Reader`); and the same with a state of its own in a `Cell`, `StatefulHandler`
 (`State`, `Writer`). The machine answers the last two where the operation finds them: no `k`, no allocation, the
 state written in its level. A `k` taken by a general handler across a stateful level copies its state, so resumed
-twice it resumes the state of its time. `free` runs them as general handlers (the interface's defaults).
+twice it resumes the state of its time. An implementation with no such forms runs them as general handlers (the
+interface's defaults).
 
 Measured (`bench/`, JMH `-f 2 -wi 3 -i 5 -prof gc`, JDK 26, Scala 3.9; `bench.d/2026-10-17_shared-places.csv`; earlier
 runs beside it), one run of each program, n = 1000, µs and allocation:

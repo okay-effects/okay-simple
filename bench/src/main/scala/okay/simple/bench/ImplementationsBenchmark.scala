@@ -3,7 +3,6 @@ package okay.simple.bench
 import java.util.concurrent.TimeUnit
 import org.openjdk.jmh.annotations.{Benchmark, BenchmarkMode, Mode, OutputTimeUnit, Param, Scope, Setup, State => JmhState}
 import okay.simple.*
-import okay.simple.free.FreeEffects
 import okay.simple.machine.MachineEffects
 import okay.simple.okaycore.OnCoreEffects
 import okay.simple.kernel.OnKernel
@@ -50,12 +49,11 @@ class Lanes(val fx: Simple) {
 @BenchmarkMode(Array(Mode.AverageTime))
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 class ImplementationsBenchmark {
-  @Param(Array("free", "machine", "okay-core", "kernel-steps", "kernel-java", "kernel-okay-core"))
+  @Param(Array("machine", "okay-core", "kernel-steps", "kernel-java", "kernel-okay-core"))
   var impl: String = ""
   var lanes: Lanes = null
 
   @Setup def setup(): Unit = lanes = new Lanes(impl match {
-    case "free" => FreeEffects.effects
     case "machine" => MachineEffects.effects
     case "okay-core" => OnCoreEffects.effects
     case "kernel-steps" => OnKernel.on(okay.kernel.steps.Steps)
