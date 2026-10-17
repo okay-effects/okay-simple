@@ -149,7 +149,7 @@ writes rows as Scala 2 does. An application of Scala 3 alone takes the Scala 3 b
 
 ## Examples
 
-`examples/`, written over `Effects` alone — of no implementation — and run on each by a runner of its own:
+`examples/`, written over `Effects` alone — of no implementation — and run on each, `OnMachine` and `OnFree`:
 
 | File | What it shows |
 |---|---|
@@ -159,12 +159,12 @@ writes rows as Scala 2 does. An application of Scala 3 alone takes the Scala 3 b
 | `scala-2/.../Basics2.scala` | Scala 2's rows by names (`#L`), an effect's operations with their answers, a search |
 | `mixed/.../Mixed.scala` | one application of two compilers: Scala 3 code using Scala 2.13's effect, handler and program, one row, one run |
 
-Their values are checked over `Effects` (`Checks`, in `examples/src/test`) and run by:
+Their values are checked over `Effects` (`Checks`) on each implementation, and run on each, in the same module:
 
 ```sh
-sbt examplesOnMachine/run          # the examples on the machine (examples/on-machine)
-sbt examplesOnFree/run             # on the Free monad (examples/on-free)
-sbt examplesOnMachine/test examplesOnFree/test examplesMixed/test
+sbt "examples/runMain okay.effects.examples.OnMachine"   # the examples on the machine
+sbt "examples/runMain okay.effects.examples.OnFree"      # on the Free monad
+sbt examples/test examplesMixed/test
 ```
 
 ## Implementations
