@@ -3,14 +3,14 @@
 One simple interface for effect systems, for Scala 3 and Scala 2.13: the types `!`, `+`, `%`, the functions
 `perform`, `handle`, `split`, `run`, and the standard effects written once on them. The interface fixes no
 implementation: a program, a row and the evidence that an effect is in a row are abstract types, and an
-implementation makes them what it likes. `machine/` is its own implementation; `okaycore/` runs the same programs
+implementation makes them what it likes. `machine/` is its own implementation; `core/` runs the same programs
 on okay-core's machine, `kernel/` on okay-kernel's protocol.
 
 ## A program
 
 ```scala
-import okay.simple._
-val fx: Simple = okay.simple.machine.MachineEffects.effects
+import okay.api._
+val fx: Simple = okay.api.machine.MachineEffects.effects
 import fx._
 
 // in any row that has these three, at any place
@@ -90,7 +90,7 @@ The standard effects, each handled from anywhere in the row: `State` (`state(s0)
 Why the row names effects by proper types: Scala 2 has no type alias whose result is a type constructor, so `%` and
 `+` cannot make an `F[_]` there. A name is what both compilers share. `Op[E, X]` is each compiler's own: in Scala 2
 the name's member, `E#Ops[X]` (Scala 2 selects a type from an abstract one); in Scala 3 a match type on the name
-(Scala 3 selects none) — `core/src/main/scala-2`, `scala-3`.
+(Scala 3 selects none) — `api/src/main/scala-2`, `scala-3`.
 
 Compatible means: what code of one compiler makes, code of the other takes as it is — an effect, a handler, a
 program, a row type. One application has one build of the interface. A Scala 3 build's `Op` is a match type, which
@@ -120,7 +120,7 @@ compilers).
   the operation's own by the types, NO CAST; in Scala 2 a number, one object per depth — Scala 2 cannot refine types
   by a match, so three trusted steps (the handler found by the number is the operation's, its operation of its
   handler's, a row whose last effect is taken is that effect after the rest).
-- **`okaycore/`, on okay-core's machine** (Scala 3), by okay-core's public API only: a program is okay-core's own
+- **`core/`, on okay-core's machine** (Scala 3), by okay-core's public API only: a program is okay-core's own
   `Cont`, nothing wrapped. An okay-simple place is okay-core's path (the last effect of an okay-simple row is the
   head of okay-core's), `Split` is okay-core's `Removed`, made of the place; a general handler is a `Deep`, one
   answering in place an `Answering`, a stateful one okay-core's `Stateful`, installed by okay-core's `handle` at the
@@ -150,24 +150,27 @@ state written in its level. A `k` taken by a general handler across a stateful l
 twice it resumes the state of its time. An implementation with no such forms runs them as general handlers (the
 interface's defaults).
 
-Measured (`bench/`, JMH `-f 2 -wi 3 -i 5 -prof gc`, JDK 26, Scala 3.9; `bench.d/2026-10-17_shared-places.csv`; earlier
-runs beside it), one run of each program, n = 1000, µs and allocation:
+Measured (`bench/`, JMH `-f 2 -wi 3 -i 5 -prof gc`, JDK 26, Scala 3.9; `bench.d/2026-10-17_all-typed.csv`; earlier
+runs beside it), one run of each program, n = 1000, µs and allocation. Each program twice: at a row named in it, and
+row-polymorphic (`…In`: its effects asked as `In` evidence, passed on to the recursion — the places made once):
 
-| Program | `free` | `machine` | `okaycore` | protocol: `Steps` | protocol: okay-java | protocol: okay-core |
-|---|---|---|---|---|---|---|
-| 1000 maps, no operation | 10.1, 126 KB | 10.5, 126 KB | 10.6, 126 KB | 20.4, 230 KB | 17.2, 166 KB | 16.7, 182 KB |
-| 1000 `ask`s under their handler, a map pending each | 2223, 24.7 MB | 23.5, 270 KB | 18.4, 222 KB | 5412, 24.6 MB | 42.1, 471 KB | 67.2, 631 KB |
-| the same across four handlers of other effects | 2394, 26.7 MB | 26.3, 271 KB | 15.9, 207 KB | 5122, 26.1 MB | 113, 1.10 MB | 159, 1.50 MB |
-| 1000 `get`/`put` pairs under `State` | 106, 1.36 MB | 23.3, 286 KB | 15.9, 214 KB | 139, 1.38 MB | 74.2, 863 KB | 103, 1.08 MB |
+| Program | `machine` | `core` | protocol: `Steps` | protocol: okay-java | protocol: okay-core |
+|---|---|---|---|---|---|
+| 1000 maps, no operation | 11.7, 142 KB | 10.6, 126 KB | 20.5, 230 KB | 18.0, 166 KB | 17.0, 182 KB |
+| 1000 `ask`s under their handler, a map pending each | 23.2, 303 KB | 19.0, 222 KB | 5428, 24.6 MB | 42.5, 471 KB | 67.0, 630 KB |
+| the same, row-polymorphic | 25.7, 279 KB | 20.1, 222 KB | 5382, 24.6 MB | 44.0, 471 KB | 68.1, 630 KB |
+| across four handlers of other effects | 32.9, 400 KB | 16.0, 207 KB | 5093, 26.1 MB | 114, 1.10 MB | 158, 1.50 MB |
+| the same, row-polymorphic | 28.5, 280 KB | 19.1, 231 KB | 5103, 26.1 MB | 113, 1.10 MB | 287, 1.50 MB |
+| 1000 `get`/`put` pairs under `State` | 23.3, 319 KB | 16.1, 214 KB | 138, 1.38 MB | 70.6, 863 KB | 102, 1.08 MB |
+| the same, row-polymorphic | 22.9, 279 KB | 16.6, 222 KB | 140, 1.38 MB | 71.8, 871 KB | 103, 1.08 MB |
 
-- `free` (and the protocol's reference machine, `Steps`) are quadratic when maps are pending: each operation's `k` is
-  rebuilt from every frame on the stack.
-- okay-core's machine is the fastest: an operation crossing handlers is found at once, its look-up kept on its path
-  (15.9 across four handlers, 18.4 under its own). Before the places were shared, the bridge made a new path for each
-  operation, and okay-core seemed to pay for each handler crossed (34.9 µs, 383 KB; `bench.d/2026-10-17_six.csv`):
-  it was the bridge's cost, not okay-core's.
-- Through the protocol an operation is performed again at each okay-simple handler it crosses: across four handlers
-  2.7 times the cost under its own (okay-java 42 → 113 µs).
+- `machine` is typed: in Scala 3 a place is a typed path, made at each operation where the row is named in the
+  program — row-polymorphic code makes it once (400 → 280 KB across four handlers). Before the typed places, with a
+  number and a cast, it was 18.9 / 26.4 / 17.4 µs (`bench.d/2026-10-17_machine-typed-final.csv`).
+- okay-core's machine is the fastest: an operation crossing handlers is found at once, its look-up kept on its path.
+- The protocol's reference machine, `Steps`, is quadratic when maps are pending: each operation's `k` is rebuilt
+  from every frame on the stack. Through the protocol an operation is performed again at each okay-simple handler it
+  crosses: across four handlers 2.7 times the cost under its own (okay-java 42 → 114 µs).
 
 ## Build
 
