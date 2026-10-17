@@ -9,7 +9,7 @@ ThisBuild / scalaVersion := scala3
 /** the compiler's major version, for the sources only its own */
 def major(v: String): String = if (v.startsWith("3")) "3" else "2"
 /** the interface's suite: its shared part, and the programs written in the compiler's interface */
-def suiteOf(v: String): Seq[String] = Seq("suite/src/test/scala", s"suite/src/test/scala-${major(v)}")
+def suiteOf(v: String): Seq[String] = Seq("tck/src/main/scala", s"tck/src/main/scala-${major(v)}")
 
 /** one source for both compilers, and each its own convenience in scala-2/ and scala-3/ */
 def crossBuilt: Seq[Def.Setting[?]] = Seq(
@@ -25,8 +25,14 @@ lazy val effects = (project in file("effects")).settings(crossBuilt, name := "ok
 /** the fast implementation: a machine of an explicit stack, an operation finding its handler in one walk */
 lazy val machine = (project in file("machine")).dependsOn(effects).settings(crossBuilt, name := "okay-effects-machine")
 
+/** THE INTERFACE'S SUITE, a library: `InterfaceSuite(fx)` and its programs, for any implementation — here's, and the
+ * bridges' in their own repositories (okay-core's, okay-kernel's): `"dev.okay" %% "okay-effects-tck" % ... % Test` */
+lazy val tck = (project in file("tck")).dependsOn(effects)
+  .settings(crossBuilt, name := "okay-effects-tck",
+    libraryDependencies := libraryDependencies.value.filterNot(_.name == "munit") :+ ("org.scalameta" %% "munit" % "1.2.3"))
+
 /** the interface's suites, on each implementation, by both compilers */
-lazy val suite = (project in file("suite")).dependsOn(machine)
+lazy val suite = (project in file("suite")).dependsOn(machine, tck)
   .settings(crossBuilt, name := "okay-effects-suite", publish / skip := true,
     Test / unmanagedSourceDirectories ++= Seq("src/test/impl", s"src/test/impl-${major(scalaVersion.value)}").map(baseDirectory.value / _))
 
@@ -43,7 +49,7 @@ lazy val kernel = (project in file("kernel")).dependsOn(effects)
 
 /** the interface's suite through the protocol: okay-kernel's reference machine and okay-java on both compilers,
  * okay-core's bridge on Scala 3 */
-lazy val suiteKernel = (project in file("suite-kernel")).dependsOn(kernel)
+lazy val suiteKernel = (project in file("suite-kernel")).dependsOn(kernel, tck)
   .settings(crossBuilt, name := "okay-effects-suite-kernel", publish / skip := true, resolvers += Resolver.mavenLocal,
     // the protocol's Java implementations on the classpath: one class loader, not sbt's layers cached across ++
     Test / classLoaderLayeringStrategy := ClassLoaderLayeringStrategy.Flat,
@@ -51,22 +57,20 @@ lazy val suiteKernel = (project in file("suite-kernel")).dependsOn(kernel)
       "dev.okay" %% "okay-kernel-steps" % "0.2.0-SNAPSHOT" % Test,
       "dev.okay" % "okay-java" % "0.2.0-SNAPSHOT" % Test) ++
       (if (scalaVersion.value.startsWith("3")) Seq("okay-core" %% "okay-core" % "0.1.0-SNAPSHOT" % Test) else Nil),
-    Test / unmanagedSourceDirectories ++= suiteOf(scalaVersion.value).map((ThisBuild / baseDirectory).value / _))
+  )
 
 /** the interface's suite on okay-core's machine */
-lazy val suiteCore = (project in file("suite-core")).dependsOn(core)
+lazy val suiteCore = (project in file("suite-core")).dependsOn(core, tck)
   .settings(crossScalaVersions := Seq(scala3), name := "okay-effects-suite-core", publish / skip := true,
-    libraryDependencies += munit,
-    Test / unmanagedSourceDirectories ++= suiteOf(scala3).map((ThisBuild / baseDirectory).value / _))
+    libraryDependencies += munit)
 
 /** the interface on THE `Free` MONAD: Scala 3, a program a `Free` interpreted by its handlers */
 lazy val free = (project in file("free")).dependsOn(effects)
   .settings(crossBuilt, name := "okay-effects-free")
 
 /** the interface's suite on the `Free` monad */
-lazy val suiteFree = (project in file("suite-free")).dependsOn(free)
-  .settings(crossBuilt, name := "okay-effects-suite-free", publish / skip := true,
-    Test / unmanagedSourceDirectories ++= suiteOf(scalaVersion.value).map((ThisBuild / baseDirectory).value / _))
+lazy val suiteFree = (project in file("suite-free")).dependsOn(free, tck)
+  .settings(crossBuilt, name := "okay-effects-suite-free", publish / skip := true)
 
 /** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
 lazy val bench = (project in file("bench")).dependsOn(machine, core, kernel, free).enablePlugins(JmhPlugin)
@@ -105,7 +109,7 @@ lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
     name := "okay-effects-compat-scala3", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
-lazy val root = (project in file(".")).aggregate(effects, machine, suite, core, suiteCore, free, suiteFree, kernel, suiteKernel, compat2, compat3, effects213, machine213, compat3on2)
+lazy val root = (project in file(".")).aggregate(effects, tck, machine, suite, core, suiteCore, free, suiteFree, kernel, suiteKernel, compat2, compat3, effects213, machine213, compat3on2)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
 /** everything: the interface's suites by both compilers, then the two compilers in one application */
