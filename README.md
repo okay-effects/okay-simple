@@ -18,6 +18,7 @@ machine and to okay-kernel's protocol, all checked by one suite.
 | `machine/` | `okay-effects-machine` | `okay.effects.machine` | THE MACHINE, one per compiler: `okay.effects.machine.Machine` |
 | `free/` | `okay-effects-free` | `okay.effects.free` | THE `Free` MONAD, one per compiler: `okay.effects.free.Free` (through the interface), `OnFree` (as it is) |
 | `tagless/` | `okay-effects-tagless` | `okay.effects.tagless` | TAGLESS: `Tagless`, an `Effects` of no implementation — a program a value, run on the `Runner` in the implicit context |
+| `concurrent/`, `resource/`, `io/`, `probability/`, `parsing/`, `logic/`, `transaction/`, `resilience/` | `okay-effects-concurrent`, ... | `okay.effects.concurrent`, ... | MORE EFFECTS, each over the interface: see below |
 | `tck/` | `okay-effects-tck` | `okay.effects` | the interface's suite, a library: `InterfaceSuite(fx)` for any implementation |
 | `interop/cats`, `interop/zio`, `interop/tofu` | `okay-effects-cats`, `-zio`, `-tofu` | `okay.effects.cats`, `.zio`, `.tofu` | interop with cats (and cats-effect 3), ZIO, tofu |
 | `examples/` | — | `okay.effects.examples` | examples over `Effects` alone, run on the machine and on `Free` |
@@ -167,18 +168,42 @@ implementation, made by `newStd`: an implementation may offer its own with bette
 
 | Effect | Operations | Handlers |
 |---|---|---|
-| `State % S` | `get`, `put`, `modify` | `state(s0)`, in place |
-| `Reader % E` | `ask` | `reader(e)`, in place |
-| `Writer % W` | `tell` | `writer[W]`, in place |
+| `State % S` | `get`, `put`, `modify`, `gets(f)`, `getAndSet(s)` | `state(s0)`, in place |
+| `Reader % E` | `ask` | `reader(e)`, in place; `local(f)(p)`: `p` sees `f(e)` |
+| `Writer % W` | `tell` | `writer[W]`, in place; `listen[W](p)`, `censor(f)(p)`: what `p` told, told outside when it ends |
 | `Error % E` | `raise` | `attempt[E]` (aborting), `recover[E](p)(h)` |
-| `Choose` | `among`, `fail` | `all` (every way, `k` resumed per choice), `first` (the first way with no `fail`) |
+| `Choose` | `among`, `fail`, `guard(cond)` | `all` (every way, `k` resumed per choice), `first` (the first way with no `fail`) |
 | `Yield % O` | `emit` | `collect[O]`, `take[O](n)`, `each[O](p)(f)` |
+| `Abort` | `abort` | `optional(p)`: `None` if it aborted |
+| `Fresh` | `fresh` | `freshFrom(n0)(p)` |
+| `Random` | `nextLong`, `nextInt(bound)`, `nextDouble` | `random(seed)(p)`: the same seed, the same numbers |
+| `Store[K, V, *]` | `load(k)`, `save(k, v)`, `remove(k)` | `store(m0)(p)`: the final map and the value |
 | `Lift % G` | `lift(ga)`: a program of another monad `G` | a `Runner`'s `lower[G](p)`, given a `Lowering[G]` (cats, ZIO) |
 | `Control % (B ! R)` | `shift(f)` | `reset(p)`: delimited control, the answer type fixed |
 
 Delimited control CHANGING ANSWER TYPES is its own type, `Cps[A, B, C, R]` (`fx.delimited`, the trait `Delimited`):
 `shift`, `reset`, `pure`, `map`, `flatMap`, `lift`. By default continuation-passing over any implementation, in
 constant stack; okay-core's bridge has it native, on okay-core's own `shift0` and `$`.
+
+## More effects
+
+Modules over the interface, one source for both compilers, each checked on the machine and on `Free`; each a class
+over an implementation, `Concurrent(fx)`, `Io(fx)`, ...:
+
+| Module | What it gives |
+|---|---|
+| `concurrent` | cooperative threads: `pass`, a rendezvous channel (`send`, `recv`); `scheduled[V](threads)` runs them in turns, each a coroutine (its `Coop` handled to a `Step`, its rest resumed once); a thread waiting forever `None`. Structured: no `fork` from inside a thread — an effect carrying a program of its own row is of a type that contains itself |
+| `resource` | `scoped(p)`, `defer(fin)`, `bracket(acquire)(release)(use)`: finalizers run at the scope's end, the last first; an error handled inside the scope ends it too |
+| `io` | `Console`, `Clock`, `Env` as effects: the world's handlers (`realConsole`, `systemClock`, `systemEnv`) and pure ones for tests (`console(inputs)`, `clock(start, step)`, `env(vars)`) |
+| `probability` | `flip`, `uniform`, `weighted`; `exact(p)` every outcome with its probability, `sampled(p)` one way by `Random` |
+| `parsing` | parsers of `State[String]` and `Choose`: `item`, `satisfy`, `char`, `string`, `orElse`, `many`, `eof`; `parse(input)(p)` the first parse of all the input, backtracking |
+| `logic` | terms, logic variables (`Fresh`), `unify` (bindings a `State`), `either`; `solutions(p)` every answer — a relation runs either way; `fair(n)(p)` a breadth-first search, so a way that never ends does not hide the others |
+| `transaction` | `read`, `write` and `atomically(p)` on the standard `Store` outside: a log written at the end; an error handled outside drops it — rolled back |
+| `resilience` | `retry[E](n)(p)`, `retryIf[E](n)(worth)(p)`, `fallback[E](p)(q)` |
+
+Not here: interceptors that observe an effect and pass it on (they need an operation re-performed in the row it
+came from — a primitive the interface does not have; okay-core's machine has them); a timeout (a runtime's: ZIO's,
+cats-effect's, through interop).
 
 ## Scala 2 and Scala 3: one interface, compatible
 
