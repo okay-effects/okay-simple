@@ -44,6 +44,24 @@ lazy val free = (project in file("free")).dependsOn(effects)
 lazy val suiteFree = (project in file("suite-free")).dependsOn(free, tck)
   .settings(crossBuilt, name := "okay-effects-suite-free", publish / skip := true)
 
+/** EXAMPLES: how to write with the effects — code for both compilers, Scala 3's way, Scala 2's way — each checked by
+ * a suite, so an example that no longer holds fails */
+lazy val examples = (project in file("examples")).dependsOn(machine, free)
+  .settings(crossBuilt, name := "okay-effects-examples", publish / skip := true)
+
+/** the examples as Scala 2.13 builds them, on the interface's 2.13 build: Scala 2 code for the mixed application */
+lazy val examples213 = (project in file("examples/scala-2.13")).dependsOn(machine213)
+  .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), name := "okay-effects-examples-213",
+    publish / skip := true, scalacOptions += "-Wconf:msg=outer reference in this type test:s",
+    Compile / unmanagedSourceDirectories := Seq("examples/src/main/scala", "examples/src/main/scala-2")
+      .map((ThisBuild / baseDirectory).value / _))
+
+/** ONE APPLICATION OF TWO COMPILERS: Scala 3 code beside the Scala 2.13 examples, in one row, one run */
+lazy val examplesMixed = (project in file("examples/mixed")).dependsOn(examples213)
+  .settings(scalaVersion := scala3, crossScalaVersions := Seq(scala3), libraryDependencies += munit,
+    name := "okay-effects-examples-mixed", publish / skip := true,
+    projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
+
 /** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
 lazy val bench = (project in file("bench")).dependsOn(machine, free).enablePlugins(JmhPlugin)
   .settings(crossScalaVersions := Seq(scala3), name := "okay-effects-bench", publish / skip := true)
@@ -79,8 +97,8 @@ lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
     name := "okay-effects-compat-scala3", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
-lazy val root = (project in file(".")).aggregate(effects, tck, machine, suite, free, suiteFree, compat2, compat3, effects213, machine213, compat3on2)
+lazy val root = (project in file(".")).aggregate(effects, tck, machine, suite, free, suiteFree, examples, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
 /** everything: the interface's suites by both compilers, then the two compilers in one application */
-addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteFree/test ; ++2.13.18 suite/test ; suiteFree/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test")
+addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteFree/test ; examples/test ; ++2.13.18 suite/test ; suiteFree/test ; examples/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test")

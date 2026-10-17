@@ -147,6 +147,19 @@ writes rows as Scala 2 does. An application of Scala 3 alone takes the Scala 3 b
 | `compat/scala2` | an effect, its handler and a program written in Scala 2.13, on the Scala 2.13 build |
 | `compat/scala3` | Scala 3 code using that Scala 2.13 library beside its own, in one row, one run |
 
+## Examples
+
+`examples/`, each checked by a suite (`sbt examples/test`, both compilers):
+
+| File | What it shows |
+|---|---|
+| `scala/.../Shared.scala` | code written once for both compilers, over any implementation: an effect, its handler, a row by aliases |
+| `scala-3/.../Basics3.scala` | Scala 3's rows and context bounds, an effect of one's own an `enum`, a handler in place, a general one resuming `k` twice |
+| `scala-3/.../Control3.scala` | generators (`Yield`: `collect`, `take`, `each`), a search (`first`), `recover`, `shift`/`reset`, the answer type changed (`delimited`) |
+| `scala-3/.../Implementations3.scala` | one program on the machine and on the `Free` monad; `OnFree`, the monad seen as it is |
+| `scala-2/.../Basics2.scala` | Scala 2's rows by names (`#L`), an effect's operations with their answers, a search |
+| `mixed/.../Mixed.scala` | one application of two compilers: Scala 3 code using Scala 2.13's effect, handler and program, one row, one run |
+
 ## Implementations
 
 All behind the same interface, all run by the same suites (`suite/`; `machine` and the protocol's bridge by both
@@ -222,7 +235,7 @@ as `In` evidence, passed on to the recursion):
 ## Build
 
 ```sh
-sbt testAll        # both compilers: the machine, the Free monad, and the three compatibility checks
+sbt testAll        # both compilers: the machine, the Free monad, the examples, and the compatibility checks
 sbt "+effects/publishLocal" "+tck/publishLocal"   # the interface and its suite, for the bridges in okay-core and okay-kernel
 sbt suite/test     # Scala 3
 sbt "++2.13.18 suite/test"
