@@ -13,7 +13,7 @@ import okay.api.{Effect, Effects}
  * `Stateful` (the machine's register), installed by okay-core's `handle` at its `Removed` — the effect taken from
  * its place at once. A `split` on its own, or an `embed`, is a handler translating each operation to its new place.
  */
-private[core] object OnCore extends Effects {
+private[core] class OnCore extends Effects {
   type AnyOp[X] = Any
   type P[A] = Cont[Row, Nothing, Nothing, A]
   type Place = okay.one.row.In[AnyOp, Row]
@@ -123,7 +123,4 @@ private[core] object OnCore extends Effects {
   def run[A](p: P[A]): A = p.asInstanceOf[Cont[okay.one.row.Pure, Nothing, Nothing, A]].run
 }
 
-/** okay-simple's interface on okay-core's machine, seen through the interface only */
-object OnCoreEffects {
-  val effects: Effects = OnCore
-}
+

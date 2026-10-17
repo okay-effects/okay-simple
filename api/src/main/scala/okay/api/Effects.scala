@@ -35,6 +35,10 @@ final abstract class %[F[_, _], S] extends Name[({ type L[x] = F[S, x] })#L]
  * everything Scala 2 code needs is here, in the source both compile, under the same names; `Syntax` only adds.
  */
 trait Effects extends Syntax {
+  /** the names of effects, here too: an implementation imported gives them (`import Simple._`) */
+  type %[F[_, _], S] = okay.api.%[F, S]
+  type *[F[_]] = okay.api.*[F]
+
   /** a program of value `A` over the row `R` */
   type ![+A, R]
   /** the row of no effect */

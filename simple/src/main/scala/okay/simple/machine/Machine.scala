@@ -200,7 +200,7 @@ private[machine] trait MachineTypes extends Effects {
  * frame, no `Done` made. A general handler's clause gets `k`: the frames inside, the levels crossed as a typed
  * `Prefix`, put back where `k` is resumed — a stateful level with the state of its time.
  */
-private[machine] object Machine extends Places {
+private[machine] class Machine extends Places {
   @tailrec private def loop[R, X, V, Z](c: Prog[R, X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Z = c match {
     case d: Done[r, x] => fs match {
       case t: Then[r2, a, y, v] => loop[R, y, V, Z](t.f(d.a), t.rest, m)
@@ -269,7 +269,4 @@ private[machine] object Machine extends Places {
   def run[A](p: Prog[PureRow, A]): A = loop[PureRow, A, A, A](p, new Last[PureRow, A], new Top[A])
 }
 
-/** the implementation, seen through the interface only */
-object Simple {
-  val effects: Effects = Machine
-}
+

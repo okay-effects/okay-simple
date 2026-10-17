@@ -1,7 +1,7 @@
 package okay.api
 
 /** the interface's suite, compiled by both compilers, on each implementation */
-abstract class InterfaceSuite(fx: Effects) extends munit.FunSuite {
+abstract class InterfaceSuite(fx: okay.std.Std) extends munit.FunSuite {
   val p = new Programs(fx)
 
   test("a program's effects handled in the row's order") {

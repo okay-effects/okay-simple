@@ -1,12 +1,10 @@
 package okay.api
 
-import okay.simple._
+import okay.std.Std
 
 /** programs written on the interface: whatever implementation `fx` is */
-class Programs(val fx: Effects) {
-  val std = Std(fx)
+class Programs(val fx: Std) {
   import fx._
-  import std._
 
   /** row-polymorphic: in any row that has these, at any place */
   def greet[R](implicit r: In[Reader % String, R], w: In[Writer % String, R], s: In[State % Int, R]): Int ! R =

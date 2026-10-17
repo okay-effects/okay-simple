@@ -2,18 +2,17 @@
 
 One simple interface for effect systems, for Scala 3 and Scala 2.13: the types `!`, `+`, `%`, `*`, the functions
 `perform`, `handle`, `split`, `run` (module `api`, package `okay.api`), and the standard effects written once on them
-(module `std`, package `okay.simple`) over any implementation, which knows nothing of them. The interface fixes no
-implementation: a program, a row and the evidence that an effect is in a row are abstract types, and an
-implementation makes them what it likes. `simple/` is its own implementation; `core/` runs the same programs
-on okay-core's machine, `kernel/` on okay-kernel's protocol.
+(module `std`, package `okay.std`; their definitions in the object `okay.std.Std`, so that other effects of the same
+names in `okay.std` do not clash). The interface fixes no implementation: a program, a row and the evidence that an
+effect is in a row are abstract types, and an implementation makes them what it likes. `simple/` is its own
+implementation; `core/` runs the same programs on okay-core's machine, `kernel/` on okay-kernel's protocol. An
+implementation knows nothing of the standard effects: they are the trait `Std`, mixed in where an implementation is
+offered (`Simple`, `Core`, `OnKernel.on`).
 
 ## A program
 
 ```scala
-import okay.api._, okay.simple._
-val fx: Effects = okay.simple.machine.MachineEffects.effects   // an implementation: the interface only
-val std = Std(fx)                                              // the standard effects, over any implementation
-import fx._, std._
+import okay.simple.machine.Simple._          // everything: the types, the primitives, the effects and their handlers
 
 // in any row that has these three, at any place
 def greet[R](implicit r: In[Reader % String, R], w: In[Writer % String, R], s: In[State % Int, R]): Int ! R =
