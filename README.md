@@ -185,6 +185,28 @@ Delimited control CHANGING ANSWER TYPES is its own type, `Cps[A, B, C, R]` (`fx.
 `shift`, `reset`, `pure`, `map`, `flatMap`, `lift`. By default continuation-passing over any implementation, in
 constant stack; okay-core's bridge has it native, on okay-core's own `shift0` and `$`.
 
+## Interceptors
+
+`intercept(p, h)`: `E`'s operations in `p` given to the handler `h` — with `k`, the rest, still intercepted — and the
+row stays `R`, `E` in it. `h`'s clause runs outside the interception, so an operation of `E` it performs goes to `E`'s
+handler further out: an operation observed and passed on, changed, refused, answered here. On it, in `std`:
+
+```scala
+observe[State % Int, R, A](p)(new Observe[State % Int, R] {          // each operation seen, then passed on
+  def apply[X](op: State[Int, X]): Unit ! R = tell[String, R](op.toString)
+})
+around[Reader % Int, R, A](p)(new Around[Reader % Int, R] {          // each given with its way on, `proceed`
+  def apply[X](op: Reader[Int, X], proceed: X ! R): X ! R = op match {
+    case Std.Reader.Ask(answer) => ask[Int, R].map(e => answer(e * 2))
+  }
+})
+```
+
+The interface's primitive is `interposed(p)`, the implementation's: the program in `R + E`, its `E` moved to a new
+last place, its other effects where they are — `intercept` is `handleLast` of it. The machine and `Free` do it by one
+renaming of places (Scala 3: `Places.interposing`, typed), okay-kernel's bridge by its `remap`, okay-core's by its
+observer (`Seen.at`, an operation's place), tagless on the implementation given.
+
 ## More effects
 
 Modules over the interface, in `modules/`, one source for both compilers, each checked on the machine and on `Free`; each a class
@@ -201,9 +223,7 @@ over an implementation, `Concurrent(fx)`, `Io(fx)`, ...:
 | `transaction` | `read`, `write` and `atomically(p)` on the standard `Store` outside: a log written at the end; an error handled outside drops it — rolled back |
 | `resilience` | `retry[E](n)(p)`, `retryIf[E](n)(worth)(p)`, `fallback[E](p)(q)` |
 
-Not here: interceptors that observe an effect and pass it on (they need an operation re-performed in the row it
-came from — a primitive the interface does not have; okay-core's machine has them); a timeout (a runtime's: ZIO's,
-cats-effect's, through interop).
+Not here: a timeout (a runtime's: ZIO's, cats-effect's, through interop).
 
 ## Scala 2 and Scala 3: one interface, compatible
 
