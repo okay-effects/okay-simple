@@ -6,25 +6,30 @@ import okay.effects.{AbortClauses, Clauses, Effects, StatefulClauses, StatefulTa
  * A value: made once, run on any implementation */
 abstract class Program[+A, R[_]] {
   def on(fx: Effects): fx.![A, R]
+  /** made on `fx` as the `depth`-th of a chain: a bind's or a map's own; any other, `on` */
+  private[tagless] def onAt(fx: Effects, depth: Int): fx.![A, R] = on(fx)
 }
 
 object Program {
-  /** a bind or a map: one of a chain, made on `fx` by the node after it — if bound again, `delay`ed, so that a chain
-   * of any length is made by `fx`'s run, a loop, not by nested calls here */
-  sealed trait Chained
+  /** a chain of binds and maps made by nested calls, so many deep at most; one deeper `delay`ed, made by `fx`'s run —
+   * a loop — when it gets there: a chain of any length in constant stack, one `delay` in so many */
+  private final val Deepest = 64
 
   final class Pure[A, R[_]](a: A) extends Program[A, R] {
     def on(fx: Effects): fx.![A, R] = fx.pure[A, R](a)
   }
-  final class Bind[X, A, R[_]](p: Program[X, R], f: X => Program[A, R]) extends Program[A, R] with Chained {
-    def on(fx: Effects): fx.![A, R] = fx.flatMap[X, A, R](before[X, R](fx, p))((x: X) => f(x).on(fx))
+  final class Bind[X, A, R[_]](p: Program[X, R], f: X => Program[A, R]) extends Program[A, R] {
+    def on(fx: Effects): fx.![A, R] = onAt(fx, 0)
+    override private[tagless] def onAt(fx: Effects, depth: Int): fx.![A, R] =
+      fx.flatMap[X, A, R](before[X, R](fx, p, depth))((x: X) => f(x).on(fx))
   }
-  final class Mapped[X, A, R[_]](p: Program[X, R], f: X => A) extends Program[A, R] with Chained {
-    def on(fx: Effects): fx.![A, R] = fx.map[X, A, R](before[X, R](fx, p))(f)
+  final class Mapped[X, A, R[_]](p: Program[X, R], f: X => A) extends Program[A, R] {
+    def on(fx: Effects): fx.![A, R] = onAt(fx, 0)
+    override private[tagless] def onAt(fx: Effects, depth: Int): fx.![A, R] = fx.map[X, A, R](before[X, R](fx, p, depth))(f)
   }
-  /** the program before a bind, made on `fx`: a chain `delay`ed, anything else at once */
-  @inline private def before[X, R[_]](fx: Effects, p: Program[X, R]): fx.![X, R] =
-    if (p.isInstanceOf[Chained]) fx.delay[X, R](p.on(fx)) else p.on(fx)
+  /** the program before a bind or a map, made on `fx`: one deeper, or at `Deepest` `delay`ed and from 0 again */
+  @inline private def before[X, R[_]](fx: Effects, p: Program[X, R], depth: Int): fx.![X, R] =
+    if (depth < Deepest) p.onAt(fx, depth + 1) else fx.delay[X, R](p.onAt(fx, 0))
 }
 
 /** `E` is in `R`, on any implementation: `fx`'s own evidence, made on it */

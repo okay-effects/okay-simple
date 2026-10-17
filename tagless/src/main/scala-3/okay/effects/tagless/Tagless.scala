@@ -7,25 +7,33 @@ import okay.effects.{AbortClauses, Clauses, Effects, StatefulClauses, StatefulTa
  * A value: made once, run on any implementation */
 abstract class Program[+A, R[_]]:
   def on(fx: Effects): fx.![A, R]
+  /** made on `fx` as the `depth`-th of a chain: a bind's or a map's own; any other, `on` */
+  private[tagless] def onAt(fx: Effects, depth: Int): fx.![A, R] = on(fx)
 
 object Program:
-  /** a bind or a map: one of a chain, made on `fx` by the node after it — if bound again, `delay`ed, so that a chain
-   * of any length is made by `fx`'s run, a loop, not by nested calls here */
-  sealed trait Chained
+  /** a chain of binds and maps made by nested calls, so many deep at most; one deeper `delay`ed, made by `fx`'s run —
+   * a loop — when it gets there: a chain of any length in constant stack, one `delay` in so many */
+  private inline val Deepest = 64
 
   final class Pure[A, R[_]](a: A) extends Program[A, R]:
     def on(fx: Effects): fx.![A, R] = fx.pure[A, R](a)
-  final class Bind[X, A, R[_]](p: Program[X, R], f: X => Program[A, R]) extends Program[A, R], Chained:
-    def on(fx: Effects): fx.![A, R] = fx.flatMap[X, A, R](before[X, R](fx, p))((x: X) => f(x).on(fx))
-  final class Mapped[X, A, R[_]](p: Program[X, R], f: X => A) extends Program[A, R], Chained:
-    def on(fx: Effects): fx.![A, R] = fx.map[X, A, R](before[X, R](fx, p))(f)
+  final class Bind[X, A, R[_]](p: Program[X, R], f: X => Program[A, R]) extends Program[A, R]:
+    def on(fx: Effects): fx.![A, R] = onAt(fx, 0)
+    override private[tagless] def onAt(fx: Effects, depth: Int): fx.![A, R] =
+      fx.flatMap[X, A, R](before[X, R](fx, p, depth))((x: X) => f(x).on(fx))
+  final class Mapped[X, A, R[_]](p: Program[X, R], f: X => A) extends Program[A, R]:
+    def on(fx: Effects): fx.![A, R] = onAt(fx, 0)
+    override private[tagless] def onAt(fx: Effects, depth: Int): fx.![A, R] = fx.map[X, A, R](before[X, R](fx, p, depth))(f)
+  /** an operation of `E`, at its place in `R` */
+  final class Performed[E[_], R[_], X](op: E[X], in: InRow[E, R]) extends Program[X, R]:
+    def on(fx: Effects): fx.![X, R] = fx.perform[E].apply[R, X](op)(using in.on(fx))
   /** any other word's: made by `make`, a function of the implementation */
   final class Of[A, R[_]](make: (fx: Effects) => fx.![A, R]) extends Program[A, R]:
     def on(fx: Effects): fx.![A, R] = make(fx)
 
-  /** the program before a bind, made on `fx`: a chain `delay`ed, anything else at once */
-  private inline def before[X, R[_]](fx: Effects, p: Program[X, R]): fx.![X, R] =
-    if p.isInstanceOf[Chained] then fx.delay[X, R](p.on(fx)) else p.on(fx)
+  /** the program before a bind or a map, made on `fx`: one deeper, or at `Deepest` `delay`ed and from 0 again */
+  private inline def before[X, R[_]](fx: Effects, p: Program[X, R], depth: Int): fx.![X, R] =
+    if depth < Deepest then p.onAt(fx, depth + 1) else fx.delay[X, R](p.onAt(fx, 0))
 
 /** `E` is in `R`, on any implementation: `fx`'s own evidence, made on it */
 trait InRow[E[_], R[_]]:
@@ -36,33 +44,39 @@ trait SplitRow[E[_], R[_], Rest[_]] extends InRow[E, R]:
 
 /** each implementation's derivations, made on it: in the implicit scope, no import needed */
 object InRow:
-  final class SplitOf[E[_], R[_], Rest[_]](make: (fx: Effects) => fx.Split[E, R, Rest]) extends SplitRow[E, R, Rest]:
-    def on(fx: Effects): fx.Split[E, R, Rest] = make(fx)
+  final class One[E[_]] extends SplitRow[E, E, Void]:
+    def on(fx: Effects): fx.Split[E, E, Void] = fx.splitOne[E]
+  final class Last[R[_], E[_]] extends SplitRow[E, [x] =>> Sum[R, E, x], R]:
+    def on(fx: Effects): fx.Split[E, [x] =>> Sum[R, E, x], R] = fx.splitLast[R, E]
+  final class Init[E[_], R[_], G[_], Rest[_]](s: SplitRow[E, R, Rest])
+      extends SplitRow[E, [x] =>> Sum[R, G, x], [x] =>> Sum[Rest, G, x]]:
+    def on(fx: Effects): fx.Split[E, [x] =>> Sum[R, G, x], [x] =>> Sum[Rest, G, x]] = fx.splitInit[E, R, G, Rest](using s.on(fx))
 
-  inline given splitOne[E[_]]: SplitRow[E, E, Void] = SplitOf[E, E, Void](fx => fx.splitOne[E])
-  inline given splitLast[R[_], E[_]]: SplitRow[E, [x] =>> Sum[R, E, x], R] =
-    SplitOf[E, [x] =>> Sum[R, E, x], R](fx => fx.splitLast[R, E])
+  inline given splitOne[E[_]]: SplitRow[E, E, Void] = One[E]()
+  inline given splitLast[R[_], E[_]]: SplitRow[E, [x] =>> Sum[R, E, x], R] = Last[R, E]()
   inline given splitInit[E[_], R[_], G[_], Rest[_]](using s: SplitRow[E, R, Rest]):
-      SplitRow[E, [x] =>> Sum[R, G, x], [x] =>> Sum[Rest, G, x]] =
-    SplitOf[E, [x] =>> Sum[R, G, x], [x] =>> Sum[Rest, G, x]](fx => fx.splitInit[E, R, G, Rest](using s.on(fx)))
+      SplitRow[E, [x] =>> Sum[R, G, x], [x] =>> Sum[Rest, G, x]] = Init[E, R, G, Rest](s)
 
 /** every effect of `R` is in `S`, on any implementation */
 trait SubRow[R[_], S[_]]:
   def on(fx: Effects): fx.Sub[R, S]
 
 object SubRow:
-  final class Of[R[_], S[_]](make: (fx: Effects) => fx.Sub[R, S]) extends SubRow[R, S]:
-    def on(fx: Effects): fx.Sub[R, S] = make(fx)
+  final class OfPure[S[_]] extends SubRow[Void, S]:
+    def on(fx: Effects): fx.Sub[Void, S] = fx.subPure[S]
+  final class OfOne[E[_], S[_]](e: InRow[E, S]) extends SubRow[E, S]:
+    def on(fx: Effects): fx.Sub[E, S] = fx.subOne[E, S](using e.on(fx))
+  final class OfMore[R[_], E[_], S[_]](r: SubRow[R, S], e: InRow[E, S]) extends SubRow[[x] =>> Sum[R, E, x], S]:
+    def on(fx: Effects): fx.Sub[[x] =>> Sum[R, E, x], S] = fx.subMore[R, E, S](using r.on(fx), e.on(fx))
 
-  inline given subPure[S[_]]: SubRow[Void, S] = Of[Void, S](fx => fx.subPure[S])
-  inline given subOne[E[_], S[_]](using e: InRow[E, S]): SubRow[E, S] = Of[E, S](fx => fx.subOne[E, S](using e.on(fx)))
-  inline given subMore[R[_], E[_], S[_]](using r: SubRow[R, S], e: InRow[E, S]): SubRow[[x] =>> Sum[R, E, x], S] =
-    Of[[x] =>> Sum[R, E, x], S](fx => fx.subMore[R, E, S](using r.on(fx), e.on(fx)))
+  inline given subPure[S[_]]: SubRow[Void, S] = OfPure[S]()
+  inline given subOne[E[_], S[_]](using e: InRow[E, S]): SubRow[E, S] = OfOne[E, S](e)
+  inline given subMore[R[_], E[_], S[_]](using r: SubRow[R, S], e: InRow[E, S]): SubRow[[x] =>> Sum[R, E, x], S] = OfMore[R, E, S](r, e)
 
 /** `perform[E]`'s rest: the operation, its answer `X` inferred from it, the row `R` from what is expected or given */
 final class PerformOf[E[_]](val unused: Boolean) extends AnyVal:
   inline def apply[R[_], X](op: E[X])(using in: InRow[E, R]): Program[X, R] =
-    Program.Of[X, R](fx => fx.perform[E].apply[R, X](op)(using in.on(fx)))
+    Program.Performed[E, R, X](op, in)
 
 /**
  * TAGLESS, AS SCALA 3 WRITES IT: THE INTERFACE'S WORDS OVER NO IMPLEMENTATION — `import okay.effects.tagless.Tagless.*`,
