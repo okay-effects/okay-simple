@@ -129,7 +129,7 @@ enum At[R[_], X]:
   case Placed[R[_], E[_], X](at: Place[E, R, ?], op: E[X]) extends At[R, X]
 
 /** THE INTERFACE ON THE `Free` MONAD: a program a `Free`, the evidence typed places, every handler `Free.handle` or
- * `Free.handle`, or one answering in place `Free.answer` or `Free.answer` */
+ * `Free.handle`, or one answering in place `Free.answer` */
 private[free] class OnFree extends Effects:
   import Free.{!, Bind, Perform, Return}
 
