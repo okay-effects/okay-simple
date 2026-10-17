@@ -62,3 +62,7 @@ class TaglessOnBoth extends munit.FunSuite {
     assertEquals(run(Programs1.greeted)(Machine), run(Programs1.greeted)(Free))
   }
 }
+
+/** the interface's suite on tagless, on each implementation */
+class InterfaceOnTaglessMachine extends okay.effects.InterfaceSuite(Tagless.on(Machine))
+class InterfaceOnTaglessFree extends okay.effects.InterfaceSuite(Tagless.on(Free))

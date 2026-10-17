@@ -87,7 +87,7 @@ lazy val interopTofu = (project in file("interop/tofu")).dependsOn(interopCats, 
 
 /** TAGLESS: the interface's words over no implementation — a program a value, made once, run on the implementation
  * in the implicit context; each word that implementation's own */
-lazy val tagless = (project in file("tagless")).dependsOn(effects, machine % Test, free % Test)
+lazy val tagless = (project in file("tagless")).dependsOn(effects, machine % Test, free % Test, tck % Test)
   .settings(crossBuilt, name := "okay-effects-tagless",
     // one source for both compilers: each evidence made on the implementation passed as Scala 2 passes it
     scalacOptions ++= (if (scalaVersion.value.startsWith("3")) Seq("-Wconf:msg=Implicit parameters should be provided:s") else Nil))

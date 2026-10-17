@@ -4,8 +4,27 @@ import okay.effects.{AbortClauses, Clauses, Effects, StatefulClauses, StatefulTa
 
 /** A PROGRAM OF NO IMPLEMENTATION: made, when it is run, on the implementation given — `on(fx)`, `fx`'s own program.
  * A value: made once, run on any implementation */
-trait Program[+A, R[_]] {
+abstract class Program[+A, R[_]] {
   def on(fx: Effects): fx.![A, R]
+}
+
+object Program {
+  /** a bind or a map: one of a chain, made on `fx` by the node after it — if bound again, `delay`ed, so that a chain
+   * of any length is made by `fx`'s run, a loop, not by nested calls here */
+  sealed trait Chained
+
+  final class Pure[A, R[_]](a: A) extends Program[A, R] {
+    def on(fx: Effects): fx.![A, R] = fx.pure[A, R](a)
+  }
+  final class Bind[X, A, R[_]](p: Program[X, R], f: X => Program[A, R]) extends Program[A, R] with Chained {
+    def on(fx: Effects): fx.![A, R] = fx.flatMap[X, A, R](before[X, R](fx, p))((x: X) => f(x).on(fx))
+  }
+  final class Mapped[X, A, R[_]](p: Program[X, R], f: X => A) extends Program[A, R] with Chained {
+    def on(fx: Effects): fx.![A, R] = fx.map[X, A, R](before[X, R](fx, p))(f)
+  }
+  /** the program before a bind, made on `fx`: a chain `delay`ed, anything else at once */
+  @inline private def before[X, R[_]](fx: Effects, p: Program[X, R]): fx.![X, R] =
+    if (p.isInstanceOf[Chained]) fx.delay[X, R](p.on(fx)) else p.on(fx)
 }
 
 /** `E` is in `R`, on any implementation: `fx`'s own evidence, made on it */
@@ -74,15 +93,9 @@ abstract class Programs {
   type Split[E[_], R[_], Rest[_]] = SplitRow[E, R, Rest]
   type Sub[R[_], S[_]] = SubRow[R, S]
 
-  def pure[A, R[_]](a: A): A ! R = new Program[A, R] {
-    def on(fx: Effects): fx.![A, R] = fx.pure[A, R](a)
-  }
-  def flatMap[A, B, R[_]](p: A ! R)(f: A => B ! R): B ! R = new Program[B, R] {
-    def on(fx: Effects): fx.![B, R] = fx.flatMap[A, B, R](p.on(fx))((a: A) => f(a).on(fx))
-  }
-  def map[A, B, R[_]](p: A ! R)(f: A => B): B ! R = new Program[B, R] {
-    def on(fx: Effects): fx.![B, R] = fx.map[A, B, R](p.on(fx))(f)
-  }
+  def pure[A, R[_]](a: A): A ! R = new Program.Pure[A, R](a)
+  def flatMap[A, B, R[_]](p: A ! R)(f: A => B ! R): B ! R = new Program.Bind[A, B, R](p, f)
+  def map[A, B, R[_]](p: A ! R)(f: A => B): B ! R = new Program.Mapped[A, B, R](p, f)
   /** the program `p`, built when the run gets to it — on each implementation it is run on, anew */
   def delay[A, R[_]](p: => A ! R): A ! R = new Program[A, R] {
     def on(fx: Effects): fx.![A, R] = fx.delay[A, R](p.on(fx))
@@ -98,6 +111,9 @@ abstract class Programs {
   def embed[R[_], S[_], A](p: A ! R)(implicit s: Sub[R, S]): A ! S = new Program[A, S] {
     def on(fx: Effects): fx.![A, S] = fx.embed[R, S, A](p.on(fx))(s.on(fx))
   }
+
+  /** tagless as an implementation of the interface, on `fx`: code written over `Effects` runs on it */
+  def on(fx: Effects): TaglessEffects = new TaglessEffects(fx)
 
   /** the program run on the implementation in the implicit context */
   def run[A](p: A ! Pure)(implicit fx: Effects): A = fx.run[A](p.on(fx))
