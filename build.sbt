@@ -16,8 +16,19 @@ def crossBuilt: Seq[Def.Setting[?]] = Seq(
 /** THE INTERFACE: the types and the primitives, the standard effects written on them — no implementation */
 lazy val core = (project in file("core")).settings(crossBuilt, name := "okay-simple")
 
-/** the reference implementation, and the suites of the interface run on it */
+/** the reference implementation: a free monad, an operation passed on by each handler it crosses */
 lazy val free = (project in file("free")).dependsOn(core).settings(crossBuilt, name := "okay-simple-free")
+
+/** the fast implementation: a machine of an explicit stack, an operation finding its handler in one walk */
+lazy val machine = (project in file("machine")).dependsOn(core).settings(crossBuilt, name := "okay-simple-machine")
+
+/** the interface's suites, on each implementation, by both compilers */
+lazy val suite = (project in file("suite")).dependsOn(free, machine)
+  .settings(crossBuilt, name := "okay-simple-suite", publish / skip := true)
+
+/** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
+lazy val bench = (project in file("bench")).dependsOn(free, machine).enablePlugins(JmhPlugin)
+  .settings(crossScalaVersions := Seq(scala3), name := "okay-simple-bench", publish / skip := true)
 
 /** Scala 3's standard library for a Scala 2.13 project, resolved here and put BEHIND 2.13's by hand (okay-core's
  * finding: 2.13's first, to compile — Scala 3's carries TASTy, not Scala 2 pickles — and Scala 3's after it, to run) */
@@ -39,7 +50,7 @@ def scala2ReadingScala3: Seq[Def.Setting[?]] = Seq(
   c / dependencyClasspathAsJars ++= Classpaths.managedJars(Scala3Stdlib, Set("jar"), update.value)))
 
 /** COMPATIBILITY, 1: an effect, its handler and a program written in Scala 2.13, on the interface Scala 3 built */
-lazy val compat2 = (project in file("compat/scala2")).dependsOn(free)
+lazy val compat2 = (project in file("compat/scala2")).dependsOn(free, machine)
   .settings(scala2ReadingScala3, name := "okay-simple-compat-scala2", publish / skip := true)
 
 /** COMPATIBILITY, 2: Scala 3 code using the Scala 2.13 library's effect and program beside its own */
@@ -54,15 +65,15 @@ lazy val core213 = (project in file("compat/core-2.13"))
     Compile / unmanagedSourceDirectories := Seq("core/src/main/scala", "core/src/main/scala-2").map((ThisBuild / baseDirectory).value / _))
 lazy val free213 = (project in file("compat/free-2.13")).dependsOn(core213)
   .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), name := "okay-simple-free-213", publish / skip := true,
-    Compile / unmanagedSourceDirectories := Seq((ThisBuild / baseDirectory).value / "free/src/main/scala"))
+    Compile / unmanagedSourceDirectories := Seq("free/src/main/scala", "machine/src/main/scala").map((ThisBuild / baseDirectory).value / _))
 lazy val compat3on2 = (project in file("compat/scala3-on-2.13")).dependsOn(free213)
   .settings(scalaVersion := scala3, crossScalaVersions := Seq(scala3), libraryDependencies += munit,
     name := "okay-simple-compat-scala3-on-213", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))),
-    Test / unmanagedSourceDirectories := Seq((ThisBuild / baseDirectory).value / "free/src/test/scala"))
+    Test / unmanagedSourceDirectories := Seq((ThisBuild / baseDirectory).value / "suite/src/test/scala"))
 
-lazy val root = (project in file(".")).aggregate(core, free, compat2, compat3, core213, free213, compat3on2)
+lazy val root = (project in file(".")).aggregate(core, free, machine, suite, compat2, compat3, core213, free213, compat3on2)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
 /** everything: the interface's suites by both compilers, then the two compilers in one application */
-addCommandAlias("testAll", "; ++3.9.0 free/test ; ++2.13.18 free/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test")
+addCommandAlias("testAll", "; ++3.9.0 suite/test ; ++2.13.18 suite/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test")

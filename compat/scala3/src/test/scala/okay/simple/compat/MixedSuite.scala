@@ -1,12 +1,12 @@
 package okay.simple.compat
 
 import okay.simple.*
-import okay.simple.free.FreeEffects
+import okay.simple.machine.MachineEffects
 
 /** ONE APPLICATION OF TWO COMPILERS: Scala 3 code takes the effect, the handler and the program Scala 2.13 compiled,
  * as they are, beside its own — the types at the boundary the same */
 class MixedSuite extends munit.FunSuite {
-  val counting = new Counting(FreeEffects.effects)
+  val counting = new Counting(MachineEffects.effects)
   import counting.fx.*
 
   /** a Scala 3 program over Scala 2's effect: context bounds, no parentheses */

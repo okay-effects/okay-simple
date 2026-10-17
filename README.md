@@ -3,13 +3,13 @@
 One simple interface for effect systems, for Scala 3 and Scala 2.13: the types `!`, `+`, `%`, the functions
 `perform`, `handle`, `split`, `run`, and the standard effects written once on them. The interface fixes no
 implementation: a program, a row and the evidence that an effect is in a row are abstract types, and an
-implementation makes them what it likes. `free/` is the reference implementation.
+implementation makes them what it likes. `free/` is the reference implementation, `machine/` the fast one.
 
 ## A program
 
 ```scala
 import okay.simple._
-val fx: Simple = okay.simple.free.FreeEffects.effects
+val fx: Simple = okay.simple.machine.MachineEffects.effects
 import fx._
 
 // in any row that has these three, at any place
@@ -93,22 +93,46 @@ compiler's `Syntax` (`core/src/main/scala-2`, `scala-3`) only adds what the othe
 
 | Module | What it shows |
 |---|---|
-| `free` test, both compilers | the interface's suite, from one source |
+| `suite` test, both compilers | the interface's suite, from one source, on each implementation |
 | `compat/scala2` | an effect, its handler and a program written in Scala 2.13, compiled against Scala 3's build (`-Ytasty-reader`) |
 | `compat/scala3` | Scala 3 code using that Scala 2.13 library beside its own, in one row, one run |
 | `compat/scala3-on-2.13` | the interface's suite compiled by Scala 3 against the build Scala 2.13 made |
 
-## The reference implementation
+## Two implementations
 
-`free/`: a free monad. A row is an ordered list and an operation carries its place in it, counted from the end:
-`split` moves a place to the end, `embed` maps the places into a bigger row, `handle` answers place 0 and moves the
-others one in. A program's next step is found by a loop over its binds, in constant stack (100 000 operations under
-three handlers). It is simple, not fast: an operation that crosses a handler is performed again outside it.
+Both behind the same interface, both run by the same suites (`suite/`), by both compilers.
+
+- **`free/`, the reference**: a free monad. A row is an ordered list and an operation carries its place in it,
+  counted from the end. `handle` answers place 0, and passes any other operation on: it makes a new node of it, one
+  place in, and wraps the rest in itself — so an operation costs a node and a closure for every handler it crosses.
+  Short, and easy to check.
+- **`machine/`, the fast one**: a machine of an explicit stack — the frames of the binds over the nearest level, and
+  the levels outside it, each a handler or a remapping of places (`split`, `embed`) with the frames outside it. An
+  operation walks the levels outward: a remapping renames its place, a handler not its own takes one off. Nothing is
+  allocated on the way and nothing is passed on. At its handler the rest up to it, the handler included, is `k`: the
+  frames inside and the levels crossed, immutable, so `k` is resumed any number of times; resumed, they are put back
+  on the stack where the resumption is.
+
+Both run in constant stack: 100 000 operations under three handlers, 100 000 binds.
+
+Measured (`bench/`, JMH `-f 2 -wi 3 -i 5 -prof gc`, JDK 26, Scala 3.9; `bench.d/2026-10-17_free-vs-machine.csv`),
+one run of each program, n = 1000:
+
+| Program | `free` | `machine` |
+|---|---|---|
+| 1000 maps, no operation | 10.1 µs, 126 KB | 10.3 µs, 126 KB |
+| 1000 `ask`s under their handler, each with a map pending | 2241 µs, 24.6 MB | 40.4 µs, 438 KB |
+| the same across four handlers of other effects | 2594 µs, 26.6 MB | 105 µs, 823 KB |
+| 1000 `get`/`put` pairs under `State` | 103 µs, 1.33 MB | 79.9 µs, 870 KB |
+
+`free` is quadratic when maps are pending: at each operation it rebuilds `k` from every frame on its stack. The
+machine keeps the frames as they are, and its `k` is only them and the levels crossed.
 
 ## Build
 
 ```sh
 sbt testAll        # both compilers, and the three compatibility checks
-sbt free/test      # Scala 3
-sbt "++2.13.18 free/test"
+sbt suite/test     # Scala 3
+sbt "++2.13.18 suite/test"
+python3 /tmp/okz/tools/withlock.py sbt "bench/Jmh/run -f 2 -wi 3 -i 5 -prof gc"   # JMH, holding JMH's lock
 ```

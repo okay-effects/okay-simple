@@ -1,10 +1,11 @@
 package okay.simple
 
 import okay.simple.free.FreeEffects
+import okay.simple.machine.MachineEffects
 
-/** the interface's suite, compiled by both compilers, on the reference implementation */
-class InterfaceSuite extends munit.FunSuite {
-  val p = new Programs(FreeEffects.effects)
+/** the interface's suite, compiled by both compilers, on each implementation */
+abstract class InterfaceSuite(fx: Simple) extends munit.FunSuite {
+  val p = new Programs(fx)
 
   test("a program's effects handled in the row's order") {
     assertEquals(p.handledInOrder, (13, (List("hello, Ann"), 10)))
@@ -34,3 +35,6 @@ class InterfaceSuite extends munit.FunSuite {
     assertEquals(p.binds(100000), 100000)
   }
 }
+
+class FreeSuite extends InterfaceSuite(FreeEffects.effects)
+class MachineSuite extends InterfaceSuite(MachineEffects.effects)
