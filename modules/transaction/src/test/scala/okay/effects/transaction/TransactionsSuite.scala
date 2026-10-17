@@ -5,7 +5,8 @@ import okay.effects.machine.Machine
 import okay.effects.free.Free
 
 abstract class TransactionsChecks(val fx0: Runner) extends munit.FunSuite {
-  val t = Transactions(fx0)
+  implicit val runner: Runner = fx0
+  val t = Transactions()
   import t._
   import t.fx._
   import t.fx.std._
@@ -22,11 +23,11 @@ abstract class TransactionsChecks(val fx0: Runner) extends munit.FunSuite {
 
   val start = Map("ann" -> 10, "bob" -> 0)
   test("committed: the writes in the store at the end") {
-    assertEquals(fx0.run(store[String, Int](start)(attempt[String](atomically[String, Int](transfer("ann", "bob", 7))))),
+    assertEquals(t.fx.run(store[String, Int](start)(attempt[String](atomically[String, Int](transfer("ann", "bob", 7))))),
       (Map("ann" -> 3, "bob" -> 7), Right(())))
   }
   test("rolled back: an error raised inside, nothing written") {
-    assertEquals(fx0.run(store[String, Int](start)(attempt[String](atomically[String, Int](transfer("ann", "bob", 20))))),
+    assertEquals(t.fx.run(store[String, Int](start)(attempt[String](atomically[String, Int](transfer("ann", "bob", 20))))),
       (start, Left("insufficient")))
   }
 }

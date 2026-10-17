@@ -10,7 +10,7 @@ import okay.effects.{Effects, Std}
  * pulled twice, it runs twice. With the standard generators, `Yield`: `fromGenerator(p)`, a program that `emit`s, as a
  * stream; `s.emitAll`, a stream as a program that `emit`s.
  */
-class Streams[F <: Effects](val fx: F) {
+class Streams[F <: Effects](implicit val fx: F) {
   import fx._
   import fx.std._
 
@@ -103,5 +103,8 @@ class Streams[F <: Effects](val fx: F) {
 }
 
 object Streams {
-  def apply(fx: Effects): Streams[fx.type] = new Streams[fx.type](fx)
+  def apply()(implicit fx: Effects): Streams[fx.type] = {
+    implicit val exact: fx.type = fx
+    new Streams[fx.type]
+  }
 }

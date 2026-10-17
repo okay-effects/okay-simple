@@ -13,7 +13,7 @@ import okay.effects.{Runner, Std}
  *
  * `val cats = Cats(Machine); import cats._`
  */
-class Cats[F <: Runner](val fx: F) {
+class Cats[F <: Runner](implicit val fx: F) {
   import fx._
 
   /** a program over the row `R` as cats sees it: a type constructor of its value */
@@ -31,5 +31,8 @@ class Cats[F <: Runner](val fx: F) {
 }
 
 object Cats {
-  def apply(fx: Runner): Cats[fx.type] = new Cats[fx.type](fx)
+  def apply()(implicit fx: Runner): Cats[fx.type] = {
+    implicit val exact: fx.type = fx
+    new Cats[fx.type]
+  }
 }

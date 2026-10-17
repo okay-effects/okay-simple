@@ -15,7 +15,8 @@ import okay.effects.machine.Machine
 import okay.effects.logic.{Logic, Term}
 import okay.effects.logic.Term.*
 
-val lg = Logic(Machine)
+given okay.effects.Runner = Machine
+val lg = Logic()
 import lg.*, lg.fx.*, lg.fx.std.*
 
 type L = Choose + Fresh + Bindings

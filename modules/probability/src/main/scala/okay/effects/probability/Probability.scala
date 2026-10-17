@@ -13,7 +13,7 @@ object Dist {
  * and its handlers: `exact`, every way it can go, each outcome with its probability, the same outcomes summed; and
  * `sampled`, one way, each choice made by the standard `Random` effect in the row outside.
  */
-class Probability[F <: Effects](val fx: F) {
+class Probability[F <: Effects](implicit val fx: F) {
   import fx._
   import fx.std._
 
@@ -58,5 +58,8 @@ class Probability[F <: Effects](val fx: F) {
 }
 
 object Probability {
-  def apply(fx: Effects): Probability[fx.type] = new Probability[fx.type](fx)
+  def apply()(implicit fx: Effects): Probability[fx.type] = {
+    implicit val exact: fx.type = fx
+    new Probability[fx.type]
+  }
 }

@@ -8,7 +8,8 @@ import zio.{Runtime, Unsafe, ZIO}
 /** ZIO over the effects, on an implementation */
 abstract class ZioChecks(val fx0: Runner) extends munit.FunSuite {
   private implicit val ec: scala.concurrent.ExecutionContext = munitExecutionContext
-  val z = ZioEffects(fx0)
+  implicit val runner: Runner = fx0
+  val z = ZioEffects()
   import z._
   import z.fx._
 

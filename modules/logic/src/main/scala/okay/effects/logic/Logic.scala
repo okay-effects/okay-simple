@@ -26,7 +26,7 @@ object Search {
  * answer, the bindings inside the choice so each way has its own. And a FAIR search, `fair(n)(p)`: the ways tried
  * breadth-first, so a search with ways that never end still finds what the others give.
  */
-class Logic[F <: Effects](val fx: F) {
+class Logic[F <: Effects](implicit val fx: F) {
   import fx._
   import fx.std._
   import Term._
@@ -102,5 +102,8 @@ class Logic[F <: Effects](val fx: F) {
 }
 
 object Logic {
-  def apply(fx: Effects): Logic[fx.type] = new Logic[fx.type](fx)
+  def apply()(implicit fx: Effects): Logic[fx.type] = {
+    implicit val exact: fx.type = fx
+    new Logic[fx.type]
+  }
 }

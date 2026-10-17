@@ -15,7 +15,8 @@ scheduler is a handler.
 import okay.effects.machine.Machine
 import okay.effects.concurrent.{Concurrent, Coop}
 
-val c = Concurrent(Machine)
+given okay.effects.Runner = Machine
+val c = Concurrent()
 import c.*, c.fx.*, c.fx.std.*
 
 type T = Writer % String + Coop % Int

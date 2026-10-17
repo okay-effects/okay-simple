@@ -6,7 +6,8 @@ import okay.effects.free.Free
 import Term._
 
 abstract class LogicChecks(val fx0: Runner) extends munit.FunSuite {
-  val lg = Logic(fx0)
+  implicit val runner: Runner = fx0
+  val lg = Logic()
   import lg._
   import lg.fx._
 
@@ -23,24 +24,24 @@ abstract class LogicChecks(val fx0: Runner) extends munit.FunSuite {
 
   test("forwards: one list and another") {
     val q = variable[L].flatMap(out => appendo(list(one), list(two, three), out).flatMap(_ => resolved[L](out)))
-    assertEquals(fx0.run(solutions(q)), List(list(one, two, three)))
+    assertEquals(lg.fx.run(solutions(q)), List(list(one, two, three)))
   }
   test("backwards: every way to split a list in two") {
     val q = variable[L].flatMap(l => variable[L].flatMap(s =>
       appendo(l, s, list(one, two, three)).flatMap(_ => resolved[L](Pair(l, s)))))
-    assertEquals(fx0.run(solutions(q)), List(
+    assertEquals(lg.fx.run(solutions(q)), List(
       Pair(Term.empty, list(one, two, three)), Pair(list(one), list(two, three)),
       Pair(list(one, two), list(three)), Pair(list(one, two, three), Term.empty)))
   }
   test("no answer where the terms cannot be the same") {
-    assertEquals(fx0.run(solutions(unify[L](one, two))), Nil)
+    assertEquals(lg.fx.run(solutions(unify[L](one, two))), Nil)
   }
 
   type C[X] = Sum[Void, Std.Choose, X]
   /** a search whose first way never ends: 0, 1, 2, ... forever */
   def nats(n: Int): Int ! C = either[Int, C](nats(n + 1), pure[Int, C](n))
   test("a fair search finds what a depth-first one never would") {
-    assertEquals(fx0.run(fair(3)(either[Int, C](nats(100), pure[Int, C](-1)))), List(-1, 100, 101))
+    assertEquals(lg.fx.run(fair(3)(either[Int, C](nats(100), pure[Int, C](-1)))), List(-1, 100, 101))
   }
 }
 

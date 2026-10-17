@@ -9,7 +9,7 @@
 | operations | `async(register)`, `fromFuture(f)`, `sleep(ms)` |
 | combinators | `both(p, q)`, `parTraverse(xs)(f)`, `race(p, q)`, `timeout(ms)(p)` |
 | run | `toFuture(p)`: a `Future` of the value, failed if a callback gave a failure or the program threw |
-| streams | `AsyncStreams(fx).mergeAsync(streams)` |
+| streams | `AsyncStreams().mergeAsync(streams)` |
 
 ```scala
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -18,7 +18,8 @@ import okay.effects.machine.Machine
 import okay.effects.async.{Async, Asynchrony}
 
 class Basics(using ExecutionContext):
-  val as = Asynchrony(Machine)
+  given okay.effects.Runner = Machine
+  val as = Asynchrony()
   import as.*, as.fx.*, as.fx.std.*
 
   val p: Int ! Async = sleep[Async](10).andThen(fromFuture[Int, Async](Future(20))).map(_ + 22)
@@ -38,7 +39,8 @@ At once, and first:
 
 ```scala
 class AtOnce(using ExecutionContext):
-  val as = Asynchrony(Machine)
+  given okay.effects.Runner = Machine
+  val as = Asynchrony()
   import as.*, as.fx.*
 
   val slow = sleep[Async](300).as("slow")
@@ -64,7 +66,7 @@ the JVM, `setTimeout` on Scala.js.
 
 ## Streams merged as they come
 
-`AsyncStreams(fx).mergeAsync(streams)`: streams of `Async`, each one's next element pulled at once, all at the same
+`AsyncStreams().mergeAsync(streams)`: streams of `Async`, each one's next element pulled at once, all at the same
 time; the merged stream gives whichever is ready first, then pulls the next of that stream. A stream that ends is
 left out.
 
@@ -72,7 +74,8 @@ left out.
 import okay.effects.async.AsyncStreams
 
 class Merging(using ExecutionContext):
-  val a = AsyncStreams(Machine)
+  given okay.effects.Runner = Machine
+  val a = AsyncStreams()
   import a.*, a.fx.*, a.streams.*
   import a.asynchrony.{sleep, toFuture}
 

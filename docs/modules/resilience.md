@@ -12,7 +12,8 @@
 import okay.effects.machine.Machine
 import okay.effects.resilience.Resilience
 
-val rs = Resilience(Machine)
+given okay.effects.Runner = Machine
+val rs = Resilience()
 import rs.*, rs.fx.*, rs.fx.std.*
 
 type T = State % Int + Error % String

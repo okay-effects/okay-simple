@@ -7,7 +7,8 @@ import okay.effects.free.Free
 
 abstract class AsynchronyChecks(val fx0: Runner) extends munit.FunSuite {
   private implicit val ec: ExecutionContext = munitExecutionContext
-  val as = Asynchrony(fx0)
+  implicit val runner: Runner = fx0
+  val as = Asynchrony()
   import as._
   import as.fx._
   import as.fx.std._

@@ -16,7 +16,8 @@ endless stream is taken as far as it is asked. A stream is a value: pulled twice
 import okay.effects.machine.Machine
 import okay.effects.stream.Streams
 
-val st = Streams(Machine)
+given okay.effects.Runner = Machine
+val st = Streams()
 import st.*, st.fx.*, st.fx.std.*
 
 type P = Pure

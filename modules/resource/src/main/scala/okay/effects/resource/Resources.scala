@@ -17,7 +17,7 @@ object Scope {
  * outside drops the rest of the scope, its finalizers with it — so handle errors inside. A `k` resumed twice inside
  * the scope ends it twice: each end runs the finalizers deferred before it, so for programs that resume once.
  */
-class Resources[F <: Effects](val fx: F) {
+class Resources[F <: Effects](implicit val fx: F) {
   import fx._
 
   /** `fin`, a program of the row outside the scope `Rest`, deferred to the scope's end */
@@ -41,5 +41,8 @@ class Resources[F <: Effects](val fx: F) {
 }
 
 object Resources {
-  def apply(fx: Effects): Resources[fx.type] = new Resources[fx.type](fx)
+  def apply()(implicit fx: Effects): Resources[fx.type] = {
+    implicit val exact: fx.type = fx
+    new Resources[fx.type]
+  }
 }

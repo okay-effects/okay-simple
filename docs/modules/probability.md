@@ -13,7 +13,8 @@ what to make of it: the exact distribution of its outcomes, or one outcome sampl
 import okay.effects.machine.Machine
 import okay.effects.probability.{Dist, Probability}
 
-val pr = Probability(Machine)
+given okay.effects.Runner = Machine
+val pr = Probability()
 import pr.*, pr.fx.*, pr.fx.std.*
 
 def dice: Int ! Dist = uniform[Int, Dist]((1 to 6).toList).flatMap(a => uniform[Int, Dist]((1 to 6).toList).map(_ + a))

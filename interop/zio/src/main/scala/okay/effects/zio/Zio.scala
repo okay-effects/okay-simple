@@ -12,7 +12,7 @@ import zio.{Task, ZIO}
  *
  * `val z = ZioEffects(Machine); import z._`
  */
-class ZioEffects[F <: Runner](val fx: F) {
+class ZioEffects[F <: Runner](implicit val fx: F) {
   import fx._
 
   /** the effect of ZIO's tasks: the standard `Lift` of `Task` */
@@ -28,5 +28,8 @@ class ZioEffects[F <: Runner](val fx: F) {
 }
 
 object ZioEffects {
-  def apply(fx: Runner): ZioEffects[fx.type] = new ZioEffects[fx.type](fx)
+  def apply()(implicit fx: Runner): ZioEffects[fx.type] = {
+    implicit val exact: fx.type = fx
+    new ZioEffects[fx.type]
+  }
 }

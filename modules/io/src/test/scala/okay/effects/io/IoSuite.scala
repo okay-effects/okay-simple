@@ -5,7 +5,8 @@ import okay.effects.machine.Machine
 import okay.effects.free.Free
 
 abstract class IoChecks(val fx0: Runner) extends munit.FunSuite {
-  val io = Io(fx0)
+  implicit val runner: Runner = fx0
+  val io = Io()
   import io._
   import io.fx._
 
@@ -22,16 +23,16 @@ abstract class IoChecks(val fx0: Runner) extends munit.FunSuite {
     }
 
   test("under pure handlers: the lines written, the time it took") {
-    assertEquals(fx0.run(console(List("Ann"))(clock(1000, 5)(env(Map("GREETING" -> "hello"))(greet)))),
+    assertEquals(io.fx.run(console(List("Ann"))(clock(1000, 5)(env(Map("GREETING" -> "hello"))(greet)))),
       (List("name?", "hello, Ann"), 5))
   }
   test("past the inputs, no line; no variable, the default") {
-    assertEquals(fx0.run(console(Nil)(clock(0, 1)(env(Map.empty)(greet)))), (List("name?", "hi, nobody"), 1))
+    assertEquals(io.fx.run(console(Nil)(clock(0, 1)(env(Map.empty)(greet)))), (List("name?", "hi, nobody"), 1))
   }
   test("the world's clock and environment") {
-    val t = fx0.run(systemClock(now[Clock]))
+    val t = io.fx.run(systemClock(now[Clock]))
     assert(t > 0)
-    assertEquals(fx0.run(systemEnv(getEnv[Env]("OKAY_NO_SUCH_VARIABLE"))), None)
+    assertEquals(io.fx.run(systemEnv(getEnv[Env]("OKAY_NO_SUCH_VARIABLE"))), None)
   }
 }
 

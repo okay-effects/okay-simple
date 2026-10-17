@@ -5,9 +5,9 @@ a `G[A]` is a `Runner`'s `lower(p)`, given a `Lowering[G]`. The interop modules 
 
 | Module | Platforms | What it gives |
 |---|---|---|
-| `okay-effects-cats` | JVM, Scala.js | `Cats(fx).monad[R]`: cats' `Monad` of the programs, stack safe; `lowering[G]`: a `Lowering` of any cats `Monad` — cats-effect's `IO`, `Either`, `Option` |
-| `okay-effects-zio` | JVM, Scala.js | `ZioEffects(fx)`: `fromZIO(task)`, `toZIO(p)` — a task a `Lift[Task, *]`, a program a `Task` |
-| `okay-effects-tofu` | JVM | `Tofu(Cats(fx))`: tofu's `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row |
+| `okay-effects-cats` | JVM, Scala.js | `Cats().monad[R]`: cats' `Monad` of the programs, stack safe; `lowering[G]`: a `Lowering` of any cats `Monad` — cats-effect's `IO`, `Either`, `Option` |
+| `okay-effects-zio` | JVM, Scala.js | `ZioEffects()`: `fromZIO(task)`, `toZIO(p)` — a task a `Lift[Task, *]`, a program a `Task` |
+| `okay-effects-tofu` | JVM | `Tofu(Cats())`: tofu's `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row |
 
 ## cats
 
@@ -18,7 +18,8 @@ import cats.effect.unsafe.implicits.global
 import okay.effects.machine.Machine
 import okay.effects.cats.Cats
 
-val c = Cats(Machine)
+given okay.effects.Runner = Machine
+val c = Cats()
 import c.*, c.fx.*, c.fx.std.*
 
 /** cats' Monad of the programs of a row: cats' code over any monad runs on the effects */
@@ -40,7 +41,8 @@ import zio.{Runtime, Unsafe, ZIO}
 import okay.effects.zio.ZioEffects
 
 object WithZio:
-  val z = ZioEffects(Machine)
+  given okay.effects.Runner = Machine
+  val z = ZioEffects()
   import z.*, z.fx.*
 
   val p: Int ! Tasks = fromZIO[Int, Tasks](ZIO.succeed(20)).flatMap(a => fromZIO[Int, Tasks](ZIO.attempt(a + 22)))
@@ -53,6 +55,6 @@ On Scala.js, ZIO's runtime needs `java.time`: add `"io.github.cquiroz" %%% "scal
 
 ## tofu
 
-`Tofu(Cats(fx))` gives `withLocal[R, Rest, C]`, tofu's `WithLocal[Program[R]#L, C]` of a `Reader % C` in `R`, and
+`Tofu(Cats())` gives `withLocal[R, Rest, C]`, tofu's `WithLocal[Program[R]#L, C]` of a `Reader % C` in `R`, and
 `errors[R, Rest, E]`, tofu's `Errors` (`raise`, `tryHandleWith`, `restore`) of an `Error % E` in `R` — so code
 written to tofu's typeclasses runs on the effects. The JVM's only: tofu has no Scala.js build.

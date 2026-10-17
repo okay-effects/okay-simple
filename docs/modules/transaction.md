@@ -14,7 +14,8 @@ store when `p` ends. What ends `p` before drops the log: nothing written.
 import okay.effects.machine.Machine
 import okay.effects.transaction.{Transactions, Tx}
 
-val t = Transactions(Machine)
+given okay.effects.Runner = Machine
+val t = Transactions()
 import t.*, t.fx.*, t.fx.std.*
 
 type Accounts = [x] =>> Tx[String, Int, x]

@@ -14,11 +14,47 @@ The words of every program, on any implementation `fx` (`import fx.*`):
 | `p.flatMap(f)`, `p.map(f)`, `for ... yield` | sequencing |
 | `p.as(b)`, `p.andThen(q)` | the value replaced; `q` after `p` |
 | `delay(p)` | `p` built when the run gets to it |
+| `tailcall(p)` | a call in tail position, made by the run: mutual tail recursion in constant stack |
+| `tailRecM(a)(f)` | a loop: `f` again from its `Left`, until its `Right` |
 | `perform[E](op)` | the operation `op` of the effect `E` |
 | `p.into[S]` | `p` in a row `S` of more effects |
 | `run(p)` | a program of no effect run (a `Runner`'s) |
 
 Every implementation runs programs in constant stack: binds nested either way, 100 000 operations under a handler.
+
+## Mutual tail recursion
+
+A program built by calling a function that calls another — `even` calling `odd` calling `even` — would be BUILT by
+nested calls, one per step, before it runs. `tailcall(p)` makes the call when the run gets to it, so each call is the
+implementation's loop's own, none nested in the one before: a million calls in constant stack, effects or none.
+
+```scala
+import okay.effects.machine.Machine.*
+import okay.effects.machine.Machine.std.*
+
+def even(n: Int): Boolean ! Pure = if n == 0 then pure(true) else tailcall(odd(n - 1))
+def odd(n: Int): Boolean ! Pure = if n == 0 then pure(false) else tailcall(even(n - 1))
+
+assert(run(even(1000000)))
+
+type Steps = State % Int
+def evenCounted(n: Int): Boolean ! Steps =
+  if n == 0 then pure(true) else modify[Int, Steps](_ + 1).flatMap(_ => tailcall(oddCounted(n - 1)))
+def oddCounted(n: Int): Boolean ! Steps =
+  if n == 0 then pure(false) else modify[Int, Steps](_ + 1).flatMap(_ => tailcall(evenCounted(n - 1)))
+
+assert(run(state(0)(evenCounted(1000000))) == (1000000, true))
+```
+
+A call inside `flatMap`'s function is already made by the run; `tailcall` is for the call that IS the program. A loop
+with a state of its own is `tailRecM`:
+
+```scala
+val sum = tailRecM[(Int, Long), Long, Pure]((100000, 0L)) { case (i, acc) =>
+  pure(if i == 0 then Right(acc) else Left((i - 1, acc + i)))
+}
+assert(run(sum) == 5000050000L)
+```
 
 ## An effect
 

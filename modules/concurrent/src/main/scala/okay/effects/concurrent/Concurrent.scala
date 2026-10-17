@@ -31,7 +31,7 @@ object Step {
  * No `fork` of a thread from inside one: an effect carrying a program of its own row is of a type that contains
  * itself.
  */
-class Concurrent[F <: Effects](val fx: F) {
+class Concurrent[F <: Effects](implicit val fx: F) {
   import fx._
 
   def pass[V, R[_]](implicit in: In[({ type L[x] = Coop[V, x] })#L, R]): Unit ! R =
@@ -85,5 +85,8 @@ class Concurrent[F <: Effects](val fx: F) {
 }
 
 object Concurrent {
-  def apply(fx: Effects): Concurrent[fx.type] = new Concurrent[fx.type](fx)
+  def apply()(implicit fx: Effects): Concurrent[fx.type] = {
+    implicit val exact: fx.type = fx
+    new Concurrent[fx.type]
+  }
 }

@@ -13,7 +13,8 @@ handler says how — the world's, or a pure one for tests. The same program unde
 import okay.effects.machine.Machine
 import okay.effects.io.{Clock, Console, Env, Io}
 
-val io = Io(Machine)
+given okay.effects.Runner = Machine
+val io = Io()
 import io.*, io.fx.*
 
 type App = Console + Clock + Env

@@ -30,7 +30,20 @@ runs.
 ## The modules
 
 Each a module over the interface, for both compilers and both platforms, each checked on the machine, `Free` and
-tagless:
+tagless. A module is a class over the implementation in the implicit context — `class Streams[F <: Effects](implicit
+val fx: F)` — made by `Streams()`, which keeps the implementation's own type, so the programs it makes run on it:
+
+```scala
+import okay.effects.Runner
+import okay.effects.machine.Machine
+import okay.effects.stream.Streams
+
+given Runner = Machine
+val streams = Streams()
+import streams.*, streams.fx.*
+
+assert(run(range[Pure](0, 5).map(_ * 2).toList) == List(0, 2, 4, 6, 8))
+```
 
 | Module | |
 |---|---|

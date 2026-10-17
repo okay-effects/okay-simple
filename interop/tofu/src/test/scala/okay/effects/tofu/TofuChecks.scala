@@ -7,7 +7,8 @@ import okay.effects.free.Free
 
 /** tofu's typeclasses over the effects, on an implementation */
 abstract class TofuChecks(val fx0: Runner) extends munit.FunSuite {
-  val t = Tofu(Cats(fx0))
+  implicit val runner: Runner = fx0
+  val t = Tofu[runner.type](Cats())
   import t._
   import t.cats.fx._
   import t.cats.fx.std._

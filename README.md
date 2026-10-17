@@ -215,7 +215,7 @@ observer (`Seen.at`, an operation's place), tagless on the implementation given.
 ## More effects
 
 Modules over the interface, in `modules/`, one source for both compilers, each checked on the machine, on `Free` and on tagless; each a class
-over an implementation, `Concurrent(fx)`, `Io(fx)`, ...:
+over the implementation in the implicit context, `Concurrent()`, `Io()`, ... (`class Concurrent[F <: Effects](implicit val fx: F)`):
 
 | Module | What it gives |
 |---|---|
@@ -227,7 +227,7 @@ over an implementation, `Concurrent(fx)`, `Io(fx)`, ...:
 | `logic` | terms, logic variables (`Fresh`), `unify` (bindings a `State`), `either`; `solutions(p)` every answer — a relation runs either way; `fair(n)(p)` a breadth-first search, so a way that never ends does not hide the others |
 | `transaction` | `read`, `write` and `atomically(p)` on the standard `Store` outside: a log written at the end; an error handled outside drops it — rolled back |
 | `resilience` | `retry[E](n)(p)`, `retryIf[E](n)(worth)(p)`, `fallback[E](p)(q)` |
-| `async` | asynchrony with no runtime of its own: `async(register)` waits on a callback; `toFuture(p)` drives a program to a `Future` — a loop, a callback called at once taken in place, a later one resuming on the execution context; `fromFuture`, `sleep` (the platform's timer: a scheduler on the JVM, `setTimeout` on Scala.js), `both`, `parTraverse`, `race`, `timeout`; `AsyncStreams(fx).mergeAsync(streams)`: streams of `Async` merged as their elements come — each one's next pulled at once, the first ready given out |
+| `async` | asynchrony with no runtime of its own: `async(register)` waits on a callback; `toFuture(p)` drives a program to a `Future` — a loop, a callback called at once taken in place, a later one resuming on the execution context; `fromFuture`, `sleep` (the platform's timer: a scheduler on the JVM, `setTimeout` on Scala.js), `both`, `parTraverse`, `race`, `timeout`; `AsyncStreams().mergeAsync(streams)`: streams of `Async` merged as their elements come — each one's next pulled at once, the first ready given out |
 | `stream` | `Stream[O, R]`: elements pulled one at a time, each pull a program of `R` — lazy, endless if need be; sources `emits`, `range`, `iterate`, `unfold`, `eval`, `repeatEval`; `map`, `evalMap`, `filter`, `take`, `drop`, `takeWhile`, `scan`, `zip`, `interleave`, `++`, `flatMap`, `merge(streams)` (one element of each in turn, an ended one left out — no channel, no buffer); sinks `toList`, `fold`, `foreach`, `drain`; with the standard generators, `fromGenerator(p)` and `s.emitAll` |
 
 A timeout is `async`'s; one of ZIO's or cats-effect's runtime, through interop.
@@ -330,9 +330,9 @@ Over any implementation, both compilers; another monad's programs inside a progr
 
 | Module | What it gives |
 |---|---|
-| `interop/cats` | `Cats(fx).monad[R]`, cats' `Monad` of the programs (stack safe); a `Lowering` of any cats monad — `IO` of cats-effect 3, `Either`, `Option` |
-| `interop/zio` | `ZioEffects(fx)`: `fromZIO(task)`, `toZIO(p)` — a ZIO task a `Lift[Task, *]`, a program a `Task` |
-| `interop/tofu` | `Tofu(Cats(fx))`: `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row named |
+| `interop/cats` | `Cats().monad[R]`, cats' `Monad` of the programs (stack safe); a `Lowering` of any cats monad — `IO` of cats-effect 3, `Either`, `Option` |
+| `interop/zio` | `ZioEffects()`: `fromZIO(task)`, `toZIO(p)` — a ZIO task a `Lift[Task, *]`, a program a `Task` |
+| `interop/tofu` | `Tofu(Cats())`: `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row named |
 
 ## Examples
 

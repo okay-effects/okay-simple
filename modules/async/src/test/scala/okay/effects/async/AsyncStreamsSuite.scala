@@ -7,7 +7,8 @@ import okay.effects.free.Free
 
 abstract class AsyncStreamsChecks(val fx0: Runner) extends munit.FunSuite {
   private implicit val ec: ExecutionContext = munitExecutionContext
-  val a = AsyncStreams(fx0)
+  implicit val runner: Runner = fx0
+  val a = AsyncStreams()
   import a._
   import a.fx._
   import a.streams._

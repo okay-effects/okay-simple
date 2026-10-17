@@ -101,6 +101,18 @@ trait Effectful {
   /** the program `p`, built when the run gets to it */
   def delay[A, R[_]](p: => A ! R): A ! R
 
+  /** A TAIL CALL: `p`, a call in tail position, made when the run gets to it — so functions calling each other in tail
+   * position (`even` calling `odd` calling `even`) run in constant stack, the implementation's loop making each call,
+   * none nested in the one before: `def even(n: Int): Boolean ! R = if (n == 0) pure(true) else tailcall(odd(n - 1))` */
+  final def tailcall[A, R[_]](p: => A ! R): A ! R = delay(p)
+
+  /** A LOOP: `f` from `a`, again from its `Left`, until its `Right` — in constant stack, whatever `f` performs */
+  def tailRecM[A, B, R[_]](a: A)(f: A => Either[A, B] ! R): B ! R =
+    flatMap(f(a))((e: Either[A, B]) => e match {
+      case Left(next) => tailRecM[A, B, R](next)(f)
+      case Right(b) => pure[B, R](b)
+    })
+
   /** an operation of `E`: `perform[Choose](Choose.Among(xs))`, the row inferred or given, `.apply[R, X](op)`. The
    * effect given, the rest inferred: Scala gives all of a method's type arguments or none, so `Perform` takes the
    * rest — a value class, nothing allocated */

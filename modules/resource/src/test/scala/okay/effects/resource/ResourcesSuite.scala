@@ -5,7 +5,8 @@ import okay.effects.machine.Machine
 import okay.effects.free.Free
 
 abstract class ResourcesChecks(val fx0: Runner) extends munit.FunSuite {
-  val r = Resources(fx0)
+  implicit val runner: Runner = fx0
+  val r = Resources()
   import r._
   import r.fx._
   import r.fx.std._
@@ -24,11 +25,11 @@ abstract class ResourcesChecks(val fx0: Runner) extends munit.FunSuite {
         tell[String, In0](s"use $a $b").flatMap(_ => if (fail) raise[String, In0, Int]("boom") else pure[Int, In0](2))))
 
   test("released, the last acquired first, when the scope ends") {
-    assertEquals(fx0.run(writer[String](scoped(attempt[String](use2(false))))),
+    assertEquals(r.fx.run(writer[String](scoped(attempt[String](use2(false))))),
       (List("open a", "open b", "use a b", "close b", "close a"), Right(2)))
   }
   test("released when an error ends the scope, handled inside it") {
-    assertEquals(fx0.run(writer[String](scoped(attempt[String](use2(true))))),
+    assertEquals(r.fx.run(writer[String](scoped(attempt[String](use2(true))))),
       (List("open a", "open b", "use a b", "close b", "close a"), Left("boom")))
   }
 }

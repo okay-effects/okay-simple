@@ -5,7 +5,8 @@ import okay.effects.machine.Machine
 import okay.effects.free.Free
 
 abstract class ParsingChecks(val fx0: Runner) extends munit.FunSuite {
-  val ps = Parsing(fx0)
+  implicit val runner: Runner = fx0
+  val ps = Parsing()
   import ps._
   import ps.fx._
 
@@ -17,15 +18,15 @@ abstract class ParsingChecks(val fx0: Runner) extends munit.FunSuite {
   def expr: Int ! P = term.flatMap(t => many[Int, P](char[P]('+').flatMap(_ => term)).map(ts => (t :: ts).sum))
 
   test("an arithmetic expression") {
-    assertEquals(fx0.run(parse("2+3*(4+1)")(expr)), Some(17))
-    assertEquals(fx0.run(parse("12*12")(expr)), Some(144))
+    assertEquals(ps.fx.run(parse("2+3*(4+1)")(expr)), Some(17))
+    assertEquals(ps.fx.run(parse("12*12")(expr)), Some(144))
   }
   test("all of the input, or nothing") {
-    assertEquals(fx0.run(parse("2+")(expr)), None)
-    assertEquals(fx0.run(parse("(1")(expr)), None)
+    assertEquals(ps.fx.run(parse("2+")(expr)), None)
+    assertEquals(ps.fx.run(parse("(1")(expr)), None)
   }
   test("a word among others: backtracking") {
-    assertEquals(fx0.run(parse("letter")(orElse[String, P](string[P]("let"), string[P]("letter")))), Some("letter"))
+    assertEquals(ps.fx.run(parse("letter")(orElse[String, P](string[P]("let"), string[P]("letter")))), Some("letter"))
   }
 }
 

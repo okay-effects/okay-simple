@@ -10,9 +10,10 @@ import okay.effects.stream.Streams
  * gives whichever is ready first, and then pulls the next of that stream. A stream that ends is left out. Pulled a
  * step ahead: while the merged stream's element is used, each stream's next is on its way.
  */
-class AsyncStreams[F <: Runner](val fx: F)(implicit ec: ExecutionContext) {
-  val streams: Streams[fx.type] = new Streams[fx.type](fx)
-  val asynchrony: Asynchrony[fx.type] = new Asynchrony[fx.type](fx)
+class AsyncStreams[F <: Runner](implicit val fx: F, ec: ExecutionContext) {
+  private implicit val exact: fx.type = fx
+  val streams: Streams[fx.type] = new Streams[fx.type]
+  val asynchrony: Asynchrony[fx.type] = new Asynchrony[fx.type]
   import fx._
   import streams.{Pull, Stream}
   import asynchrony.{fromFuture, toFuture}
@@ -33,5 +34,8 @@ class AsyncStreams[F <: Runner](val fx: F)(implicit ec: ExecutionContext) {
 }
 
 object AsyncStreams {
-  def apply(fx: Runner)(implicit ec: ExecutionContext): AsyncStreams[fx.type] = new AsyncStreams[fx.type](fx)
+  def apply()(implicit fx: Runner, ec: ExecutionContext): AsyncStreams[fx.type] = {
+    implicit val exact: fx.type = fx
+    new AsyncStreams[fx.type]
+  }
 }

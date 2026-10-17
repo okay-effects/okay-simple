@@ -25,7 +25,7 @@ object Env {
  * operation done where it is answered, in place) or a PURE one for tests (`console(inputs)`, `clock(start, step)`,
  * `env(vars)`). The same program under either.
  */
-class Io[F <: Effects](val fx: F) {
+class Io[F <: Effects](implicit val fx: F) {
   import fx._
 
   def readLine[R[_]](implicit in: In[Console, R]): Option[String] ! R = perform[Console].apply[R, Option[String]](Console.ReadLine(l => l))
@@ -93,5 +93,8 @@ class Io[F <: Effects](val fx: F) {
 }
 
 object Io {
-  def apply(fx: Effects): Io[fx.type] = new Io[fx.type](fx)
+  def apply()(implicit fx: Effects): Io[fx.type] = {
+    implicit val exact: fx.type = fx
+    new Io[fx.type]
+  }
 }

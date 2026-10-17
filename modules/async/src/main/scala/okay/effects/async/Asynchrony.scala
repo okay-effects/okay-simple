@@ -30,7 +30,7 @@ object Waiting {
  *
  * On it: `fromFuture`, `sleep`, `both` and `parTraverse` (run at once, each its own `toFuture`), `race`, `timeout`.
  */
-class Asynchrony[F <: Runner](val fx: F)(implicit ec: ExecutionContext) {
+class Asynchrony[F <: Runner](implicit val fx: F, ec: ExecutionContext) {
   import fx._
 
   /** an operation answered by a callback, called once */
@@ -102,5 +102,8 @@ class Asynchrony[F <: Runner](val fx: F)(implicit ec: ExecutionContext) {
 }
 
 object Asynchrony {
-  def apply(fx: Runner)(implicit ec: ExecutionContext): Asynchrony[fx.type] = new Asynchrony[fx.type](fx)
+  def apply()(implicit fx: Runner, ec: ExecutionContext): Asynchrony[fx.type] = {
+    implicit val exact: fx.type = fx
+    new Asynchrony[fx.type]
+  }
 }

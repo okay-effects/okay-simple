@@ -12,7 +12,8 @@ import okay.effects.free.Free
 /** cats over the effects, on an implementation */
 abstract class CatsChecks(val fx0: Runner) extends munit.FunSuite {
   private implicit val ec: scala.concurrent.ExecutionContext = munitExecutionContext
-  val c = Cats(fx0)
+  implicit val runner: Runner = fx0
+  val c: Cats[runner.type] = Cats()
   import c._
   import c.fx._
   import c.fx.std._

@@ -15,7 +15,7 @@ object Tx {
  * ends `p` before (an error raised and handled outside, an abort) drops the log: nothing written. `attempt[E]` outside
  * `atomically` is a transaction that rolls back on `E`.
  */
-class Transactions[F <: Effects](val fx: F) {
+class Transactions[F <: Effects](implicit val fx: F) {
   import fx._
   import fx.std._
 
@@ -44,5 +44,8 @@ class Transactions[F <: Effects](val fx: F) {
 }
 
 object Transactions {
-  def apply(fx: Effects): Transactions[fx.type] = new Transactions[fx.type](fx)
+  def apply()(implicit fx: Effects): Transactions[fx.type] = {
+    implicit val exact: fx.type = fx
+    new Transactions[fx.type]
+  }
 }

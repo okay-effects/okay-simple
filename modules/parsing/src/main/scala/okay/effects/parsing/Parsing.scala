@@ -7,7 +7,7 @@ import okay.effects.Effects
  * alternatives, `Choose`. A parser is a program in any row with both; `parse(input)(p)` runs it — the state inside
  * the choice, so each alternative tried from the input of its time, the first that parses all of it taken.
  */
-class Parsing[F <: Effects](val fx: F) {
+class Parsing[F <: Effects](implicit val fx: F) {
   import fx._
   import fx.std._
 
@@ -39,5 +39,8 @@ class Parsing[F <: Effects](val fx: F) {
 }
 
 object Parsing {
-  def apply(fx: Effects): Parsing[fx.type] = new Parsing[fx.type](fx)
+  def apply()(implicit fx: Effects): Parsing[fx.type] = {
+    implicit val exact: fx.type = fx
+    new Parsing[fx.type]
+  }
 }

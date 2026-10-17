@@ -13,7 +13,8 @@
 import okay.effects.machine.Machine
 import okay.effects.resource.{Resources, Scope}
 
-val r = Resources(Machine)
+given okay.effects.Runner = Machine
+val r = Resources()
 import r.*, r.fx.*, r.fx.std.*
 
 type Out = Writer % String

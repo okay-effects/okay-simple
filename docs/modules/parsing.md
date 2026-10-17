@@ -14,7 +14,8 @@ alternative tried from the input of its time — and gives the first way that pa
 import okay.effects.machine.Machine
 import okay.effects.parsing.Parsing
 
-val ps = Parsing(Machine)
+given okay.effects.Runner = Machine
+val ps = Parsing()
 import ps.*, ps.fx.*, ps.fx.std.*
 
 type P = Choose + Input

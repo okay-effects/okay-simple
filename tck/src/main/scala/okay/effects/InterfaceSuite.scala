@@ -9,6 +9,7 @@ abstract class InterfaceSuite(fx: okay.effects.Runner) extends munit.FunSuite {
   val more = new MoreStd(fx)
   val u = new Utilities(fx)
   val ic = new Interception(fx)
+  val tc = new TailCalls(fx)
 
   test("a program's effects handled in the row's order") {
     assertEquals(p.handledInOrder, (13, (List("hello, Ann"), 10)))
@@ -115,6 +116,12 @@ abstract class InterfaceSuite(fx: okay.effects.Runner) extends munit.FunSuite {
   }
   test("intercept in constant stack: 100 000 operations") {
     assertEquals(ic.many(100000), (100000, 200000))
+  }
+  test("mutual tail recursion, a million calls, in constant stack; with effects; a loop") {
+    assertEquals(tc.isEven(1000000), true)
+    assertEquals(tc.isOdd(1000001), true)
+    assertEquals(tc.counted(1000000), (1000000, true))
+    assertEquals(tc.summed(100000), (100001, 5000050000L))
   }
   test("constant stack: 100 000 operations under three handlers, 100 000 binds") {
     assertEquals(p.counted(100000), (List(), (100000, ())))
