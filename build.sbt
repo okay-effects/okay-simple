@@ -24,10 +24,23 @@ lazy val machine = (project in file("machine")).dependsOn(core).settings(crossBu
 
 /** the interface's suites, on each implementation, by both compilers */
 lazy val suite = (project in file("suite")).dependsOn(free, machine)
-  .settings(crossBuilt, name := "okay-simple-suite", publish / skip := true)
+  .settings(crossBuilt, name := "okay-simple-suite", publish / skip := true,
+    Test / unmanagedSourceDirectories += baseDirectory.value / "src/test/impl")
+
+/** okay-simple's interface on okay-core's machine: Scala 3, okay-core's artifact (`sbt publishLocal` in okay-core) */
+lazy val okaycore = (project in file("okaycore")).dependsOn(core)
+  .settings(crossScalaVersions := Seq(scala3), name := "okay-simple-okay-core",
+    resolvers += Resolver.mavenLocal,
+    libraryDependencies ++= Seq("okay-core" %% "okay-core" % "0.1.0-SNAPSHOT", munit))
+
+/** the interface's suite on okay-core's machine */
+lazy val suiteOkaycore = (project in file("suite-okaycore")).dependsOn(okaycore)
+  .settings(crossScalaVersions := Seq(scala3), name := "okay-simple-suite-okay-core", publish / skip := true,
+    libraryDependencies += munit,
+    Test / unmanagedSourceDirectories += (ThisBuild / baseDirectory).value / "suite/src/test/scala")
 
 /** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
-lazy val bench = (project in file("bench")).dependsOn(free, machine).enablePlugins(JmhPlugin)
+lazy val bench = (project in file("bench")).dependsOn(free, machine, okaycore).enablePlugins(JmhPlugin)
   .settings(crossScalaVersions := Seq(scala3), name := "okay-simple-bench", publish / skip := true)
 
 /** Scala 3's standard library for a Scala 2.13 project, resolved here and put BEHIND 2.13's by hand (okay-core's
@@ -70,10 +83,10 @@ lazy val compat3on2 = (project in file("compat/scala3-on-2.13")).dependsOn(free2
   .settings(scalaVersion := scala3, crossScalaVersions := Seq(scala3), libraryDependencies += munit,
     name := "okay-simple-compat-scala3-on-213", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))),
-    Test / unmanagedSourceDirectories := Seq((ThisBuild / baseDirectory).value / "suite/src/test/scala"))
+    Test / unmanagedSourceDirectories := Seq("suite/src/test/scala", "suite/src/test/impl").map((ThisBuild / baseDirectory).value / _))
 
-lazy val root = (project in file(".")).aggregate(core, free, machine, suite, compat2, compat3, core213, free213, compat3on2)
+lazy val root = (project in file(".")).aggregate(core, free, machine, suite, okaycore, suiteOkaycore, compat2, compat3, core213, free213, compat3on2)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
 /** everything: the interface's suites by both compilers, then the two compilers in one application */
-addCommandAlias("testAll", "; ++3.9.0 suite/test ; ++2.13.18 suite/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test")
+addCommandAlias("testAll", "; ++3.9.0 suite/test ; ++2.13.18 suite/test ; ++3.9.0 ; suiteOkaycore/test ; compat2/test ; compat3/test ; compat3on2/test")

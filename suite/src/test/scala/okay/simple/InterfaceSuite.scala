@@ -1,8 +1,5 @@
 package okay.simple
 
-import okay.simple.free.FreeEffects
-import okay.simple.machine.MachineEffects
-
 /** the interface's suite, compiled by both compilers, on each implementation */
 abstract class InterfaceSuite(fx: Simple) extends munit.FunSuite {
   val p = new Programs(fx)
@@ -35,6 +32,3 @@ abstract class InterfaceSuite(fx: Simple) extends munit.FunSuite {
     assertEquals(p.binds(100000), 100000)
   }
 }
-
-class FreeSuite extends InterfaceSuite(FreeEffects.effects)
-class MachineSuite extends InterfaceSuite(MachineEffects.effects)

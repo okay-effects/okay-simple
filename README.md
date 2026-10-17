@@ -3,7 +3,8 @@
 One simple interface for effect systems, for Scala 3 and Scala 2.13: the types `!`, `+`, `%`, the functions
 `perform`, `handle`, `split`, `run`, and the standard effects written once on them. The interface fixes no
 implementation: a program, a row and the evidence that an effect is in a row are abstract types, and an
-implementation makes them what it likes. `free/` is the reference implementation, `machine/` the fast one.
+implementation makes them what it likes. `free/` is the reference implementation, `machine/` the fast one, and
+`okaycore/` runs the same programs on okay-core's machine.
 
 ## A program
 
@@ -98,9 +99,9 @@ compiler's `Syntax` (`core/src/main/scala-2`, `scala-3`) only adds what the othe
 | `compat/scala3` | Scala 3 code using that Scala 2.13 library beside its own, in one row, one run |
 | `compat/scala3-on-2.13` | the interface's suite compiled by Scala 3 against the build Scala 2.13 made |
 
-## Two implementations
+## Three implementations
 
-Both behind the same interface, both run by the same suites (`suite/`), by both compilers.
+All behind the same interface, all run by the same suites (`suite/`; `free` and `machine` by both compilers).
 
 - **`free/`, the reference**: a free monad. A row is an ordered list and an operation carries its place in it,
   counted from the end. `handle` answers place 0, and passes any other operation on: it makes a new node of it, one
@@ -113,6 +114,14 @@ Both behind the same interface, both run by the same suites (`suite/`), by both 
   frames inside and the levels crossed, immutable, so `k` is resumed any number of times; resumed, they are put back
   on the stack where the resumption is.
 
+- **`okaycore/`, on okay-core's machine** (Scala 3): a program is okay-core's own `Cont`, nothing wrapped. An
+  okay-simple place is okay-core's path (the last effect of an okay-simple row is the head of okay-core's), `Split`
+  is okay-core's `Removed`, made of the place; a general handler is a `Deep`, one answering in place an `Answering`,
+  a stateful one okay-core's `Stateful`. It lives in the package `okay.one` for the kernel's nodes okay-core's API
+  keeps to itself (`View`, `Handle`, `HandleK`, `HandleState`, `Perform`); a public `Cont.view` and handler
+  constructors in okay-core would take it out. It builds against okay-core's published artifact
+  (`okay-core::okay-core:0.1.0-SNAPSHOT`, `sbt publishLocal` in okay-core).
+
 Both run in constant stack: 100 000 operations under three handlers, 100 000 binds.
 
 Three shapes of handler: a general one, `Handler`, whose clause gets `k`; one answering in place, `TailHandler`, every
@@ -121,23 +130,25 @@ clause resuming `k` once, at once (`Reader`); and the same with a state of its o
 state written in its level. A `k` taken by a general handler across a stateful level copies its state, so resumed
 twice it resumes the state of its time. `free` runs them as general handlers (the interface's defaults).
 
-Measured (`bench/`, JMH `-f 2 -wi 3 -i 5 -prof gc`, JDK 26, Scala 3.9; `bench.d/2026-10-17_free-vs-machine.csv`
-before the in-place handlers, `bench.d/2026-10-17_in-place.csv` after), one run of each program, n = 1000:
+Measured (`bench/`, JMH `-f 2 -wi 3 -i 5 -prof gc`, JDK 26, Scala 3.9; `bench.d/2026-10-17_three.csv`; the
+machine before its in-place handlers in `bench.d/2026-10-17_free-vs-machine.csv`), one run of each program, n = 1000:
 
-| Program | `free` | `machine`, general handlers | `machine`, in place |
+| Program | `free` | `machine` | `okaycore` |
 |---|---|---|---|
-| 1000 maps, no operation | 10.1 µs, 126 KB | 10.3 µs, 126 KB | 10.3 µs, 126 KB |
-| 1000 `ask`s under their handler, each with a map pending | 2191 µs, 24.7 MB | 40.4 µs, 438 KB | 23.6 µs, 270 KB |
-| the same across four handlers of other effects | 2388 µs, 26.7 MB | 105 µs, 823 KB | 25.5 µs, 271 KB |
-| 1000 `get`/`put` pairs under `State` | 103 µs, 1.36 MB | 79.9 µs, 870 KB | 23.1 µs, 286 KB |
+| 1000 maps, no operation | 10.1 µs, 126 KB | 10.4 µs, 126 KB | 10.7 µs, 126 KB |
+| 1000 `ask`s under their handler, each with a map pending | 2272 µs, 24.7 MB | 23.9 µs, 270 KB | 16.0 µs, 206 KB |
+| the same across four handlers of other effects | 2448 µs, 26.7 MB | 26.1 µs, 271 KB | 31.0 µs, 375 KB |
+| 1000 `get`/`put` pairs under `State` | 105 µs, 1.36 MB | 23.9 µs, 286 KB | 14.7 µs, 198 KB |
 
-`free` is quadratic when maps are pending: at each operation it rebuilds `k` from every frame on its stack. An
-operation answered in place costs the same however many handlers it crosses (23.6 against 25.5 µs).
+`free` is quadratic when maps are pending: at each operation it rebuilds `k` from every frame on its stack. In the
+machine an operation answered in place costs the same however many handlers it crosses (23.9 against 26.1 µs);
+okay-core's is faster at its handler and pays more for each handler crossed (16.0 against 31.0 µs, 206 against
+375 KB).
 
 ## Build
 
 ```sh
-sbt testAll        # both compilers, and the three compatibility checks
+sbt testAll        # both compilers, okay-core's machine, and the three compatibility checks
 sbt suite/test     # Scala 3
 sbt "++2.13.18 suite/test"
 python3 /tmp/okz/tools/withlock.py sbt "bench/Jmh/run -f 2 -wi 3 -i 5 -prof gc"   # JMH, holding JMH's lock
