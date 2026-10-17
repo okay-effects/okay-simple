@@ -1,6 +1,6 @@
 package okay.effects.probability
 
-import okay.effects.{Runner, Sum, Void}
+import okay.effects.{Runner, Sum}
 import okay.effects.machine.Machine
 import okay.effects.free.Free
 
