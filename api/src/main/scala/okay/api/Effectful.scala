@@ -1,5 +1,9 @@
 package okay.api
 
+/** a stateful handler's state where an operation is: read and written by its clause, in place — of no
+ * implementation's, so that one's static code takes it as it is */
+trait Cell[S] { def get: S; def set(s: S): Unit }
+
 /**
  * A HANDLER'S CLAUSES, the same for both compilers: of the operations `O`, the body's value `A`, the programs `P` it
  * makes — `B ! R`, of the row outside. Each compiler's `Effects` names them by its own effects and rows:
