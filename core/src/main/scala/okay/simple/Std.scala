@@ -47,7 +47,7 @@ trait Simple extends Effects {
   def state[S](s0: S): StateHandler[S] = new StateHandler(s0)
   final class StateHandler[S](s0: S) {
     def apply[R, Rest, A](p: A ! R)(implicit sp: Split[State % S, R, Rest]): (S, A) ! Rest =
-      handleStatefulAny[State % S, ({ type L[x] = State[S, x] })#L, S, R, Rest, A, (S, A)](p)(s0)(
+      handleStateful[State % S, ({ type L[x] = State[S, x] })#L, S, R, Rest, A, (S, A)](p)(s0)(
         new StatefulHandlerOf[State, S, S, Rest, A, (S, A)] {
           def ret(s: S, a: A) = pure((s, a))
           def answer[X](cell: Cell[S], op: State[S, X]): X = op match {
@@ -61,7 +61,7 @@ trait Simple extends Effects {
   def reader[E](e: E): ReaderHandler[E] = new ReaderHandler(e)
   final class ReaderHandler[E](e: E) {
     def apply[R, Rest, A](p: A ! R)(implicit sp: Split[Reader % E, R, Rest]): A ! Rest =
-      handleTailAny[Reader % E, ({ type L[x] = Reader[E, x] })#L, R, Rest, A, A](p)(
+      handleTail[Reader % E, ({ type L[x] = Reader[E, x] })#L, R, Rest, A, A](p)(
         new TailHandlerOf[Reader, E, Rest, A, A] {
           def ret(a: A) = pure(a)
           def answer[X](op: Reader[E, X]): X = op match { case Reader.Ask(answer) => answer(e) }
@@ -72,7 +72,7 @@ trait Simple extends Effects {
   def writer[W]: WriterHandler[W] = new WriterHandler[W]
   final class WriterHandler[W] {
     def apply[R, Rest, A](p: A ! R)(implicit sp: Split[Writer % W, R, Rest]): (List[W], A) ! Rest =
-      handleStatefulAny[Writer % W, ({ type L[x] = Writer[W, x] })#L, List[W], R, Rest, A, (List[W], A)](p)(Nil)(new StatefulHandlerOf[Writer, W, List[W], Rest, A, (List[W], A)] {
+      handleStateful[Writer % W, ({ type L[x] = Writer[W, x] })#L, List[W], R, Rest, A, (List[W], A)](p)(Nil)(new StatefulHandlerOf[Writer, W, List[W], Rest, A, (List[W], A)] {
           def ret(ws: List[W], a: A) = pure((ws.reverse, a))
           def answer[X](cell: Cell[List[W]], op: Writer[W, X]): X = op match {
             case Writer.Tell(w, answer) => cell.set(w :: cell.get); answer(())
@@ -84,7 +84,7 @@ trait Simple extends Effects {
   def attempt[E]: ErrorHandler[E] = new ErrorHandler[E]
   final class ErrorHandler[E] {
     def apply[R, Rest, A](p: A ! R)(implicit sp: Split[Error % E, R, Rest]): Either[E, A] ! Rest =
-      handleAny[Error % E, ({ type L[x] = Error[E, x] })#L, R, Rest, A, Either[E, A]](p)(
+      handle[Error % E, ({ type L[x] = Error[E, x] })#L, R, Rest, A, Either[E, A]](p)(
         new HandlerOf[Error, E, Rest, A, Either[E, A]] {
           def ret(a: A) = pure(Right(a))
           def op[X](op: Error[E, X], k: X => Either[E, A] ! Rest) = op match { case Error.Raise(e) => pure(Left(e)) }
@@ -93,7 +93,7 @@ trait Simple extends Effects {
 
   /** every way the program can go: `k` resumed once for each choice */
   def all[R, Rest, A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): List[A] ! Rest =
-    handleAny[Choose, Choose.Op, R, Rest, A, List[A]](p)(new Handler[Choose.Op, Rest, A, List[A]] {
+    handle[Choose, Choose.Op, R, Rest, A, List[A]](p)(new Handler[Choose.Op, Rest, A, List[A]] {
       def ret(a: A) = pure(List(a))
       def op[X](op: Choose.Op[X], k: X => List[A] ! Rest) = op match {
         case Choose.Among(xs) => xs.foldLeft(pure[List[A], Rest](Nil))((acc, x) => acc.flatMap(l => k(x).map(l ++ _)))

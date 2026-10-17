@@ -109,17 +109,17 @@ private[okaycore] object OnCore extends Simple {
     s.indices.foldLeft(p)((q, i) => moving(q, head, placeAt(n - 1 - i + s(i))))
   }
 
-  def handle[E, F[_], R, A, B](p: P[A])(h: Handler[F, R, A, B])(implicit o: Ops.Aux[E, F]): P[B] = taking(p, deep(h), head)
-  override def handleTail[E, F[_], R, A, B](p: P[A])(h: TailHandler[F, R, A, B])(implicit o: Ops.Aux[E, F]): P[B] =
+  def handleLast[E, F[_], R, A, B](p: P[A])(h: Handler[F, R, A, B])(implicit o: Ops.Aux[E, F]): P[B] = taking(p, deep(h), head)
+  override def handleTailLast[E, F[_], R, A, B](p: P[A])(h: TailHandler[F, R, A, B])(implicit o: Ops.Aux[E, F]): P[B] =
     passing(p, answering(h), head)
-  override def handleStateful[E, F[_], S, R, A, B](p: P[A])(s0: S)(h: StatefulHandler[F, S, R, A, B])(
+  override def handleStatefulLast[E, F[_], S, R, A, B](p: P[A])(s0: S)(h: StatefulHandler[F, S, R, A, B])(
       implicit o: Ops.Aux[E, F]): P[B] = keeping(p, stateful(s0, h), head)
 
-  override def handleAny[E, F[_], R, Rest, A, B](p: P[A])(h: Handler[F, Rest, A, B])(implicit s: Split[E, R, Rest],
+  override def handle[E, F[_], R, Rest, A, B](p: P[A])(h: Handler[F, Rest, A, B])(implicit s: Split[E, R, Rest],
       o: Ops.Aux[E, F]): P[B] = taking(p, deep(h), s.removed)
-  override def handleTailAny[E, F[_], R, Rest, A, B](p: P[A])(h: TailHandler[F, Rest, A, B])(
+  override def handleTail[E, F[_], R, Rest, A, B](p: P[A])(h: TailHandler[F, Rest, A, B])(
       implicit s: Split[E, R, Rest], o: Ops.Aux[E, F]): P[B] = passing(p, answering(h), s.removed)
-  override def handleStatefulAny[E, F[_], S, R, Rest, A, B](p: P[A])(s0: S)(h: StatefulHandler[F, S, Rest, A, B])(
+  override def handleStateful[E, F[_], S, R, Rest, A, B](p: P[A])(s0: S)(h: StatefulHandler[F, S, Rest, A, B])(
       implicit s: Split[E, R, Rest], o: Ops.Aux[E, F]): P[B] = keeping(p, stateful(s0, h), s.removed)
 
   def run[A](p: P[A]): A = p.asInstanceOf[Cont[okay.one.row.Pure, Nothing, Nothing, A]].run

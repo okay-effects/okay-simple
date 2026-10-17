@@ -4,7 +4,7 @@ import okay.simple.{Ops, Simple}
 
 /**
  * THE REFERENCE IMPLEMENTATION: a free monad. A row is an ordered list and an operation carries its place in it,
- * counted from the end: `split` moves a place to the end, `embed` maps places to a bigger row's, `handle` answers the
+ * counted from the end: `split` moves a place to the end, `embed` maps places to a bigger row's, `handleLast` answers the
  * place 0 and moves the others one in. A program's next step is found by a loop over its binds, in constant stack;
  * a handler and a remapping are built when the run gets to them. `k` is a function to a program: resumed any number
  * of times. Simple first: every operation that crosses a handler is re-performed outside it.
@@ -23,7 +23,7 @@ private[free] object Free extends Simple {
 
   /** a program's next step. The implementation's trusted steps, its only casts: a bind's function onto the frames, of
    * `Any`; the value at the end, and the rest after an operation, of `A`; an operation at place 0, of its handler's
-   * operations (`handle`) */
+   * operations (`handleLast`) */
   def step[A](p: Prog[A]): Step[A] = {
     var current: Prog[Any] = p
     var rest: List[Any => Prog[Any]] = Nil
@@ -73,11 +73,11 @@ private[free] object Free extends Simple {
     remap(p, i => if (i == s.at) 0 else if (i < s.at) i + 1 else i)
   def embed[R, S, A](p: Prog[A])(implicit s: Vector[Int]): Prog[A] = remap(p, s)
 
-  def handle[E, F[_], R, A, B](p: Prog[A])(h: Handler[F, R, A, B])(implicit o: Ops.Aux[E, F]): Prog[B] =
+  def handleLast[E, F[_], R, A, B](p: Prog[A])(h: Handler[F, R, A, B])(implicit o: Ops.Aux[E, F]): Prog[B] =
     Delay(() => step(p) match {
       case Value(a) => h.ret(a)
-      case Operation(0, op, k) => h.op(op.asInstanceOf[F[Any]], (x: Any) => handle[E, F, R, A, B](k(x))(h))
-      case Operation(at, op, k) => Bind(Perf[Any](at - 1, op), (x: Any) => handle[E, F, R, A, B](k(x))(h))
+      case Operation(0, op, k) => h.op(op.asInstanceOf[F[Any]], (x: Any) => handleLast[E, F, R, A, B](k(x))(h))
+      case Operation(at, op, k) => Bind(Perf[Any](at - 1, op), (x: Any) => handleLast[E, F, R, A, B](k(x))(h))
     })
 
   def run[A](p: Prog[A]): A = step(p) match {

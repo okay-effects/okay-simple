@@ -20,7 +20,7 @@ class Counting(val fx: Simple) {
 
   /** the count and the value */
   def counting[R, Rest, A](p: A ! R)(implicit s: Split[Counter, R, Rest]): (Int, A) ! Rest =
-    handleAny[Counter, Counter.Op, R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[Counter.Op, Rest, A, Int => (Int, A) ! Rest] {
+    handle[Counter, Counter.Op, R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[Counter.Op, Rest, A, Int => (Int, A) ! Rest] {
       def ret(a: A) = pure(n => pure((n, a)))
       def op[X](op: Counter.Op[X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match {
         case Counter.Tick(answer) => pure(n => k(answer(())).flatMap(f => f(n + 1)))

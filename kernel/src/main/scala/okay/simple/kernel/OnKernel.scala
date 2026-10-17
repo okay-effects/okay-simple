@@ -65,7 +65,7 @@ final class OnKernel private (e: KEffects) extends Simple {
   }
   def embed[R, S, A](p: Prog[A])(implicit s: Vector[Int]): Prog[A] = remap[A](p, s)
 
-  def handle[E, F[_], R, A, B](p: Prog[A])(h: Handler[F, R, A, B])(implicit o: Ops.Aux[E, F]): Prog[B] =
+  def handleLast[E, F[_], R, A, B](p: Prog[A])(h: Handler[F, R, A, B])(implicit o: Ops.Aux[E, F]): Prog[B] =
     e.handle[A, B](new General[A, B] {
       def key(): Key[Any] = theKey
       def ret(a: A, ke: KEffects): Prog[B] = prog(h.ret(a))
@@ -76,7 +76,7 @@ final class OnKernel private (e: KEffects) extends Simple {
       }
     }, program(prog(p)))
 
-  override def handleTail[E, F[_], R, A, B](p: Prog[A])(h: TailHandler[F, R, A, B])(
+  override def handleTailLast[E, F[_], R, A, B](p: Prog[A])(h: TailHandler[F, R, A, B])(
       implicit o: Ops.Aux[E, F]): Prog[B] =
     flatMap[A, B, R](e.handle[A, A](new Translating[A, A] {
       def key(): Key[Any] = theKey

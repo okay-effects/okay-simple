@@ -163,11 +163,11 @@ private[machine] object Machine extends Simple {
   }
   def embed[R, S, A](p: Prog[A])(implicit s: Vector[Int]): Prog[A] = remap(p, s)
 
-  def handle[E, F[_], R, A, B](p: Prog[A])(h: Handler[F, R, A, B])(implicit o: Ops.Aux[E, F]): Prog[B] =
+  def handleLast[E, F[_], R, A, B](p: Prog[A])(h: Handler[F, R, A, B])(implicit o: Ops.Aux[E, F]): Prog[B] =
     Handle(p, GeneralKind(erase(h)))
-  override def handleTail[E, F[_], R, A, B](p: Prog[A])(h: TailHandler[F, R, A, B])(implicit o: Ops.Aux[E, F]): Prog[B] =
+  override def handleTailLast[E, F[_], R, A, B](p: Prog[A])(h: TailHandler[F, R, A, B])(implicit o: Ops.Aux[E, F]): Prog[B] =
     Handle(p, TailKind(erase(h)))
-  override def handleStateful[E, F[_], S, R, A, B](p: Prog[A])(s0: S)(h: StatefulHandler[F, S, R, A, B])(
+  override def handleStatefulLast[E, F[_], S, R, A, B](p: Prog[A])(s0: S)(h: StatefulHandler[F, S, R, A, B])(
       implicit o: Ops.Aux[E, F]): Prog[B] = Handle(p, StatefulKind(erase(h), s0))
   def run[A](p: Prog[A]): A = eval(p)
 }

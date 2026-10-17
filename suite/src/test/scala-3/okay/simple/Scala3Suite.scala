@@ -22,7 +22,7 @@ class Scala3Suite extends munit.FunSuite {
   def peek[R: Has[Counter.type]#L]: Int ! R = perform[Counter.type].apply[R, Int](Counter.Peek)
 
   def counting[R, Rest, A](p: A ! R)(using Split[Counter.type, R, Rest]): (Int, A) ! Rest =
-    handleAny[Counter.type, Counter, R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[Counter, Rest, A, Int => (Int, A) ! Rest]:
+    handle[Counter.type, Counter, R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[Counter, Rest, A, Int => (Int, A) ! Rest]:
       def ret(a: A) = pure(n => pure((n, a)))
       def op[X](op: Counter[X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match
         case Counter.Tick => pure(n => k(()).flatMap(f => f(n + 1)))
@@ -44,6 +44,6 @@ class Scala3Suite extends munit.FunSuite {
       def ret(a: Int) = pure(a)
       def op[X](op: Reader[String, X], k: X => Int ! Pure) = op match
         case Reader.Ask(answer) => k(answer("abc"))
-    assertEquals(run(handle(ask[String, Pure + Reader % String].map(_.length))(h)), 3)
+    assertEquals(run(handleLast(ask[String, Pure + Reader % String].map(_.length))(h)), 3)
   }
 }

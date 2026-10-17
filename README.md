@@ -42,8 +42,10 @@ Scala 2 too.
 | `Sub[R, S]` | every effect of `R` is in `S` |
 
 The evidence is found by implicit search, the same in both compilers, from `splitOne`, `splitLast`, `splitInit`
-(`E` further in). `split(p)` moves `E` to the end of the row, wherever it was; `handle` takes the last effect;
-`handleAny` is the two; `p.into[S]` puts a program in a row of more effects.
+(`E` further in). `handle` takes `E` from wherever it is in the row: by default `split(p)`, moving `E` to the end
+of the row, then `handleLast`, taking the last effect — an implementation may take it from its place at once. The
+same for the two other shapes of handler, `handleTail` and `handleStateful` (`handleTailLast`, `handleStatefulLast`).
+`p.into[S]` puts a program in a row of more effects.
 
 ## An effect and its handler
 
@@ -63,7 +65,7 @@ object Counter {
 def tick[R](implicit in: In[Counter, R]): Unit ! R = perform[Counter].apply[R, Unit](Counter.Tick(u => u))
 
 def counting[R, Rest, A](p: A ! R)(implicit s: Split[Counter, R, Rest]): (Int, A) ! Rest =
-  handleAny[Counter, Counter.Op, R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[Counter.Op, Rest, A, Int => (Int, A) ! Rest] {
+  handle[Counter, Counter.Op, R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[Counter.Op, Rest, A, Int => (Int, A) ! Rest] {
     def ret(a: A) = pure(n => pure((n, a)))
     def op[X](op: Counter.Op[X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match {
       case Counter.Tick(answer) => pure(n => k(answer(())).flatMap(f => f(n + 1)))
@@ -105,7 +107,7 @@ All behind the same interface, all run by the same suites (`suite/`; `free`, `ma
 compilers).
 
 - **`free/`, the reference**: a free monad. A row is an ordered list and an operation carries its place in it,
-  counted from the end. `handle` answers place 0, and passes any other operation on: it makes a new node of it, one
+  counted from the end. `handleLast` answers place 0, and passes any other operation on: it makes a new node of it, one
   place in, and wraps the rest in itself — so an operation costs a node and a closure for every handler it crosses.
   Short, and easy to check.
 - **`machine/`, the fast one**: a machine of an explicit stack — the frames of the binds over the nearest level, and
@@ -119,8 +121,8 @@ compilers).
   `Cont`, nothing wrapped. An okay-simple place is okay-core's path (the last effect of an okay-simple row is the
   head of okay-core's), `Split` is okay-core's `Removed`, made of the place; a general handler is a `Deep`, one
   answering in place an `Answering`, a stateful one okay-core's `Stateful`, installed by okay-core's `handle` at the
-  `Removed` — the effect taken from its place at once (the interface's `handleAny`, `handleTailAny`,
-  `handleStatefulAny`, which the standard handlers use). A `split` on its own is `widen` and a handler translating
+  `Removed` — the effect taken from its place at once (the interface's `handle`, `handleTail`,
+  `handleStateful`, which the standard handlers use). A `split` on its own is `widen` and a handler translating
   the effect to the fresh head; an `embed` a handler translating each effect to its place. Built against okay-core's
   artifact (`okay-core::okay-core:0.1.0-SNAPSHOT`, published from okay-core's master: `sbt coreJVM/publishLocal`).
 
