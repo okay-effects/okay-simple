@@ -97,7 +97,7 @@ lazy val interopTofu = (project in file("interop/tofu")).dependsOn(interopCats.j
 
 /** TAGLESS: the interface's words over no implementation — a program a value, made once, run on the implementation
  * in the implicit context; each word that implementation's own. One per compiler: Scala 3's every word `inline` */
-lazy val tagless = crossBoth("tagless", "tagless").dependsOn(effects, machine % Test, free % Test, tck % Test)
+lazy val tagless = crossBoth("tagless", "core/tagless").dependsOn(effects, machine % Test, free % Test, tck % Test)
   .settings(name := "okay-effects-tagless")
 
 /** MORE EFFECTS, each a module over the interface in `modules/`, both compilers, checked on the machine, on `Free`, on tagless */
@@ -121,6 +121,8 @@ lazy val transaction = effectModule("transaction", "okay-effects-transaction")
 lazy val resilience = effectModule("resilience", "okay-effects-resilience")
 /** lazy streams pulled by effects; to and from generators */
 lazy val stream = effectModule("stream", "okay-effects-stream")
+/** asynchrony with no runtime of its own: a program waiting on callbacks, driven to a `Future`; timers per platform */
+lazy val async = effectModule("async", "okay-effects-async")
 
 /** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
 lazy val bench = (project in file("bench")).dependsOn(machine.jvm, free.jvm, tagless.jvm).enablePlugins(JmhPlugin)
@@ -156,10 +158,10 @@ lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
     name := "okay-effects-compat-scala3", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
-lazy val root = (project in file(".")).aggregate(effects.jvm, effects.js, tck.jvm, tck.js, machine.jvm, machine.js, suite.jvm, suite.js, free.jvm, free.js, suiteFree.jvm, suiteFree.js, tagless.jvm, tagless.js, concurrent.jvm, concurrent.js, resource.jvm, resource.js, io.jvm, io.js, probability.jvm, probability.js, parsing.jvm, parsing.js, logic.jvm, logic.js, transaction.jvm, transaction.js, resilience.jvm, resilience.js, stream.jvm, stream.js, interopCats.jvm, interopCats.js, interopZio.jvm, interopZio.js, interopTofu, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2)
+lazy val root = (project in file(".")).aggregate(effects.jvm, effects.js, tck.jvm, tck.js, machine.jvm, machine.js, suite.jvm, suite.js, free.jvm, free.js, suiteFree.jvm, suiteFree.js, tagless.jvm, tagless.js, concurrent.jvm, concurrent.js, resource.jvm, resource.js, io.jvm, io.js, probability.jvm, probability.js, parsing.jvm, parsing.js, logic.jvm, logic.js, transaction.jvm, transaction.js, resilience.jvm, resilience.js, stream.jvm, stream.js, async.jvm, async.js, interopCats.jvm, interopCats.js, interopZio.jvm, interopZio.js, interopTofu, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
 /** everything: the interface's suites by both compilers, then the two compilers in one application */
 /** the same suites on Scala.js (Node.js), by both compilers */
-addCommandAlias("testJS", "; ++3.9.0 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; interopCatsJS/test ; interopZioJS/test ; ++2.13.18 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; interopCatsJS/test ; interopZioJS/test ; ++3.9.0")
-addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++2.13.18 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test")
+addCommandAlias("testJS", "; ++3.9.0 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; asyncJS/test ; interopCatsJS/test ; interopZioJS/test ; ++2.13.18 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; asyncJS/test ; interopCatsJS/test ; interopZioJS/test ; ++3.9.0")
+addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++2.13.18 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test")

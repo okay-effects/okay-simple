@@ -17,8 +17,8 @@ machine and to okay-kernel's protocol, all checked by one suite.
 | `core/effects/` | `okay-effects` | `okay.effects` | the interface (`Effectful`, each compiler's `Effects`; `Runner`, an implementation that runs), the standard effects (`Std`), delimited control changing answer types (`Delimited`); typed places for Scala 3 implementations (`Places`) |
 | `core/machine/` | `okay-effects-machine` | `okay.effects.machine` | THE MACHINE, one per compiler: `okay.effects.machine.Machine` |
 | `core/free/` | `okay-effects-free` | `okay.effects.free` | THE `Free` MONAD, one per compiler: `okay.effects.free.Free` (through the interface), `OnFree` (as it is) |
-| `tagless/` | `okay-effects-tagless` | `okay.effects.tagless` | TAGLESS: `Tagless`, an `Effects` of no implementation — a program a value, run on the `Runner` in the implicit context |
-| `modules/`: `concurrent`, `resource`, `io`, `probability`, `parsing`, `logic`, `transaction`, `resilience`, `stream` | `okay-effects-concurrent`, ... | `okay.effects.concurrent`, ... | MORE EFFECTS, each over the interface: see below |
+| `core/tagless/` | `okay-effects-tagless` | `okay.effects.tagless` | TAGLESS: `Tagless`, an `Effects` of no implementation — a program a value, run on the `Runner` in the implicit context |
+| `modules/`: `concurrent`, `resource`, `io`, `probability`, `parsing`, `logic`, `transaction`, `resilience`, `stream`, `async` | `okay-effects-concurrent`, ... | `okay.effects.concurrent`, ... | MORE EFFECTS, each over the interface: see below |
 | `tck/` | `okay-effects-tck` | `okay.effects` | the interface's suite, a library: `InterfaceSuite(fx)` for any implementation |
 | `interop/cats`, `interop/zio`, `interop/tofu` | `okay-effects-cats`, `-zio`, `-tofu` | `okay.effects.cats`, `.zio`, `.tofu` | interop with cats (and cats-effect 3), ZIO, tofu |
 | `examples/` | — | `okay.effects.examples` | examples over `Effects` alone, run on the machine and on `Free` |
@@ -222,9 +222,10 @@ over an implementation, `Concurrent(fx)`, `Io(fx)`, ...:
 | `logic` | terms, logic variables (`Fresh`), `unify` (bindings a `State`), `either`; `solutions(p)` every answer — a relation runs either way; `fair(n)(p)` a breadth-first search, so a way that never ends does not hide the others |
 | `transaction` | `read`, `write` and `atomically(p)` on the standard `Store` outside: a log written at the end; an error handled outside drops it — rolled back |
 | `resilience` | `retry[E](n)(p)`, `retryIf[E](n)(worth)(p)`, `fallback[E](p)(q)` |
+| `async` | asynchrony with no runtime of its own: `async(register)` waits on a callback; `toFuture(p)` drives a program to a `Future` — a loop, a callback called at once taken in place, a later one resuming on the execution context; `fromFuture`, `sleep` (the platform's timer: a scheduler on the JVM, `setTimeout` on Scala.js), `both`, `parTraverse`, `race`, `timeout` |
 | `stream` | `Stream[O, R]`: elements pulled one at a time, each pull a program of `R` — lazy, endless if need be; sources `emits`, `range`, `iterate`, `unfold`, `eval`, `repeatEval`; `map`, `evalMap`, `filter`, `take`, `drop`, `takeWhile`, `scan`, `zip`, `interleave`, `++`, `flatMap`; sinks `toList`, `fold`, `foreach`, `drain`; with the standard generators, `fromGenerator(p)` and `s.emitAll` |
 
-Not here: a timeout (a runtime's: ZIO's, cats-effect's, through interop).
+A timeout is `async`'s; one of ZIO's or cats-effect's runtime, through interop.
 
 ## Scala 2 and Scala 3: one interface, compatible
 
@@ -278,7 +279,7 @@ All run in constant stack: 100 000 operations under three handlers, 100 000 bind
 
 ## Tagless
 
-`tagless/`: `Tagless`, an `Effects` of NO implementation — the same words, `!`, `In`, `Split`, `perform`, `handle`
+`core/tagless/`: `Tagless`, an `Effects` of NO implementation — the same words, `!`, `In`, `Split`, `perform`, `handle`
 of each shape, `std`. A program is a `Program[A, R]`, a function of the implementation, `on(fx)`; so is the evidence.
 The program is a value, made once and run on any implementation; the implementation is asked for once, at `run`, a
 `Runner` from the implicit context:
