@@ -36,6 +36,10 @@ final class OnKernel private (e: KEffects) extends Simple {
   implicit def subMore[R, E, S](implicit r: Vector[Int], p: Place): Vector[Int] = p.at +: r
 
   private def prog[A](p: Prog[A]): Prog[A] = p
+  /** THE TRUSTED STEPS, the only casts of the bridge: an operation of okay-simple's key is a `Placed` (`placed`); at
+   * place 0, of its handler's operations (`opOf`) */
+  private def placed[X](op: Op[X]): Placed[X] = op.asInstanceOf[Placed[X]]
+  private def opOf[F[_], X](op: Any): F[X] = op.asInstanceOf[F[X]]
   private def fn[A, B](f: A => B): Fn[A, B] = new Fn[A, B] { def apply(a: A): B = f(a) }
   private def program[A](p: => Prog[A]): Program[A] = new Program[A] { def in(e: KEffects): Prog[A] = p }
 
@@ -51,7 +55,7 @@ final class OnKernel private (e: KEffects) extends Simple {
     e.handle[A, A](new Translating[A, A] {
       def key(): Key[Any] = theKey
       def translate[X](op: Op[X]): Program[X] = {
-        val o = op.asInstanceOf[Placed[X]]
+        val o = placed(op)
         program(performAt[X](f(o.at), o.op))
       }
     }, program(prog(p)))
@@ -66,8 +70,8 @@ final class OnKernel private (e: KEffects) extends Simple {
       def key(): Key[Any] = theKey
       def ret(a: A, ke: KEffects): Prog[B] = prog(h.ret(a))
       def apply[X](op: Op[X], k: Fn[X, Prog[B]], ke: KEffects): Prog[B] = {
-        val o = op.asInstanceOf[Placed[X]]
-        if (o.at == 0) prog(h.op[X](o.op.asInstanceOf[F[X]], (x: X) => k.apply(x)))
+        val o = placed(op)
+        if (o.at == 0) prog(h.op[X](opOf[F, X](o.op), (x: X) => k.apply(x)))
         else e.flatMap[X, B](performAt[X](o.at - 1, o.op), k)
       }
     }, program(prog(p)))
@@ -77,8 +81,8 @@ final class OnKernel private (e: KEffects) extends Simple {
     flatMap[A, B, R](e.handle[A, A](new Translating[A, A] {
       def key(): Key[Any] = theKey
       def translate[X](op: Op[X]): Program[X] = {
-        val o = op.asInstanceOf[Placed[X]]
-        if (o.at == 0) program(e.pure(h.answer[X](o.op.asInstanceOf[F[X]])))
+        val o = placed(op)
+        if (o.at == 0) program(e.pure(h.answer[X](opOf[F, X](o.op))))
         else program(performAt[X](o.at - 1, o.op))
       }
     }, program(prog(p))))(a => h.ret(a))

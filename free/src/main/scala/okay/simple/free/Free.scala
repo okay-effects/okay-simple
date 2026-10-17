@@ -21,6 +21,9 @@ private[free] object Free extends Simple {
   final case class Value[A](a: A) extends Step[A]
   final case class Operation[A](at: Int, op: Any, k: Any => Prog[A]) extends Step[A]
 
+  /** a program's next step. The implementation's trusted steps, its only casts: a bind's function onto the frames, of
+   * `Any`; the value at the end, and the rest after an operation, of `A`; an operation at place 0, of its handler's
+   * operations (`handle`) */
   def step[A](p: Prog[A]): Step[A] = {
     var current: Prog[Any] = p
     var rest: List[Any => Prog[Any]] = Nil

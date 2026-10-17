@@ -27,8 +27,16 @@ private[okaycore] object OnCore extends Simple {
   type Sub[R, S] = Vector[Int]
 
   private val plain: Plain[AnyOp] = summon[Plain[AnyOp]]
-  private val head: Taken = Removed.Head[AnyOp, Row]().asInstanceOf[Taken]
-  private val here: Place = okay.one.row.In.Here[AnyOp, Row]().asInstanceOf[Place]
+  /** THE TRUSTED STEPS, the only casts of the implementation: okay-simple's rows are phantom, so okay-core's are all
+   * one, `Row` — a path, a `Removed`, a program seen at it (`atRow`); a program with nothing left, at `Pure` (`run`);
+   * an operation found by its place, of its handler's operations (`opOf`) */
+  private def atRow(in: okay.one.row.In[AnyOp, ? <: Row]): Place = in.asInstanceOf[Place]
+  private def atRow(rm: Removed[AnyOp, ? <: Row, ? <: Row]): Taken = rm.asInstanceOf[Taken]
+  private def atRow[A](p: Cont[? <: Row, Nothing, Nothing, A]): P[A] = p.asInstanceOf[P[A]]
+  private def opOf[F[_], X](op: Any): F[X] = op.asInstanceOf[F[X]]
+
+  private val head: Taken = atRow(Removed.Head[AnyOp, Row]())
+  private val here: Place = atRow(okay.one.row.In.Here[AnyOp, Row]())
 
   /** a place, ONE PER DEPTH, shared: okay-core's path and its `Removed` made once — no allocation where an operation
    * is performed, and okay-core's look-up kept on the path (its cache) found again the next time */
@@ -41,8 +49,8 @@ private[okaycore] object OnCore extends Simple {
       var grown = slots
       while (grown.length <= i) {
         val last = grown(grown.length - 1)
-        grown = grown :+ new Slot(last.depth + 1, Removed.Next[AnyOp, AnyOp, Row, Row](last.removed).asInstanceOf[Taken],
-          okay.one.row.In.There[AnyOp, AnyOp, Row](last.place).asInstanceOf[Place])
+        grown = grown :+ new Slot(last.depth + 1, atRow(Removed.Next[AnyOp, AnyOp, Row, Row](last.removed)),
+          atRow(okay.one.row.In.There[AnyOp, AnyOp, Row](last.place)))
       }
       slots = grown
       grown(i)
@@ -65,11 +73,11 @@ private[okaycore] object OnCore extends Simple {
 
   private def deep[F[_], A, B](h: Handler[F, ?, A, B]): Deep[AnyOp, Row, A, B] = new Deep[AnyOp, Row, A, B] {
     def ret(a: A): B ! Row = h.ret(a)
-    def apply[X](op: Any, k: X => B ! Row): B ! Row = h.op[X](op.asInstanceOf[F[X]], k)
+    def apply[X](op: Any, k: X => B ! Row): B ! Row = h.op[X](opOf[F, X](op), k)
   }
   private def answering[F[_], A, B](h: TailHandler[F, ?, A, B]): Answering[AnyOp, Row, A, B] = new Answering[AnyOp, Row, A, B] {
     def ret(a: A): B ! Row = h.ret(a)
-    def value[X](op: Any): X = h.answer[X](op.asInstanceOf[F[X]])
+    def value[X](op: Any): X = h.answer[X](opOf[F, X](op))
   }
   /** okay-core's register: `value` then `next`, of one operation — the cell's answer, then the state it left */
   private def stateful[F[_], S, A, B](s0: S, h: StatefulHandler[F, S, ?, A, B]): Stateful[AnyOp, Row, S, A, B] =
@@ -77,7 +85,7 @@ private[okaycore] object OnCore extends Simple {
       private val cell = new Cell[S] { var s: S = s0; def get: S = s; def set(t: S): Unit = s = t }
       def initial: S = s0
       def ret(s: S, a: A): B ! Row = h.ret(s, a)
-      def value[X](s: S, op: Any): X = { cell.set(s); h.answer[X](cell, op.asInstanceOf[F[X]]) }
+      def value[X](s: S, op: Any): X = { cell.set(s); h.answer[X](cell, opOf[F, X](op)) }
       def next[X](s: S, op: Any): S = cell.get
     }
 
@@ -93,7 +101,7 @@ private[okaycore] object OnCore extends Simple {
 
   /** a fresh head before the row, then the effect moved from its place, one further in now, to it */
   def split[E, R, Rest, A](p: P[A])(implicit s: Split[E, R, Rest]): P[A] =
-    if (s.depth == 0) p else moving(Cont.widen[AnyOp, Row, A](p).asInstanceOf[P[A]], slot(s.depth + 1).removed, here)
+    if (s.depth == 0) p else moving(atRow(Cont.widen[AnyOp, Row, A](p)), slot(s.depth + 1).removed, here)
 
   /** each effect of `R`, from the head, translated to its place in `S`: the handlers further out take one off it */
   def embed[R, S, A](p: P[A])(implicit s: Sub[R, S]): P[A] = {

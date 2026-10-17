@@ -21,45 +21,69 @@ private[machine] object Machine extends Simple {
   final case class Perf[A](at: Int, op: Any) extends Prog[A]
   final case class Bind[X, A](p: Prog[X], f: X => Prog[A]) extends Prog[A]
   final case class Delay[A](p: () => Prog[A]) extends Prog[A]
-  final case class Handle[A](p: Prog[Any], kind: Int, handler: AnyRef, s0: Any) extends Prog[A]
+  final case class Handle[A](p: Prog[Any], kind: Kind) extends Prog[A]
   final case class Resume[A](k: K, x: Any) extends Prog[A]
 
+  /** the machine's view of a handler: its operations and values erased — `Any` */
   type AnyOp[X] = Any
+  type AnyHandler = Handler[AnyOp, Any, Any, Any]
+  type AnyTail = TailHandler[AnyOp, Any, Any, Any]
+  type AnyStateful = StatefulHandler[AnyOp, Any, Any, Any, Any]
   type Frames = List[Any => Prog[Any]]
 
-  final val General = 0
-  final val Tail = 1
-  final val Stateful = 2
-  final val Remapping = 3
+  /** what a `Handle` puts on the stack, each time the run enters it */
+  sealed trait Kind
+  final case class GeneralKind(h: AnyHandler) extends Kind
+  final case class TailKind(h: AnyTail) extends Kind
+  final case class StatefulKind(h: AnyStateful, s0: Any) extends Kind
+  final case class RemapKind(f: Int => Int) extends Kind
 
-  /** a level: its kind, its handler (or its remapping), the frames outside it; a stateful one's state, its cell */
-  final class Level(val kind: Int, val handler: AnyRef, val outside: Frames, var state: Any) extends Cell[Any] {
+  /** a level of the stack, with the frames outside it */
+  sealed abstract class Level(val outside: Frames) {
+    /** as it is now, for a `k`: a stateful level's state copied */
+    def taken: Level = this
+  }
+  final class GeneralLevel(val h: AnyHandler, outside: Frames) extends Level(outside)
+  final class TailLevel(val h: AnyTail, outside: Frames) extends Level(outside)
+  final class RemapLevel(val f: Int => Int, outside: Frames) extends Level(outside)
+  /** a stateful handler's level: its state the cell its clauses write */
+  final class StateLevel(val h: AnyStateful, outside: Frames, var state: Any) extends Level(outside) with Cell[Any] {
     def get: Any = state
     def set(s: Any): Unit = state = s
-    /** as it is now, for a `k`: a stateful level's state copied */
-    def taken: Level = if (kind == Stateful) new Level(kind, handler, outside, state) else this
+    override def taken: Level = new StateLevel(h, outside, state)
   }
-  /** the rest up to a handler: the frames inside, the levels crossed (innermost first), the handler */
-  final class K(val inner: Frames, val crossed: Array[Level], val handler: AnyRef)
+  private def level(kind: Kind, outside: Frames): Level = kind match {
+    case GeneralKind(h) => new GeneralLevel(h, outside)
+    case TailKind(h) => new TailLevel(h, outside)
+    case StatefulKind(h, s0) => new StateLevel(h, outside, s0)
+    case RemapKind(f) => new RemapLevel(f, outside)
+  }
 
+  /** the rest up to a handler: the frames inside, the levels crossed (innermost first), the handler */
+  final class K(val inner: Frames, val crossed: Array[Level], val handler: AnyHandler)
+
+  /**
+   * THE MACHINE. Its trusted steps, the only casts of the implementation: a bind's function onto the frames, of
+   * `Any` (`push`), the run's value, `A` (`result`), and a handler erased where it is installed (`erase`, three)
+   */
   def eval[A](p: Prog[A]): A = {
     var current: Prog[Any] = p
     var frames: Frames = Nil
     var levels: List[Level] = Nil
     while (true) current match {
-      case Bind(q, f) => frames = f.asInstanceOf[Any => Prog[Any]] :: frames; current = q
+      case b: Bind[x, a] => frames = push(b.f) :: frames; current = b.p
       case Done(a) =>
         if (frames ne Nil) { current = frames.head(a); frames = frames.tail }
-        else if (levels eq Nil) return a.asInstanceOf[A]
+        else if (levels eq Nil) return result[A](a)
         else {
           val l = levels.head
           levels = levels.tail
           frames = l.outside
-          current = (l.kind: @annotation.switch) match {
-            case General => l.handler.asInstanceOf[Handler[AnyOp, Any, Any, Any]].ret(a)
-            case Tail => l.handler.asInstanceOf[TailHandler[AnyOp, Any, Any, Any]].ret(a)
-            case Stateful => l.handler.asInstanceOf[StatefulHandler[AnyOp, Any, Any, Any, Any]].ret(l.state, a)
-            case _ => Done(a)
+          current = l match {
+            case g: GeneralLevel => g.h.ret(a)
+            case t: TailLevel => t.h.ret(a)
+            case st: StateLevel => st.h.ret(st.state, a)
+            case _: RemapLevel => Done(a)
           }
         }
       case Perf(at0, op) =>
@@ -69,29 +93,30 @@ private[machine] object Machine extends Simple {
         var found: Level = null
         while (found == null) {
           if (ls eq Nil) throw new IllegalStateException(s"an operation no handler took: $op")
-          val l = ls.head
-          if (l.kind == Remapping) at = l.handler.asInstanceOf[Int => Int](at)
-          else if (at == 0) found = l
-          else at -= 1
+          ls.head match {
+            case r: RemapLevel => at = r.f(at)
+            case l => if (at == 0) found = l else at -= 1
+          }
           if (found == null) { crossed += 1; ls = ls.tail }
         }
-        (found.kind: @annotation.switch) match {
-          case Tail => current = Done(found.handler.asInstanceOf[TailHandler[AnyOp, Any, Any, Any]].answer[Any](op))
-          case Stateful => current = Done(found.handler.asInstanceOf[StatefulHandler[AnyOp, Any, Any, Any, Any]].answer[Any](found, op))
-          case _ =>
+        found match {
+          case t: TailLevel => current = Done(t.h.answer[Any](op))
+          case st: StateLevel => current = Done(st.h.answer[Any](st, op))
+          case g: GeneralLevel =>
             val taken = new Array[Level](crossed)
             var i = 0
             var cs = levels
             while (i < crossed) { taken(i) = cs.head.taken; cs = cs.tail; i += 1 }
-            val k = new K(frames, taken, found.handler)
-            frames = found.outside
+            val k = new K(frames, taken, g.h)
+            frames = g.outside
             levels = ls.tail
-            current = found.handler.asInstanceOf[Handler[AnyOp, Any, Any, Any]].op[Any](op, (x: Any) => Resume(k, x))
+            current = g.h.op[Any](op, (x: Any) => Resume(k, x))
+          case _: RemapLevel => throw new IllegalStateException
         }
       case Delay(q) => current = q()
-      case Handle(q, kind, h, s0) => levels = new Level(kind, h, frames, s0) :: levels; frames = Nil; current = q
+      case Handle(q, kind) => levels = level(kind, frames) :: levels; frames = Nil; current = q
       case Resume(k, x) =>
-        var ls = new Level(General, k.handler, frames, null) :: levels
+        var ls: List[Level] = new GeneralLevel(k.handler, frames) :: levels
         var i = k.crossed.length - 1
         while (i >= 0) { ls = k.crossed(i).taken :: ls; i -= 1 }
         levels = ls
@@ -100,6 +125,12 @@ private[machine] object Machine extends Simple {
     }
     throw new IllegalStateException
   }
+
+  private def push[X, B](f: X => Prog[B]): Any => Prog[Any] = f.asInstanceOf[Any => Prog[Any]]
+  private def result[A](a: Any): A = a.asInstanceOf[A]
+  private def erase[F[_], R, A, B](h: Handler[F, R, A, B]): AnyHandler = h.asInstanceOf[AnyHandler]
+  private def erase[F[_], R, A, B](h: TailHandler[F, R, A, B]): AnyTail = h.asInstanceOf[AnyTail]
+  private def erase[F[_], S, R, A, B](h: StatefulHandler[F, S, R, A, B]): AnyStateful = h.asInstanceOf[AnyStateful]
 
   type ![+A, R] = Prog[A]
   type Pure = Nothing
@@ -125,7 +156,7 @@ private[machine] object Machine extends Simple {
   def delay[A, R](p: => Prog[A]): Prog[A] = Delay(() => p)
   protected def performOp[E, F[_], R, X](op: F[X])(implicit in: Place): Prog[X] = Perf(in.at, op)
 
-  private def remap[A](p: Prog[A], f: Int => Int): Prog[A] = Handle(p, Remapping, f, null)
+  private def remap[A](p: Prog[A], f: Int => Int): Prog[A] = Handle(p, RemapKind(f))
   def split[E, R, Rest, A](p: Prog[A])(implicit s: Place): Prog[A] = {
     val at = s.at
     if (at == 0) p else remap(p, i => if (i == at) 0 else if (i < at) i + 1 else i)
@@ -133,11 +164,11 @@ private[machine] object Machine extends Simple {
   def embed[R, S, A](p: Prog[A])(implicit s: Vector[Int]): Prog[A] = remap(p, s)
 
   def handle[E, F[_], R, A, B](p: Prog[A])(h: Handler[F, R, A, B])(implicit o: Ops.Aux[E, F]): Prog[B] =
-    Handle(p, General, h, null)
+    Handle(p, GeneralKind(erase(h)))
   override def handleTail[E, F[_], R, A, B](p: Prog[A])(h: TailHandler[F, R, A, B])(implicit o: Ops.Aux[E, F]): Prog[B] =
-    Handle(p, Tail, h, null)
+    Handle(p, TailKind(erase(h)))
   override def handleStateful[E, F[_], S, R, A, B](p: Prog[A])(s0: S)(h: StatefulHandler[F, S, R, A, B])(
-      implicit o: Ops.Aux[E, F]): Prog[B] = Handle(p, Stateful, h, s0)
+      implicit o: Ops.Aux[E, F]): Prog[B] = Handle(p, StatefulKind(erase(h), s0))
   def run[A](p: Prog[A]): A = eval(p)
 }
 
