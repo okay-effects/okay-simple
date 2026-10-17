@@ -222,20 +222,20 @@ class Std[F <: Effects](val fx: F) {
   def local[E](f: E => E): LocalHandler[E] = new LocalHandler(f)
   final class LocalHandler[E](f: E => E) {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Reader[E, x] })#L, R, Rest], back: Sub[Rest, R]): A ! R =
-      ask[E, R](sp).flatMap(e => reader[E](f(e))(p).into[R])
+      ask[E, R].flatMap(e => reader[E](f(e))(p).into[R])
   }
 
   /** what `p` told, with its value — told outside too, when `p` ends */
   def listen[W]: ListenHandler[W] = new ListenHandler[W]
   final class ListenHandler[W] {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Writer[W, x] })#L, R, Rest], back: Sub[Rest, R]): (List[W], A) ! R =
-      writer[W](p).into[R].flatMap { case (ws, a) => tellAll[W, R](ws)(sp).as((ws, a)) }
+      writer[W](p).into[R].flatMap { case (ws, a) => tellAll[W, R](ws).as((ws, a)) }
   }
   /** what `p` told, through `f`, told outside when `p` ends */
   def censor[W](f: List[W] => List[W]): CensorHandler[W] = new CensorHandler[W](f)
   final class CensorHandler[W](f: List[W] => List[W]) {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Writer[W, x] })#L, R, Rest], back: Sub[Rest, R]): A ! R =
-      writer[W](p).into[R].flatMap { case (ws, a) => tellAll[W, R](f(ws))(sp).as(a) }
+      writer[W](p).into[R].flatMap { case (ws, a) => tellAll[W, R](f(ws)).as(a) }
   }
   private def tellAll[W, R[_]](ws: List[W])(implicit in: In[({ type L[x] = Writer[W, x] })#L, R]): Unit ! R =
     ws.foldLeft(pure[Unit, R](()))((p, w) => p.flatMap(_ => tell[W, R](w)))

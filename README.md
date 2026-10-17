@@ -14,9 +14,9 @@ machine and to okay-kernel's protocol, all checked by one suite.
 
 | Module | Artifact | Package | What it is |
 |---|---|---|---|
-| `effects/` | `okay-effects` | `okay.effects` | the interface (`Effectful`, each compiler's `Effects`; `Runner`, an implementation that runs), the standard effects (`Std`), delimited control changing answer types (`Delimited`); typed places for Scala 3 implementations (`Places`) |
-| `machine/` | `okay-effects-machine` | `okay.effects.machine` | THE MACHINE, one per compiler: `okay.effects.machine.Machine` |
-| `free/` | `okay-effects-free` | `okay.effects.free` | THE `Free` MONAD, one per compiler: `okay.effects.free.Free` (through the interface), `OnFree` (as it is) |
+| `core/effects/` | `okay-effects` | `okay.effects` | the interface (`Effectful`, each compiler's `Effects`; `Runner`, an implementation that runs), the standard effects (`Std`), delimited control changing answer types (`Delimited`); typed places for Scala 3 implementations (`Places`) |
+| `core/machine/` | `okay-effects-machine` | `okay.effects.machine` | THE MACHINE, one per compiler: `okay.effects.machine.Machine` |
+| `core/free/` | `okay-effects-free` | `okay.effects.free` | THE `Free` MONAD, one per compiler: `okay.effects.free.Free` (through the interface), `OnFree` (as it is) |
 | `tagless/` | `okay-effects-tagless` | `okay.effects.tagless` | TAGLESS: `Tagless`, an `Effects` of no implementation — a program a value, run on the `Runner` in the implicit context |
 | `modules/`: `concurrent`, `resource`, `io`, `probability`, `parsing`, `logic`, `transaction`, `resilience` | `okay-effects-concurrent`, ... | `okay.effects.concurrent`, ... | MORE EFFECTS, each over the interface: see below |
 | `tck/` | `okay-effects-tck` | `okay.effects` | the interface's suite, a library: `InterfaceSuite(fx)` for any implementation |
@@ -226,7 +226,7 @@ as Scala 2 does. An application of Scala 3 alone takes the Scala 3 build. Proven
 
 ## Implementations
 
-- **The machine** (`machine/`), one per compiler, `okay.effects.machine.Machine`; its classes `Engine`, in an
+- **The machine** (`core/machine/`), one per compiler, `okay.effects.machine.Machine`; its classes `Engine`, in an
   object — no outer pointer in a node or a level. A program is data, `Prog[R, A]`; the run a `@tailrec` loop over it,
   its FRAMES (`Frames[R, X, V]`, the binds from `X` to the value `V` of the nearest level's body, aligned) and its
   LEVELS (`Meta[R, V, Z]`, a handler of `E` at `T + E`, a remapping of places). An answer in place goes straight into
@@ -240,7 +240,7 @@ as Scala 2 does. An application of Scala 3 alone takes the Scala 3 build. Proven
     each level does for itself what needs its types (`returned`, `stepOut`, `found`), as a match refines none. Three
     trusted steps, named: an operation at its handler of its effect, an answer in place of its type, `split` at the
     last place no move.
-- **The `Free` monad** (`free/`), one per compiler: `Free[F, A]` — `Return`, `Perform`, `Bind`, `Inject` (an
+- **The `Free` monad** (`core/free/`), one per compiler: `Free[F, A]` — `Return`, `Perform`, `Bind`, `Inject` (an
   operation and its rest, one node), `Delay` — covariant in its value; `F` a row's operations, each carrying its
   place (`At`). A handler interprets the tree (`Free.handle`, `Free.answer` in place, each with or without a state),
   an operation passed on by each handler it crosses, one place nearer; `k` a trampoline. A handler takes its effect

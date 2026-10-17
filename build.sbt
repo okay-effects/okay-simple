@@ -19,10 +19,10 @@ def crossBuilt: Seq[Def.Setting[?]] = Seq(
   libraryDependencies += munit)
 
 /** THE INTERFACE: the types and the primitives, the standard effects written on them — no implementation */
-lazy val effects = (project in file("effects")).settings(crossBuilt, name := "okay-effects")
+lazy val effects = (project in file("core/effects")).settings(crossBuilt, name := "okay-effects")
 
 /** the fast implementation: a machine of an explicit stack, an operation finding its handler in one walk */
-lazy val machine = (project in file("machine")).dependsOn(effects).settings(crossBuilt, name := "okay-effects-machine")
+lazy val machine = (project in file("core/machine")).dependsOn(effects).settings(crossBuilt, name := "okay-effects-machine")
 
 /** THE INTERFACE'S SUITE, a library: `InterfaceSuite(fx)` and its programs, for any implementation — here's, and the
  * bridges' in their own repositories (okay-core's, okay-kernel's): `"dev.okay" %% "okay-effects-tck" % ... % Test` */
@@ -36,7 +36,7 @@ lazy val suite = (project in file("suite")).dependsOn(machine, tck)
     Test / unmanagedSourceDirectories ++= Seq("src/test/impl", s"src/test/impl-${major(scalaVersion.value)}").map(baseDirectory.value / _))
 
 /** the interface on THE `Free` MONAD: Scala 3, a program a `Free` interpreted by its handlers */
-lazy val free = (project in file("free")).dependsOn(effects)
+lazy val free = (project in file("core/free")).dependsOn(effects)
   .settings(crossBuilt, name := "okay-effects-free")
 
 /** the interface's suite on the `Free` monad */
@@ -53,7 +53,7 @@ lazy val examples = (project in file("examples")).dependsOn(machine, free)
 lazy val free213 = (project in file("compat/free-2.13")).dependsOn(effects213)
   .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), name := "okay-effects-free-213",
     publish / skip := true,
-    Compile / unmanagedSourceDirectories := Seq("free/src/main/scala", "free/src/main/scala-2")
+    Compile / unmanagedSourceDirectories := Seq("core/free/src/main/scala", "core/free/src/main/scala-2")
       .map((ThisBuild / baseDirectory).value / _))
 
 /** the examples as Scala 2.13 builds them, on the interface's 2.13 build: Scala 2 code for the mixed application */
@@ -123,10 +123,10 @@ lazy val bench = (project in file("bench")).dependsOn(machine, free, tagless).en
  */
 lazy val effects213 = (project in file("compat/effects-2.13"))
   .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), name := "okay-effects-213", publish / skip := true,
-    Compile / unmanagedSourceDirectories := Seq("effects/src/main/scala", "effects/src/main/scala-2").map((ThisBuild / baseDirectory).value / _))
+    Compile / unmanagedSourceDirectories := Seq("core/effects/src/main/scala", "core/effects/src/main/scala-2").map((ThisBuild / baseDirectory).value / _))
 lazy val machine213 = (project in file("compat/machine-2.13")).dependsOn(effects213)
   .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), name := "okay-effects-machine-213", publish / skip := true,
-    Compile / unmanagedSourceDirectories := Seq("machine/src/main/scala", "machine/src/main/scala-2").map((ThisBuild / baseDirectory).value / _))
+    Compile / unmanagedSourceDirectories := Seq("core/machine/src/main/scala", "core/machine/src/main/scala-2").map((ThisBuild / baseDirectory).value / _))
 lazy val compat3on2 = (project in file("compat/scala3-on-2.13")).dependsOn(machine213)
   .settings(scalaVersion := scala3, crossScalaVersions := Seq(scala3), libraryDependencies += munit,
     name := "okay-effects-compat-scala3-on-213", publish / skip := true,
