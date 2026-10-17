@@ -11,34 +11,40 @@ import scala.annotation.tailrec
  */
 private[machine] trait Places extends MachineTypes {
   /** the place of `E` in `R`, and `R` without it `Rest` */
-  sealed abstract class Place[E <: Effect, R, Rest] {
+  sealed abstract class Place[E, R, Rest] {
     /** the places of `R` renamed to `Rest + E`'s: `E` moved to the end */
     def toEnd: Renaming[R, Plus[Rest, E]]
     /** `R` is `Rest + E` already: no renaming */
     def same: (R =:= Plus[Rest, E]) | Null
   }
-  final class OnePlace[E <: Effect] extends Place[E, E, PureRow] {
+  final class OnePlace[E] extends Place[E, E, PureRow] {
     def toEnd: Renaming[E, Plus[PureRow, E]] = new Renaming[E, Plus[PureRow, E]] {
-      def apply[E2 <: Effect](at: Place[E2, E, ?]): Place[E2, Plus[PureRow, E], ?] = at match {
-        case _: OnePlace[e] => new LastPlace[PureRow, E]
+      // the one place it renames to, made once: no allocation where an operation goes through
+      private val last = new LastPlace[PureRow, E]
+      def apply[E2](at: Place[E2, E, ?]): Place[E2, Plus[PureRow, E], ?] = at match {
+        case _: OnePlace[e] => last
         case _ => throw new IllegalStateException(s"not a place in a row of one: $at")
       }
     }
     def same: Null = null
   }
-  final class LastPlace[R, E <: Effect] extends Place[E, Plus[R, E], R] {
+  final class LastPlace[R, E] extends Place[E, Plus[R, E], R] {
     def toEnd: Renaming[Plus[R, E], Plus[R, E]] = new Renaming[Plus[R, E], Plus[R, E]] {
-      def apply[E2 <: Effect](at: Place[E2, Plus[R, E], ?]): Place[E2, Plus[R, E], ?] = at
+      def apply[E2](at: Place[E2, Plus[R, E], ?]): Place[E2, Plus[R, E], ?] = at
     }
     def same: Plus[R, E] =:= Plus[R, E] = summon[Plus[R, E] =:= Plus[R, E]]
   }
-  final class InitPlace[E <: Effect, R, G, Rest](val s: Place[E, R, Rest]) extends Place[E, Plus[R, G], Plus[Rest, G]] {
+  final class InitPlace[E, R, G, Rest](val s: Place[E, R, Rest]) extends Place[E, Plus[R, G], Plus[Rest, G]] {
     def toEnd: Renaming[Plus[R, G], Plus[Plus[Rest, G], E]] = new Renaming[Plus[R, G], Plus[Plus[Rest, G], E]] {
-      def apply[E2 <: Effect](at: Place[E2, Plus[R, G], ?]): Place[E2, Plus[Plus[Rest, G], E], ?] = at match {
+      // the places it renames to that are the same each time, made once
+      private val gNow = new InitPlace[G, Plus[Rest, G], E, Rest](new LastPlace[Rest, G])
+      private val eNow = new LastPlace[Plus[Rest, G], E]
+      private val inner = s.toEnd
+      def apply[E2](at: Place[E2, Plus[R, G], ?]): Place[E2, Plus[Plus[Rest, G], E], ?] = at match {
         // `G`, the last: one in now, `E` after it
-        case _: LastPlace[r, g] => new InitPlace[G, Plus[Rest, G], E, Rest](new LastPlace[Rest, G])
-        case ip: InitPlace[e2, r, g, rest] => s.toEnd(ip.s) match {
-          case _: LastPlace[r3, e3] => new LastPlace[Plus[Rest, G], E]
+        case _: LastPlace[r, g] => gNow
+        case ip: InitPlace[e2, r, g, rest] => inner(ip.s) match {
+          case _: LastPlace[r3, e3] => eNow
           case ip2: InitPlace[e4, r4, g4, rest4] => new InitPlace(new InitPlace[E2, Rest, G, rest4](ip2.s))
           case other => throw new IllegalStateException(s"not a place: $other")
         }
@@ -49,7 +55,7 @@ private[machine] trait Places extends MachineTypes {
   }
 
   /** places renamed from `R1` to `R2`, typed */
-  trait Renaming[R1, R2] { def apply[E <: Effect](at: Place[E, R1, ?]): Place[E, R2, ?] }
+  trait Renaming[R1, R2] { def apply[E](at: Place[E, R1, ?]): Place[E, R2, ?] }
 
   type At[E <: Effect, R] = Place[E, R, ?]
   type Rename[R1, R2] = Renaming[R1, R2]
@@ -63,16 +69,16 @@ private[machine] trait Places extends MachineTypes {
     new InitPlace[E, R, G, Rest](s)
   implicit def in[E <: Effect, R, Rest](implicit s: Split[E, R, Rest]): In[E, R] = s
   implicit def subPure[S]: Sub[Pure, S] = new Renaming[PureRow, S] {
-    def apply[E <: Effect](at: Place[E, PureRow, ?]): Place[E, S, ?] = throw new IllegalStateException("no place in Pure")
+    def apply[E](at: Place[E, PureRow, ?]): Place[E, S, ?] = throw new IllegalStateException("no place in Pure")
   }
   implicit def subOne[E <: Effect, S](implicit e: In[E, S]): Sub[E, S] = new Renaming[E, S] {
-    def apply[E2 <: Effect](at: Place[E2, E, ?]): Place[E2, S, ?] = at match {
+    def apply[E2](at: Place[E2, E, ?]): Place[E2, S, ?] = at match {
       case _: OnePlace[e] => e
       case other => throw new IllegalStateException(s"not a place in a row of one: $other")
     }
   }
   implicit def subMore[R, E <: Effect, S](implicit r: Sub[R, S], e: In[E, S]): Sub[R + E, S] = new Renaming[Plus[R, E], S] {
-    def apply[E2 <: Effect](at: Place[E2, Plus[R, E], ?]): Place[E2, S, ?] = at match {
+    def apply[E2](at: Place[E2, Plus[R, E], ?]): Place[E2, S, ?] = at match {
       case _: LastPlace[r1, e1] => e
       case ip: InitPlace[e2, r2, g, rest] => r(ip.s)
       case other => throw new IllegalStateException(s"not a place: $other")
