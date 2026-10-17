@@ -20,7 +20,7 @@ class Lanes(val fx: Simple) {
   def asks0(i: Int): Int ! R0 = if (i == 0) pure(0) else ask[Int, R0].flatMap(x => asks0(i - 1).map(_ + x))
   def askNear: Int = run(reader(1)(asks0(n)))
 
-  type R4 = Reader % Int + State % Int + Writer % Int + Error % Int + Choose
+  type R4 = Reader % Int + State % Int + Writer % Int + Error % Int + *[Choose]
   def asks4(i: Int): Int ! R4 = if (i == 0) pure(0) else ask[Int, R4].flatMap(x => asks4(i - 1).map(_ + x))
   def askAcross4: Int = run(reader(1)(state(0)(writer[Int](attempt[Int](all(asks4(n))))))) match {
     case (_, (_, Right(List(v)))) => v

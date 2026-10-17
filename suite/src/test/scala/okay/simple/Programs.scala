@@ -25,7 +25,7 @@ class Programs(val fx: Simple) {
   def counter: Int ! (State % Int) = get[Int, State % Int]
   def grown = run(reader("x")(writer[String](state(5)(counter.into[Row]))))
 
-  type Choosing = Choose + (State % Int)
+  type Choosing = *[Choose] + (State % Int)
   def pick: Int ! Choosing =
     for { x <- among[Int, Choosing](List(1, 2, 3)); _ <- modify[Int, Choosing](_ + x) } yield x * 10
   /** the state outside the choice: one state through every branch */

@@ -36,8 +36,9 @@ Scala 2 too.
 |---|---|
 | `A ! R` | a program of value `A` over the row `R` |
 | `Pure`, `E`, `R + E` | a row: of no effect, of one, the row `R` and `E` after it — left to right |
-| `Effect`, `Name[F]` | an effect's name, a proper type, and the operations it names: `sealed trait Choose extends Name[Choose.Op]` |
-| `F % S` | the effect `F` with its parameter `S`: `State % Int`, its operations `State[Int, X]` |
+| `F % S` | the effect of the operations `F[S, X]`, with its parameter `S`: `State % Int`, its operations `State[Int, X]` |
+| `*[F]` | the effect of the operations `F[X]`, with no parameter: `*[Choose]`, its operations `Choose[X]` |
+| `Effect`, `Name[F]` | what `%` and `*` are: an effect's name, a proper type, and the operations it names |
 | `Op[E, X]` | the operation of `E` answered by an `X`: computed from the name, the same wherever it is asked |
 | `In[E, R]` | `E` is in `R` |
 | `Split[E, R, Rest]` | `E` is in `R`, at any place, and `R` without it is `Rest` |
@@ -51,25 +52,25 @@ same for the two other shapes of handler, `handleTail` and `handleStateful` (`ha
 
 ## An effect and its handler
 
-An effect is a GADT of its operations, `F[X]` an operation answered by an `X`, and its name says them. A handler is
-typed by the name, its clause by `Op[E, X]` — so an operation and the handler it goes to are of one type, computed
-from the name on both sides. Each operation says how its answer is made, `answer`, so a handler's clause needs no
+An effect is a GADT of its operations — `F[S, X]` with a parameter, `F[X]` with none — and in a row it is named
+`F % S` or `*[F]`: a row holds proper types, and Scala 2 has no type alias whose result is a type constructor. A
+handler is typed by the name, its clause by `Op[E, X]` — so an operation and the handler it goes to are of one type,
+computed from the name on both sides. Each operation says how its answer is made, `answer`, so a handler's clause needs no
 GADT inference (Scala 2 has none for a method's type parameter) and no cast:
 
 ```scala
-sealed trait Counter extends Name[Counter.Op]                               // the name and its operations
+sealed trait Counter[X]                                                     // its operations; named *[Counter]
 object Counter {
-  sealed trait Op[X]
-  final case class Tick[X](answer: Unit => X) extends Op[X]
-  final case class Peek[X](answer: Int => X) extends Op[X]
+  final case class Tick[X](answer: Unit => X) extends Counter[X]
+  final case class Peek[X](answer: Int => X) extends Counter[X]
 }
 
-def tick[R](implicit in: In[Counter, R]): Unit ! R = perform[Counter].apply[R, Unit](Counter.Tick(u => u))
+def tick[R](implicit in: In[*[Counter], R]): Unit ! R = perform[*[Counter]].apply[R, Unit](Counter.Tick(u => u))
 
-def counting[R, Rest, A](p: A ! R)(implicit s: Split[Counter, R, Rest]): (Int, A) ! Rest =
-  handle[Counter, R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[Counter, Rest, A, Int => (Int, A) ! Rest] {
+def counting[R, Rest, A](p: A ! R)(implicit s: Split[*[Counter], R, Rest]): (Int, A) ! Rest =
+  handle[*[Counter], R, Rest, A, Int => (Int, A) ! Rest](p)(new Handler[*[Counter], Rest, A, Int => (Int, A) ! Rest] {
     def ret(a: A) = pure(n => pure((n, a)))
-    def op[X](op: Op[Counter, X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match {
+    def op[X](op: Op[*[Counter], X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match {
       case Counter.Tick(answer) => pure(n => k(answer(())).flatMap(f => f(n + 1)))
       case Counter.Peek(answer) => pure(n => k(answer(n)).flatMap(f => f(n)))
     }
@@ -82,7 +83,7 @@ times (`Choose`'s `all` resumes it once per choice). A handler of an effect with
 operations may be an `enum` with no `answer`, its clauses typed by GADT inference.
 
 The standard effects, each handled from anywhere in the row: `State` (`state(s0)`), `Reader` (`reader(e)`),
-`Writer` (`writer[W]`), `Error` (`attempt[E]`), `Choose` (`all`).
+`Writer` (`writer[W]`), `Error` (`attempt[E]`), `*[Choose]` (`all`).
 
 ## Scala 2 and Scala 3: two conveniences, one interface
 

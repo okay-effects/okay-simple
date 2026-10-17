@@ -8,8 +8,11 @@ package okay.simple
  */
 trait Effect { type Ops[X] }
 
-/** a name of the operations `F`: `sealed trait Choose extends Name[Choose.Op]` */
+/** a name of the operations `F` */
 trait Name[F[_]] extends Effect { type Ops[X] = F[X] }
+
+/** the effect of the operations `F`, of no parameter, a name: `*[Choose]`, its operations `Choose[X]` */
+final abstract class *[F[_]] extends Name[F]
 
 /** the effect `F` with its parameter `S`, a name: `State % Int`, its operations `State[Int, X]` */
 final abstract class %[F[_, _], S] extends Name[({ type L[x] = F[S, x] })#L]

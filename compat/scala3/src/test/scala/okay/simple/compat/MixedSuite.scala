@@ -10,10 +10,10 @@ class MixedSuite extends munit.FunSuite {
   import counting.fx.*
 
   /** a Scala 3 program over Scala 2's effect: context bounds, no parentheses */
-  def countedState[R: {Has[Counter]#L, Has[State % Int]#L}]: Int ! R =
+  def countedState[R: {Has[*[Counter]]#L, Has[State % Int]#L}]: Int ! R =
     counting.tick[R].andThen(counting.tick[R]).andThen(counting.peek[R]).flatMap(n => modify[Int, R](_ + n).as(n))
 
-  type Row = Counter + Writer % String + State % Int
+  type Row = *[Counter] + Writer % String + State % Int
 
   test("Scala 2.13's program and handler, in Scala 3, beside Scala 3's program, in one row") {
     val both: Int ! Row = counting.greetAll[Row](List("Ann")).flatMap(n => countedState[Row].map(_ + n))
@@ -21,7 +21,7 @@ class MixedSuite extends munit.FunSuite {
   }
 
   test("Scala 2.13's row type is Scala 3's") {
-    val p: Int ! (Counter + Writer % String) = counting.greetAll[counting.Row](List("Ann", "Bob"))
+    val p: Int ! (*[Counter] + Writer % String) = counting.greetAll[counting.Row](List("Ann", "Bob"))
     assertEquals(run(writer[String](counting.counting(p))), (List("hello, Ann", "hello, Bob"), (2, 2)))
   }
 }

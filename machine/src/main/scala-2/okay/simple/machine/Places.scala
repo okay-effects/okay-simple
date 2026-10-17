@@ -50,7 +50,10 @@ private[machine] trait Places extends MachineTypes {
     var n = at.n
     var l: Level0 = m
     while (n != 0 || (l.kind != GeneralKind && l.kind != TailKind && l.kind != StateKind)) {
-      if (l.kind == RemapKind) l match { case r: RemapLevel[r1, r2, a, w, z] => n = r.rename.f(n) }
+      if (l.kind == RemapKind) l match {
+        case r: RemapLevel[r1, r2, a, w, z] => n = r.rename.f(n)
+        case _ => throw new IllegalStateException("not a remapping")
+      }
       else if (l.kind == TopKind) throw new IllegalStateException(s"an operation no handler took, at ${at.n}")
       else n -= 1
       l = l.outer
@@ -65,7 +68,10 @@ private[machine] trait Places extends MachineTypes {
   private def walk[R0, X, V0, R, V, Z](n: Int, op: Any, inner: Frames[R0, X, V0], pre: Prefix[R0, V0, R, V],
       m: Meta[R, V, Z]): Next[Z] =
     if (m.kind == RemapKind) {
-      val n2 = m match { case r: RemapLevel[r1, r2, a, w, z] => r.rename.f(n) }
+      val n2 = m match {
+        case r: RemapLevel[r1, r2, a, w, z] => r.rename.f(n)
+        case _ => throw new IllegalStateException("not a remapping")
+      }
       val o = m.stepOut(pre)
       walk[R0, X, V0, o.R, o.V, Z](n2, op, inner, o.pre, o.m)
     } else if (n == 0) m.foundAny[R0, X, V0](op, inner, pre)

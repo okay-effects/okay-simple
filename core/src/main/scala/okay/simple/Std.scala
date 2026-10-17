@@ -23,11 +23,10 @@ object Error {
   final case class Raise[E, X](e: E) extends Error[E, X]
 }
 
-/** an effect of no parameter: its name a type of its operations */
-sealed trait Choose extends Name[Choose.Op]
+/** an effect of no parameter, named `*[Choose]` in a row */
+sealed trait Choose[X]
 object Choose {
-  sealed trait Op[X]
-  final case class Among[X](xs: List[X]) extends Op[X]
+  final case class Among[X](xs: List[X]) extends Choose[X]
 }
 
 /** THE STANDARD EFFECTS' OPERATIONS AND HANDLERS, written once on the interface: any implementation has them. Each
@@ -39,8 +38,8 @@ trait Simple extends Effects {
   def ask[E, R](implicit in: In[Reader % E, R]): E ! R = perform[Reader % E].apply[R, E](Reader.Ask(e => e))
   def tell[W, R](w: W)(implicit in: In[Writer % W, R]): Unit ! R = perform[Writer % W].apply[R, Unit](Writer.Tell(w, u => u))
   def raise[E, R, X](e: E)(implicit in: In[Error % E, R]): X ! R = perform[Error % E].apply[R, X](Error.Raise(e))
-  def among[X, R](xs: List[X])(implicit in: In[Choose, R]): X ! R = perform[Choose].apply[R, X](Choose.Among(xs))
-  def fail[X, R](implicit in: In[Choose, R]): X ! R = among[X, R](Nil)
+  def among[X, R](xs: List[X])(implicit in: In[*[Choose], R]): X ! R = perform[*[Choose]].apply[R, X](Choose.Among(xs))
+  def fail[X, R](implicit in: In[*[Choose], R]): X ! R = among[X, R](Nil)
 
   /** the final state and the value; a `k` resumed twice resumes the state of its time. Answered in place */
   def state[S](s0: S): StateHandler[S] = new StateHandler(s0)
@@ -89,10 +88,10 @@ trait Simple extends Effects {
   }
 
   /** every way the program can go: `k` resumed once for each choice */
-  def all[R, Rest, A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): List[A] ! Rest =
-    handle[Choose, R, Rest, A, List[A]](p)(new Handler[Choose, Rest, A, List[A]] {
+  def all[R, Rest, A](p: A ! R)(implicit sp: Split[*[Choose], R, Rest]): List[A] ! Rest =
+    handle[*[Choose], R, Rest, A, List[A]](p)(new Handler[*[Choose], Rest, A, List[A]] {
       def ret(a: A) = pure(List(a))
-      def op[X](op: Op[Choose, X], k: X => List[A] ! Rest) = op match {
+      def op[X](op: Op[*[Choose], X], k: X => List[A] ! Rest) = op match {
         case Choose.Among(xs) => xs.foldLeft(pure[List[A], Rest](Nil))((acc, x) => acc.flatMap(l => k(x).map(l ++ _)))
       }
     })

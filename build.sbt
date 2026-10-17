@@ -10,7 +10,8 @@ ThisBuild / scalaVersion := scala3
 def crossBuilt: Seq[Def.Setting[?]] = Seq(
   crossScalaVersions := Seq(scala3, scala2),
   scalacOptions ++= (if (scalaVersion.value.startsWith("3")) Seq("-deprecation", "-feature")
-                     else Seq("-deprecation", "-feature", "-Xlint")),
+                     // the machine's classes are members of one object's trait: no outer reference to tell apart
+                     else Seq("-deprecation", "-feature", "-Xlint", "-Wconf:msg=outer reference in this type test:s")),
   libraryDependencies += munit)
 
 /** THE INTERFACE: the types and the primitives, the standard effects written on them — no implementation */
@@ -71,6 +72,7 @@ lazy val core213 = (project in file("compat/core-2.13"))
     Compile / unmanagedSourceDirectories := Seq("core/src/main/scala", "core/src/main/scala-2").map((ThisBuild / baseDirectory).value / _))
 lazy val free213 = (project in file("compat/free-2.13")).dependsOn(core213)
   .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), name := "okay-simple-free-213", publish / skip := true,
+    scalacOptions += "-Wconf:msg=outer reference in this type test:s",
     Compile / unmanagedSourceDirectories := Seq("free/src/main/scala", "machine/src/main/scala", "machine/src/main/scala-2").map((ThisBuild / baseDirectory).value / _))
 lazy val compat3on2 = (project in file("compat/scala3-on-2.13")).dependsOn(free213)
   .settings(scalaVersion := scala3, crossScalaVersions := Seq(scala3), libraryDependencies += munit,
