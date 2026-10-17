@@ -1,0 +1,47 @@
+# okay-effects documentation
+
+One interface of algebraic effects for Scala 3 and Scala 2.13 — programs whose effects are named in their type,
+handlers that give them meaning, any number of implementations to run them on, on the JVM and on Scala.js.
+
+Every code block here is compiled and its `assert`s run (`sbt docsCheck/test docsCheck2/test`), so what you read
+runs.
+
+## Start
+
+- [Getting started](getting-started.md) — the library in your build, a first program, run on two implementations, in
+  Scala 3 and in Scala 2.
+- [A tour](tour.md) — eleven steps: rows, handling in any order, an effect of your own, a handler resuming twice,
+  code generic in its row, choice, errors, generators, interception, delimited control, tagless.
+
+## The guide
+
+| Page | |
+|---|---|
+| [Programs and rows](guide/programs-and-rows.md) | `A ! R`, effects as GADTs, rows `R + E`, the evidence `In`, `Split`, `Sub`; `Effects` and `Runner` |
+| [Handlers](guide/handlers.md) | the five shapes — general, in place, aborting, stateful, stateful general — deep handlers, `k` |
+| [The standard effects](guide/standard-effects.md) | `State`, `Reader`, `Writer`, `Error`, `Abort`, `Choose`, `Yield`, `Fresh`, `Random`, `Store`, `Lift` |
+| [Interception](guide/interception.md) | `intercept`, `observe`, `around`: an effect's operations seen, changed, refused, the row kept |
+| [Delimited control](guide/delimited-control.md) | `shift`/`reset` as an effect; `delimited`, the answer type changing |
+| [Implementations](guide/implementations.md) | the machine, `Free`, tagless, okay-core's and okay-kernel's bridges; choosing; measured |
+| [Scala 2 and Scala 3](guide/scala-2-and-3.md) | one interface, two ways of writing a row; code for both; one application of both |
+| [Writing an implementation](guide/writing-an-implementation.md) | what to give, what to override, the interface's suite |
+| [Platforms and the build](guide/platforms.md) | the JVM and Scala.js, the sbt commands, the layout |
+
+## The modules
+
+Each a module over the interface, for both compilers and both platforms, each checked on the machine, `Free` and
+tagless:
+
+| Module | |
+|---|---|
+| [stream](modules/stream.md) | lazy streams pulled by effects; transformations, `merge` in turn, to and from generators |
+| [async](modules/async.md) | asynchrony with no runtime: callbacks driven to a `Future`, `sleep`, `both`, `race`, `timeout`; streams merged as they come |
+| [concurrent](modules/concurrent.md) | cooperative threads in turns, a rendezvous channel |
+| [resource](modules/resource.md) | scopes, `defer`, `bracket` |
+| [io](modules/io.md) | the console, the clock, the environment as effects; the world's handlers and pure ones |
+| [probability](modules/probability.md) | random choices: the exact distribution, or sampled |
+| [parsing](modules/parsing.md) | parsers of a state and a choice, backtracking |
+| [logic](modules/logic.md) | logic variables, unification, relations either way, a fair search |
+| [transaction](modules/transaction.md) | transactions on a store, rolled back on an error |
+| [resilience](modules/resilience.md) | retries and fallbacks |
+| [interop](modules/interop.md) | cats (and cats-effect), ZIO, tofu |

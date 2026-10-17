@@ -128,6 +128,39 @@ lazy val async = effectModule("async", "okay-effects-async").dependsOn(stream)
 lazy val bench = (project in file("bench")).dependsOn(machine.jvm, free.jvm, tagless.jvm).enablePlugins(JmhPlugin)
   .settings(crossScalaVersions := Seq(scala3, scala2), name := "okay-effects-bench", publish / skip := true)
 
+/** THE DOCUMENTATION'S CODE, CHECKED: each ```scala block of `docs/` (```scala2 for Scala 2.13), a page's blocks in
+ * turn in one class, compiled; an instance made in a test, so a page's `assert`s run — a class, not an object: a
+ * callback on another thread waits on no initialisation of it. `sbt docsCheck/test docsCheck2/test` */
+def docBlocks(lang: String) = Def.task {
+  val docs = (ThisBuild / baseDirectory).value / "docs"
+  val out = (Test / sourceManaged).value / "docs"
+  val Block = ("(?s)```" + lang + "\\n(.*?)```").r
+  val pages = (docs ** "*.md").get.sortBy(_.getPath).flatMap { md =>
+    val blocks = Block.findAllMatchIn(IO.read(md)).map(_.group(1)).toList
+    if (blocks.isEmpty) None
+    else Some(md.relativeTo(docs).get.getPath.replaceAll("[^A-Za-z0-9]", "_") -> blocks)
+  }
+  val objects = pages.map { case (name, blocks) =>
+    val f = out / s"$name.scala"
+    IO.write(f, s"package docs.check\n\nclass $name {\n" + blocks.mkString("\n") + "\n}\n")
+    f
+  }
+  val suite = out / "DocsSuite.scala"
+  IO.write(suite, "package docs.check\n\nclass DocsSuite extends munit.FunSuite {\n" +
+    pages.map { case (name, _) => "  test(\"" + name + "\") { assert(new " + name + "().toString.nonEmpty) }\n" }.mkString + "}\n")
+  objects :+ suite
+}
+lazy val docsCheck = (project in file("docs/check/scala-3"))
+  .dependsOn(tck.jvm, machine.jvm, free.jvm, tagless.jvm, concurrent.jvm, resource.jvm, io.jvm, probability.jvm, parsing.jvm, logic.jvm,
+    transaction.jvm, resilience.jvm, stream.jvm, async.jvm, interopCats.jvm, interopZio.jvm, interopTofu)
+  .settings(scalaVersion := scala3, crossScalaVersions := Seq(scala3), publish / skip := true, libraryDependencies += munit,
+    libraryDependencies += "org.typelevel" %% "cats-effect" % "3.5.7",
+    scalacOptions ++= Seq("-deprecation", "-feature", "-Wconf:msg=unused:s"), Test / sourceGenerators += docBlocks("scala").taskValue)
+lazy val docsCheck2 = (project in file("docs/check/scala-2"))
+  .dependsOn(machine.jvm, free.jvm, tagless.jvm, stream.jvm)
+  .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), publish / skip := true, libraryDependencies += munit,
+    Test / sourceGenerators += docBlocks("scala2").taskValue)
+
 /**
  * COMPATIBILITY. One application has one build of the interface. The interface is one source; how a row is written
  * is each build's own — Scala 3's `%` a type lambda, Scala 2's a name with its constructor `#L`, which Scala 2 code
@@ -158,10 +191,10 @@ lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
     name := "okay-effects-compat-scala3", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
-lazy val root = (project in file(".")).aggregate(effects.jvm, effects.js, tck.jvm, tck.js, machine.jvm, machine.js, suite.jvm, suite.js, free.jvm, free.js, suiteFree.jvm, suiteFree.js, tagless.jvm, tagless.js, concurrent.jvm, concurrent.js, resource.jvm, resource.js, io.jvm, io.js, probability.jvm, probability.js, parsing.jvm, parsing.js, logic.jvm, logic.js, transaction.jvm, transaction.js, resilience.jvm, resilience.js, stream.jvm, stream.js, async.jvm, async.js, interopCats.jvm, interopCats.js, interopZio.jvm, interopZio.js, interopTofu, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2)
+lazy val root = (project in file(".")).aggregate(docsCheck, docsCheck2, effects.jvm, effects.js, tck.jvm, tck.js, machine.jvm, machine.js, suite.jvm, suite.js, free.jvm, free.js, suiteFree.jvm, suiteFree.js, tagless.jvm, tagless.js, concurrent.jvm, concurrent.js, resource.jvm, resource.js, io.jvm, io.js, probability.jvm, probability.js, parsing.jvm, parsing.js, logic.jvm, logic.js, transaction.jvm, transaction.js, resilience.jvm, resilience.js, stream.jvm, stream.js, async.jvm, async.js, interopCats.jvm, interopCats.js, interopZio.jvm, interopZio.js, interopTofu, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
 /** everything: the interface's suites by both compilers, then the two compilers in one application */
 /** the same suites on Scala.js (Node.js), by both compilers */
 addCommandAlias("testJS", "; ++3.9.0 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; asyncJS/test ; interopCatsJS/test ; interopZioJS/test ; ++2.13.18 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; asyncJS/test ; interopCatsJS/test ; interopZioJS/test ; ++3.9.0")
-addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++2.13.18 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test")
+addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++2.13.18 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test ; docsCheck/test ; ++2.13.18 docsCheck2/test ; ++3.9.0")

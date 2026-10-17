@@ -7,8 +7,13 @@ implementation makes them what it likes. Only how a row is written is each compi
 type lambdas, `Choose + State % Int`; in Scala 2 by names taken as the constructor they make,
 `(*[Choose] + (State % Int))#L`.
 
-Two implementations here — a machine, and the `Free` monad — and two bridges in other repositories, to okay-core's
-machine and to okay-kernel's protocol, all checked by one suite.
+Three implementations here — a machine, the `Free` monad, and tagless (programs of no implementation) — and two
+bridges in other repositories, to okay-core's machine and to okay-kernel's protocol, all checked by one suite; and
+modules of more effects: streams, asynchrony, concurrency, resources, I/O, probability, parsing, logic, transactions,
+retries. On the JVM and on Scala.js.
+
+**Documentation: [docs/](docs/README.md)** — [getting started](docs/getting-started.md), [a tour](docs/tour.md), the
+guide, a page for each module; every code block compiled and run.
 
 ## Modules and packages
 
@@ -178,7 +183,7 @@ implementation, made by `newStd`: an implementation may offer its own with bette
 | `Fresh` | `fresh` | `freshFrom(n0)(p)` |
 | `Random` | `nextLong`, `nextInt(bound)`, `nextDouble` | `random(seed)(p)`: the same seed, the same numbers |
 | `Store[K, V, *]` | `load(k)`, `save(k, v)`, `remove(k)` | `store(m0)(p)`: the final map and the value |
-| `Lift % G` | `lift(ga)`: a program of another monad `G` | a `Runner`'s `lower[G](p)`, given a `Lowering[G]` (cats, ZIO) |
+| `Lift[G, *]` (Scala 3: `[x] =>> Lift[G, x]`) | `lift(ga)`: a program of another monad `G` | a `Runner`'s `lower[G](p)`, given a `Lowering[G]` (cats, ZIO) |
 | `Control % (B ! R)` | `shift(f)` | `reset(p)`: delimited control, the answer type fixed |
 
 Delimited control CHANGING ANSWER TYPES is its own type, `Cps[A, B, C, R]` (`fx.delimited`, the trait `Delimited`):
@@ -320,13 +325,13 @@ Its price, a `Program` made and then made again on `fx` at each node (Scala 3, �
 
 ## Interop
 
-Over any implementation, both compilers; another monad's programs inside a program are the standard `Lift % G`
+Over any implementation, both compilers; another monad's programs inside a program are the standard `Lift[G, *]`
 (`std.lift(ga)`), and a program of it given back as a `G[A]` by a `Runner`'s `lower(p)`, given a `Lowering[G]`:
 
 | Module | What it gives |
 |---|---|
 | `interop/cats` | `Cats(fx).monad[R]`, cats' `Monad` of the programs (stack safe); a `Lowering` of any cats monad — `IO` of cats-effect 3, `Either`, `Option` |
-| `interop/zio` | `ZioEffects(fx)`: `fromZIO(task)`, `toZIO(p)` — a ZIO task a `Lift % Task`, a program a `Task` |
+| `interop/zio` | `ZioEffects(fx)`: `fromZIO(task)`, `toZIO(p)` — a ZIO task a `Lift[Task, *]`, a program a `Task` |
 | `interop/tofu` | `Tofu(Cats(fx))`: `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row named |
 
 ## Examples
