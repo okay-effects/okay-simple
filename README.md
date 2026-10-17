@@ -252,7 +252,7 @@ run(greeted)
 Each word made on `fx` is `fx`'s own: `pure` its `pure`, a handler its `handle` of the same shape, `state` its
 `std.state` — so what an implementation does better it does here too. One trusted step: the `k` an implementation
 gives a general handler's clause is given back to the clause as a `Program` (a cast, checked by identity: a `k`
-kept and run on another implementation fails). Delimited control changing answer types (`delimited`) is not here.
+kept and run on another implementation fails). Delimited control changing answer types is not among its words; `Tagless.on(fx).delimited` gives the default one, by continuations, over tagless.
 
 `Tagless.on(fx)` is tagless as an implementation of the interface: code written over `Effects` runs on it — the
 interface's suite does, on the machine and on `Free`. One per compiler; Scala 3's every word `inline`. A chain of
