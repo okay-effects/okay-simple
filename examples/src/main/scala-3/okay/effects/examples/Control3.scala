@@ -1,15 +1,15 @@
 package okay.effects.examples
 
-import okay.effects.Sum
-import okay.effects.simple.Machine
-import okay.effects.simple.Machine.*
-import okay.effects.simple.Machine.std.*
+import okay.effects.Effects
 
 /**
- * CONTROL, SCALA 3: generators (`Yield`), a search (`Choose`'s `first`), errors recovered, delimited control —
+ * CONTROL, SCALA 3, over any implementation `fx`: generators (`Yield`), a search (`Choose`'s `first`), errors recovered, delimited control —
  * `shift`/`reset` with the answer type fixed (an effect of `std`), and with the answer type changed (`delimited`).
  */
-object Control3:
+class Control3(val fx: Effects):
+  import fx.*
+  import fx.std.*
+
   /** A GENERATOR: values given out one by one, the generator going on */
   def countdown[R[_]: Has[Yield % Int]](n: Int): Unit ! R =
     if n == 0 then pure(()) else emit[Int, R](n).andThen(countdown[R](n - 1))
@@ -44,7 +44,7 @@ object Control3:
 
   /** THE ANSWER TYPE CHANGED (`delimited`): the body's answer a `String`, the `reset`'s a function of the name */
   def greeting: String =
-    val d = Machine.delimited
+    val d = fx.delimited
     val f = d.reset[String, String => String ! Pure, Pure](
       d.map(d.shift[String, String, String => String ! Pure, Pure](k => pure((name: String) => k(name))))("hello, " + _))
     run(f.flatMap(g => g("Ann")))

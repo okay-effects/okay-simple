@@ -1,14 +1,27 @@
 package okay.effects.examples
 
-import okay.effects.simple.Machine
-import okay.effects.simple.Machine.*
-import okay.effects.simple.Machine.std.*
+import okay.effects.Effects
+
+/** the effects of the basics, of no implementation */
+object Basics3:
+  /** AN EFFECT OF ONE'S OWN: its operations an enum, the answer type in each case */
+  enum Counter[X]:
+    case Tick extends Counter[Unit]
+    case Peek extends Counter[Int]
+
+  /** an effect whose handler resumes `k` twice */
+  enum Coin[X]:
+    case Flip extends Coin[Boolean]
 
 /**
- * THE BASICS, SCALA 3: a row of type constructors (`Reader % String + State % Int`), its requirements as context
- * bounds, an effect of one's own an `enum` whose clauses GADT inference types, handlers of each shape.
+ * THE BASICS, SCALA 3, over any implementation `fx`: a row of type constructors (`Reader % String + State % Int`),
+ * its requirements as context bounds, an effect of one's own an `enum` whose clauses GADT inference types, handlers of each shape.
  */
-object Basics3:
+class Basics3(val fx: Effects):
+  import fx.*
+  import fx.std.*
+  import Basics3.{Coin, Counter}
+
   /** a program in any row that has these three, at any place */
   def greet[R[_]: {Has[Reader % String], Has[Writer % String], Has[State % Int]}]: Int ! R =
     for
@@ -23,11 +36,6 @@ object Basics3:
   /** each handler takes its effect from wherever it is in the row: the order of handling is the reader's, the
    * writer's, the state's, from the inside out — the row's order is not */
   def greeted: (Int, (List[String], Int)) = run(state(0)(writer[String](reader("Ann")(greet[App]))))
-
-  /** AN EFFECT OF ONE'S OWN: its operations an enum, the answer type in each case */
-  enum Counter[X]:
-    case Tick extends Counter[Unit]
-    case Peek extends Counter[Int]
 
   def tick[R[_]: Has[Counter]]: Unit ! R = perform[Counter](Counter.Tick)
   def peek[R[_]: Has[Counter]]: Int ! R = perform[Counter](Counter.Peek)
@@ -47,9 +55,6 @@ object Basics3:
       .flatMap(n => modify[Int, Ticking](_ + n).as(n)))))
 
   /** A GENERAL HANDLER, its clause given `k`: here `k` resumed twice — every way the program can go */
-  enum Coin[X]:
-    case Flip extends Coin[Boolean]
-
   def flip[R[_]: Has[Coin]]: Boolean ! R = perform[Coin](Coin.Flip)
 
   def outcomes[R[_], Rest[_], A](p: A ! R)(using Split[Coin, R, Rest]): List[A] ! Rest =

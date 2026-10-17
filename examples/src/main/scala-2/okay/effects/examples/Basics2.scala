@@ -1,15 +1,28 @@
 package okay.effects.examples
 
-import okay.effects.simple.Machine._
-import okay.effects.simple.Machine.std._
+import okay.effects.Effects
 
 /**
- * THE BASICS, SCALA 2: a row written by names and taken as the constructor they make, `#L` — `(Reader % String)#L`,
+ * THE BASICS, SCALA 2, over any implementation `fx` — `F` its type, so that code beside it, given the same `fx`, has
+ * the same types: a row written by names and taken as the constructor they make, `#L` — `(Reader % String)#L`,
  * `((Reader % String) + (State % Int))#L` — each `%` in parentheses (Scala 2 has one precedence for infix types).
  * An effect's operations say how their answers are made (`answer`): Scala 2 has no GADT inference for a method's
  * type parameter, so a clause needs that to type its answer, and no cast.
  */
 object Basics2 {
+  /** AN EFFECT OF ONE'S OWN, Scala 2's way: each operation with its `answer` */
+  sealed trait Counter[X]
+  object Counter {
+    final case class Tick[X](answer: Unit => X) extends Counter[X]
+    final case class Peek[X](answer: Int => X) extends Counter[X]
+  }
+}
+
+class Basics2[F <: Effects](val fx: F) {
+  import fx._
+  import fx.std._
+  import Basics2.Counter
+
   def greet[R[_]](implicit r: In[(Reader % String)#L, R], w: In[(Writer % String)#L, R], s: In[(State % Int)#L, R]): Int ! R =
     for {
       name <- ask[String, R]
@@ -21,13 +34,6 @@ object Basics2 {
   type App[X] = ((Reader % String) + (Writer % String) + (State % Int))#L[X]
 
   def greeted: (Int, (List[String], Int)) = run(state(0)(writer[String](reader("Ann")(greet[App]))))
-
-  /** AN EFFECT OF ONE'S OWN, Scala 2's way: each operation with its `answer` */
-  sealed trait Counter[X]
-  object Counter {
-    final case class Tick[X](answer: Unit => X) extends Counter[X]
-    final case class Peek[X](answer: Int => X) extends Counter[X]
-  }
 
   def tick[R[_]](implicit in: In[Counter, R]): Unit ! R = perform[Counter].apply[R, Unit](Counter.Tick(u => u))
   def peek[R[_]](implicit in: In[Counter, R]): Int ! R = perform[Counter].apply[R, Int](Counter.Peek(n => n))

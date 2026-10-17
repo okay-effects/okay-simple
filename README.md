@@ -149,16 +149,23 @@ writes rows as Scala 2 does. An application of Scala 3 alone takes the Scala 3 b
 
 ## Examples
 
-`examples/`, each checked by a suite (`sbt examples/test`, both compilers):
+`examples/`, written over `Effects` alone — of no implementation — and run on each by a runner of its own:
 
 | File | What it shows |
 |---|---|
-| `scala/.../Shared.scala` | code written once for both compilers, over any implementation: an effect, its handler, a row by aliases |
+| `scala/.../Shared.scala` | code written once for both compilers: an effect, its handler, a row by aliases |
 | `scala-3/.../Basics3.scala` | Scala 3's rows and context bounds, an effect of one's own an `enum`, a handler in place, a general one resuming `k` twice |
 | `scala-3/.../Control3.scala` | generators (`Yield`: `collect`, `take`, `each`), a search (`first`), `recover`, `shift`/`reset`, the answer type changed (`delimited`) |
-| `scala-3/.../Implementations3.scala` | one program on the machine and on the `Free` monad; `OnFree`, the monad seen as it is |
 | `scala-2/.../Basics2.scala` | Scala 2's rows by names (`#L`), an effect's operations with their answers, a search |
 | `mixed/.../Mixed.scala` | one application of two compilers: Scala 3 code using Scala 2.13's effect, handler and program, one row, one run |
+
+Their values are checked over `Effects` (`Checks`, in `examples/src/test`) and run by:
+
+```sh
+sbt examplesOnMachine/run          # the examples on the machine (examples/on-machine)
+sbt examplesOnFree/run             # on the Free monad (examples/on-free)
+sbt examplesOnMachine/test examplesOnFree/test examplesMixed/test
+```
 
 ## Implementations
 
