@@ -23,6 +23,15 @@ class MoreStd(val fx: Effects) {
     run(first(among[Int, Choose](xs).flatMap(x => if (x % 2 == 0) pure[Int, Choose](x * 10) else fail[Int, Choose])))
   def many(n: Int): Int = run(all(among[Int, Choose]((1 to n).toList))).length
 
+  /** a program of Option's lifted, lowered to an Option by a `Lowering` of one's own */
+  implicit val optionLowering: Std.Lowering[Option] = new Std.Lowering[Option] {
+    def pure[A](a: A): Option[A] = Some(a)
+    def flatMap[A, B](ga: Option[A])(f: A => Option[B]): Option[B] = ga.flatMap(f)
+  }
+  type LO[X] = Lift[Option, X]
+  def lowered(b: Option[Int]): Option[Int] =
+    lower[Option, Int](lift[Option, Int, LO](Some(1)).flatMap(a => lift[Option, Int, LO](b).map(_ + a)))
+
   def recovered: Int = run(recover[String](raise[String, Er, Int]("boom"))(e => pure[Int, Pure](e.length)))
   def unraised: Int = run(recover[String](pure[Int, Er](7))(e => pure[Int, Pure](0)))
 }

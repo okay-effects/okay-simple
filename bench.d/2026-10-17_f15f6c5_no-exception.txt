@@ -1,0 +1,7 @@
+[info] ImplementationsBenchmark.askAcross4                       machine  avgt   10      23.958 ±   0.062   us/op
+[info] ImplementationsBenchmark.askAcross4In                     machine  avgt   10      19.549 ±   0.088   us/op
+[info] ImplementationsBenchmark.askNear                          machine  avgt   10      17.339 ±   0.690   us/op
+[info] ImplementationsBenchmark.askNearIn                        machine  avgt   10      16.679 ±   0.114   us/op
+[info] ImplementationsBenchmark.binds                            machine  avgt   10       6.924 ±   0.059   us/op
+[info] ImplementationsBenchmark.stateLoop                        machine  avgt   10      19.041 ±   0.061   us/op
+[info] ImplementationsBenchmark.stateLoopIn                      machine  avgt   10      17.843 ±   0.126   us/op

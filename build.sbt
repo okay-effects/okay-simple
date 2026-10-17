@@ -71,6 +71,21 @@ lazy val examplesMixed = (project in file("examples/mixed")).dependsOn(examples2
     name := "okay-effects-examples-mixed", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
+/** INTEROP WITH CATS: cats' `Monad` of the programs, a cats monad's programs lifted in and a program lowered to one —
+ * over any implementation, both compilers */
+lazy val interopCats = (project in file("interop/cats")).dependsOn(effects, machine % Test, free % Test)
+  .settings(crossBuilt, name := "okay-effects-cats", libraryDependencies ++= Seq("org.typelevel" %% "cats-core" % "2.13.0",
+    // cats-effect 3's IO lowered to, in the checks: any cats monad is, the module asks no more
+    "org.typelevel" %% "cats-effect" % "3.5.7" % Test))
+
+/** INTEROP WITH ZIO: a task performed in a program, a program lowered to a task */
+lazy val interopZio = (project in file("interop/zio")).dependsOn(effects, machine % Test, free % Test)
+  .settings(crossBuilt, name := "okay-effects-zio", libraryDependencies += "dev.zio" %% "zio" % "2.1.14")
+
+/** INTEROP WITH TOFU: `WithLocal` of a `Reader`, `Errors` of an `Error`, over cats' monad of the programs */
+lazy val interopTofu = (project in file("interop/tofu")).dependsOn(interopCats, machine % Test, free % Test)
+  .settings(crossBuilt, name := "okay-effects-tofu", libraryDependencies += "tf.tofu" %% "tofu-kernel" % "0.14.3")
+
 /** the two implementations side by side: `sbt "bench/Jmh/run -f 2 -wi 3 -i 5"` */
 lazy val bench = (project in file("bench")).dependsOn(machine, free).enablePlugins(JmhPlugin)
   .settings(crossScalaVersions := Seq(scala3), name := "okay-effects-bench", publish / skip := true)
@@ -106,8 +121,8 @@ lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
     name := "okay-effects-compat-scala3", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
-lazy val root = (project in file(".")).aggregate(effects, tck, machine, suite, free, suiteFree, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2)
+lazy val root = (project in file(".")).aggregate(effects, tck, machine, suite, free, suiteFree, interopCats, interopZio, interopTofu, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
 /** everything: the interface's suites by both compilers, then the two compilers in one application */
-addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteFree/test ; examples/test ; ++2.13.18 suite/test ; suiteFree/test ; examples/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test")
+addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteFree/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++2.13.18 suite/test ; suiteFree/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test")

@@ -32,6 +32,19 @@ object Std {
     final case class Among[X](xs: List[X]) extends Choose[X]
   }
 
+  /** A PROGRAM OF ANOTHER MONAD'S, as an effect: `Of(ga)`, a `G[X]` performed as it is, its value the answer — `IO`,
+   * a ZIO task, an `Option`, a `Future`, anything `lower` can bind (`Lowering`) */
+  sealed trait Lift[G[_], X]
+  object Lift {
+    final case class Of[G[_], X](ga: G[X]) extends Lift[G, X]
+  }
+  /** what `lower` needs of `G`: its `pure` and its bind — a monad, cats' or ZIO's or one's own, with no library
+   * named here (the interop modules give it from theirs) */
+  trait Lowering[G[_]] {
+    def pure[A](a: A): G[A]
+    def flatMap[A, B](ga: G[A])(f: A => G[B]): G[B]
+  }
+
   /** a generator's: `Emit(o)`, a value given out, the generator going on */
   sealed trait Yield[O, X]
   object Yield {
@@ -73,6 +86,9 @@ class Std[F <: Effects](val fx: F) {
   val Control: Std.Control.type = Std.Control
   type Yield[O, X] = Std.Yield[O, X]
   val Yield: Std.Yield.type = Std.Yield
+  type Lift[G[_], X] = Std.Lift[G, X]
+  val Lift: Std.Lift.type = Std.Lift
+  type Lowering[G[_]] = Std.Lowering[G]
 
   def get[S, R[_]](implicit in: In[({ type L[x] = State[S, x] })#L, R]): S ! R = perform[({ type L[x] = State[S, x] })#L].apply[R, S](Std.State.Get(s => s))
   def put[S, R[_]](s: S)(implicit in: In[({ type L[x] = State[S, x] })#L, R]): Unit ! R = perform[({ type L[x] = State[S, x] })#L].apply[R, Unit](Std.State.Put(s, u => u))
@@ -82,6 +98,8 @@ class Std[F <: Effects](val fx: F) {
   def raise[E, R[_], X](e: E)(implicit in: In[({ type L[x] = Error[E, x] })#L, R]): X ! R = perform[({ type L[x] = Error[E, x] })#L].apply[R, X](Std.Error.Raise(e))
   def among[X, R[_]](xs: List[X])(implicit in: In[Choose, R]): X ! R = perform[Choose].apply[R, X](Std.Choose.Among(xs))
   def fail[X, R[_]](implicit in: In[Choose, R]): X ! R = among[X, R](Nil)
+  def lift[G[_], X, R[_]](ga: G[X])(implicit in: In[({ type L[x] = Lift[G, x] })#L, R]): X ! R =
+    perform[({ type L[x] = Lift[G, x] })#L].apply[R, X](Std.Lift.Of(ga))
   def emit[O, R[_]](o: O)(implicit in: In[({ type L[x] = Yield[O, x] })#L, R]): Unit ! R = perform[({ type L[x] = Yield[O, x] })#L].apply[R, Unit](Std.Yield.Emit(o, u => u))
 
   /** the final state and the value; a `k` resumed twice resumes the state of its time. Answered in place */
@@ -152,6 +170,18 @@ class Std[F <: Effects](val fx: F) {
         case Right(a) => pure[A, Rest](a)
         case Left(e) => h(e)
       }
+  }
+
+  /** a program whose one effect is `Lift[G, *]` as a `G[A]`: each lifted `G[X]` bound in `G`, the rest run inside
+   * `G`'s bind — a program of effects run in `IO`, a ZIO task, an `Option` */
+  def lower[G[_], A](p: A ! ({ type L[x] = Lift[G, x] })#L)(implicit G: Lowering[G]): G[A] = {
+    type L[x] = Lift[G, x]
+    run(handle[L, L, Pure, A, G[A]](p, new Handler[L, Pure, A, G[A]] {
+      def ret(a: A) = pure[G[A], Pure](G.pure(a))
+      def op[X](op: Lift[G, X], k: X => G[A] ! Pure) = op match {
+        case Std.Lift.Of(ga) => pure[G[A], Pure](G.flatMap(ga)(x => run(k(x))))
+      }
+    }))
   }
 
   /** what the generator gave out, in order, and its value. Answered in place */

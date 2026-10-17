@@ -147,6 +147,17 @@ writes rows as Scala 2 does. An application of Scala 3 alone takes the Scala 3 b
 | `compat/scala2` | an effect, its handler and a program written in Scala 2.13, on the Scala 2.13 build |
 | `compat/scala3` | Scala 3 code using that Scala 2.13 library beside its own, in one row, one run |
 
+## Interop
+
+Over any implementation, both compilers; another monad's programs inside a program are the standard `Lift[G, *]`
+(`std.lift(ga)`), and a program of it given back as a `G[A]` by `std.lower(p)`, given a `Lowering[G]`:
+
+| Module | What it gives |
+|---|---|
+| `interop/cats` (`okay-effects-cats`) | `Cats(fx).monad[R]`, cats' `Monad` of the programs (stack safe); a `Lowering` of any cats monad — `IO` of cats-effect 3, `Either`, `Option` |
+| `interop/zio` (`okay-effects-zio`) | `ZioEffects(fx)`: `fromZIO(task)`, `toZIO(p)` — a ZIO task a `Lift[Task, *]`, a program a `Task` |
+| `interop/tofu` (`okay-effects-tofu`) | `Tofu(Cats(fx))`: `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row named |
+
 ## Examples
 
 `examples/`, written over `Effects` alone — of no implementation — and run on each, `OnMachine` and `OnFree`:

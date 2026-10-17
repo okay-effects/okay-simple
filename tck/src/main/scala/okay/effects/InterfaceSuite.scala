@@ -61,6 +61,10 @@ abstract class InterfaceSuite(fx: okay.effects.Effects) extends munit.FunSuite {
     assertEquals(more.evens(List(1, 3)), None)
     assertEquals(more.many(3000), 3000)
   }
+  test("lift and lower: another monad's programs inside, the program given back as one of it") {
+    assertEquals(more.lowered(Some(2)), Some(3))
+    assertEquals(more.lowered(None), None)
+  }
   test("recover: what was raised to a program in its place") {
     assertEquals(more.recovered, 4)
     assertEquals(more.unraised, 7)
