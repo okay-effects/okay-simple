@@ -1,6 +1,6 @@
 package okay.effects.tagless
 
-import okay.effects.Effects
+import okay.effects.Runner
 import okay.effects.machine.Machine
 import okay.effects.free.Free
 import Tagless.*
@@ -21,6 +21,6 @@ object Greeting:
 
 class Tagless3Suite extends munit.FunSuite:
   test("on the machine and on Free, the implementation given") {
-    locally { given Effects = Machine; assertEquals(run(Greeting.greeted), (1, (List("hello, Ann"), 0))) }
-    locally { given Effects = Free; assertEquals(run(Greeting.greeted), (1, (List("hello, Ann"), 0))) }
+    locally { given Runner = Machine; assertEquals(run(Greeting.greeted), (1, (List("hello, Ann"), 0))) }
+    locally { given Runner = Free; assertEquals(run(Greeting.greeted), (1, (List("hello, Ann"), 0))) }
   }

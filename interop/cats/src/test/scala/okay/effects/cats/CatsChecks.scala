@@ -5,12 +5,12 @@ import cats.effect.IO
 import cats.effect.unsafe.implicits.global
 import cats.instances.list._
 import cats.instances.option._
-import okay.effects.{Effects, Std}
+import okay.effects.{Runner, Std}
 import okay.effects.machine.Machine
 import okay.effects.free.Free
 
 /** cats over the effects, on an implementation */
-abstract class CatsChecks(val fx0: Effects) extends munit.FunSuite {
+abstract class CatsChecks(val fx0: Runner) extends munit.FunSuite {
   val c = Cats(fx0)
   import c._
   import c.fx._

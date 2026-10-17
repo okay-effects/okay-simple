@@ -1,6 +1,6 @@
 package okay.effects.free.monad
 
-import okay.effects.{Cell, Effects, Sum}
+import okay.effects.{Cell, Runner, Sum}
 import scala.annotation.tailrec
 
 /** THE `Free` MONAD, SCALA 2'S: a program is data — a value, an operation of `F`, a bind, an operation with its rest,
@@ -179,7 +179,7 @@ object Free {
 }
 
 /** THE INTERFACE ON THE `Free` MONAD, Scala 2's: its places numbers, as Scala 2's machine's */
-class OnFree extends Effects {
+class OnFree extends Runner {
   import Free.{Perform, Return}
 
   type ![+A, R[_]] = Free.![A, R]

@@ -1,7 +1,7 @@
 package okay.effects
 
 /** shift and reset, one source for both compilers: a row of one effect, `Control`, by aliases */
-class ShiftReset(val fx: Effects) {
+class ShiftReset(val fx: Runner) {
   import fx._
   import fx.std._
 

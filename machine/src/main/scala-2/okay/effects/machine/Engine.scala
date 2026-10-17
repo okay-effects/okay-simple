@@ -1,6 +1,6 @@
 package okay.effects.machine
 
-import okay.effects.{AbortClauses, Cell, Clauses, Effects, StatefulClauses, StatefulTailClauses, Sum, TailClauses, Void}
+import okay.effects.{AbortClauses, Cell, Clauses, Runner, StatefulClauses, StatefulTailClauses, Sum, TailClauses, Void}
 import scala.annotation.tailrec
 
 /**
@@ -298,7 +298,7 @@ private[machine] object Engine {
 }
 
 /** the interface over the machine: its types the object's, a handler installed as its level */
-private[machine] class Engine extends Effects {
+private[machine] class Engine extends Runner {
   import Engine._
 
   type ![+A, R[_]] = Prog[R, A]

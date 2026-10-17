@@ -2,7 +2,7 @@ package okay.effects.bench
 
 import java.util.concurrent.TimeUnit
 import org.openjdk.jmh.annotations.{Benchmark, BenchmarkMode, Mode, OutputTimeUnit, Param, Scope, Setup, State => JmhState}
-import okay.effects.Effects
+import okay.effects.Runner
 import okay.effects.machine.Machine
 
 @JmhState(Scope.Benchmark)
@@ -14,7 +14,7 @@ class ImplementationsBenchmark {
   var lanes: Lanes = null
 
   @Setup def setup(): Unit = {
-    val fx: Effects = if (impl == "machine") Machine else okay.effects.free.Free
+    val fx: Runner = if (impl == "machine") Machine else okay.effects.free.Free
     lanes = new Lanes(fx)
   }
 

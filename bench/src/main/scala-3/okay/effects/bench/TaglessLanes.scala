@@ -2,13 +2,13 @@ package okay.effects.bench
 
 import java.util.concurrent.TimeUnit
 import org.openjdk.jmh.annotations.{Benchmark, BenchmarkMode, Mode, OutputTimeUnit, Param, Scope, Setup, State => JmhState}
-import okay.effects.Effects
+import okay.effects.Runner
 import okay.effects.machine.Machine
 import okay.effects.tagless.Tagless.*
 import okay.effects.tagless.Tagless.std.*
 
 /** `Lanes`' programs written over tagless: each made, then run on the implementation given */
-class TaglessLanes(using val fx: Effects) {
+class TaglessLanes(using val fx: Runner) {
   val n = 1000
 
   def binds: Int = run((1 to n).foldLeft(pure[Int, Pure](0))((p, _) => p.map(_ + 1)))
@@ -38,7 +38,7 @@ class TaglessBenchmark {
   var lanes: TaglessLanes = null
 
   @Setup def setup(): Unit = {
-    val fx: Effects = if (impl == "machine") Machine else okay.effects.free.Free
+    val fx: Runner = if (impl == "machine") Machine else okay.effects.free.Free
     lanes = new TaglessLanes(using fx)
   }
 

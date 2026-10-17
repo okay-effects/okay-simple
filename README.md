@@ -14,10 +14,10 @@ machine and to okay-kernel's protocol, all checked by one suite.
 
 | Module | Artifact | Package | What it is |
 |---|---|---|---|
-| `effects/` | `okay-effects` | `okay.effects` | the interface (`Effectful`, each compiler's `Effects`), the standard effects (`Std`), delimited control changing answer types (`Delimited`); typed places for Scala 3 implementations (`Places`) |
+| `effects/` | `okay-effects` | `okay.effects` | the interface (`Effectful`, each compiler's `Effects`; `Runner`, an implementation that runs), the standard effects (`Std`), delimited control changing answer types (`Delimited`); typed places for Scala 3 implementations (`Places`) |
 | `machine/` | `okay-effects-machine` | `okay.effects.machine` | THE MACHINE, one per compiler: `okay.effects.machine.Machine` |
 | `free/` | `okay-effects-free` | `okay.effects.free` | THE `Free` MONAD, one per compiler: `okay.effects.free.Free` (through the interface), `OnFree` (as it is) |
-| `tagless/` | `okay-effects-tagless` | `okay.effects.tagless` | TAGLESS: the interface's words over no implementation — a program a value, run on the implementation in the implicit context |
+| `tagless/` | `okay-effects-tagless` | `okay.effects.tagless` | TAGLESS: `Tagless`, an `Effects` of no implementation — a program a value, run on the `Runner` in the implicit context |
 | `tck/` | `okay-effects-tck` | `okay.effects` | the interface's suite, a library: `InterfaceSuite(fx)` for any implementation |
 | `interop/cats`, `interop/zio`, `interop/tofu` | `okay-effects-cats`, `-zio`, `-tofu` | `okay.effects.cats`, `.zio`, `.tofu` | interop with cats (and cats-effect 3), ZIO, tofu |
 | `examples/` | — | `okay.effects.examples` | examples over `Effects` alone, run on the machine and on `Free` |
@@ -71,7 +71,10 @@ run(reader("Ann")(state(10)(writer[String](greet[Row]))))
 ```
 
 Code over any implementation takes it as a value, `class Greeting(implicit val fx: Effects) { import fx._, fx.std._
-... }`, and runs on whichever it is given: `Machine`, `Free`, okay-core's `Core`, `OnKernel.on(...)`.
+... }`, and runs on whichever it is given: `Machine`, `Free`, okay-core's `Core`, `OnKernel.on(...)`. `Effects` are
+the words that MAKE programs; RUNNING one is a `Runner`'s (`Runner extends Effects`: `run`, and `lower`) — every
+implementation is one; code that runs programs takes a `Runner`. So words of no implementation, `Tagless`, are an
+`Effects` too.
 
 ## The types
 
@@ -170,7 +173,7 @@ implementation, made by `newStd`: an implementation may offer its own with bette
 | `Error % E` | `raise` | `attempt[E]` (aborting), `recover[E](p)(h)` |
 | `Choose` | `among`, `fail` | `all` (every way, `k` resumed per choice), `first` (the first way with no `fail`) |
 | `Yield % O` | `emit` | `collect[O]`, `take[O](n)`, `each[O](p)(f)` |
-| `Lift % G` | `lift(ga)`: a program of another monad `G` | `lower[G](p)`, given a `Lowering[G]` (cats, ZIO) |
+| `Lift % G` | `lift(ga)`: a program of another monad `G` | a `Runner`'s `lower[G](p)`, given a `Lowering[G]` (cats, ZIO) |
 | `Control % (B ! R)` | `shift(f)` | `reset(p)`: delimited control, the answer type fixed |
 
 Delimited control CHANGING ANSWER TYPES is its own type, `Cps[A, B, C, R]` (`fx.delimited`, the trait `Delimited`):
@@ -229,13 +232,13 @@ All run in constant stack: 100 000 operations under three handlers, 100 000 bind
 
 ## Tagless
 
-`tagless/`: the same words — `!`, `In`, `Split`, `perform`, `handle` of each shape, `std` — over NO implementation.
-A program is a `Program[A, R]`, a function of the implementation, `on(fx)`; so is the evidence. The program is a
-value, made once and run on any implementation; the implementation is asked for once, at `run`, from the implicit
-context:
+`tagless/`: `Tagless`, an `Effects` of NO implementation — the same words, `!`, `In`, `Split`, `perform`, `handle`
+of each shape, `std`. A program is a `Program[A, R]`, a function of the implementation, `on(fx)`; so is the evidence.
+The program is a value, made once and run on any implementation; the implementation is asked for once, at `run`, a
+`Runner` from the implicit context:
 
 ```scala
-import okay.effects.Effects
+import okay.effects.Runner
 import okay.effects.machine.Machine
 import okay.effects.tagless.Tagless.*
 import okay.effects.tagless.Tagless.std.*
@@ -245,18 +248,19 @@ def greet[R[_]: {Has[Reader % String], Has[State % Int]}]: Int ! R =
 
 val greeted: (Int, Int) ! Pure = state(0)(reader("Ann")(greet[Reader % String + State % Int]))
 
-given Effects = Machine      // or Free, or okay-core's Core
+given Runner = Machine      // or Free, or okay-core's Core
 run(greeted)
 ```
 
-Each word made on `fx` is `fx`'s own: `pure` its `pure`, a handler its `handle` of the same shape, `state` its
-`std.state` — so what an implementation does better it does here too. One trusted step: the `k` an implementation
-gives a general handler's clause is given back to the clause as a `Program` (a cast, checked by identity: a `k`
-kept and run on another implementation fails). Delimited control changing answer types is not among its words; `Tagless.on(fx).delimited` gives the default one, by continuations, over tagless.
+Being an `Effects`, it runs code written over the interface: `Std`, `Delimited` (by continuations), anything taking
+`fx: Effects`. Each word made on `fx` is `fx`'s own: `pure` its `pure`, a handler its `handle` of the same shape —
+so what an implementation does better it does here too. One trusted step: the `k` an implementation gives a general
+handler's clause is given back to the clause as a `Program` (a cast, checked by identity: a `k` kept and run on
+another implementation fails).
 
-`Tagless.on(fx)` is tagless as an implementation of the interface: code written over `Effects` runs on it — the
-interface's suite does, on the machine and on `Free`. One per compiler; Scala 3's every word `inline`. A chain of
-binds is made by nested calls 64 deep at most, then `delay`ed: constant stack, one `delay` in 64.
+`Tagless.on(fx)`, a `Runner`: tagless run on `fx`, for code that runs programs over the interface — the interface's
+suite runs on it, on the machine and on `Free`. One per compiler; Scala 3's every word `inline`. A chain of binds is
+made by nested calls 64 deep at most, then `delay`ed: constant stack, one `delay` in 64.
 
 Its price, a `Program` made and then made again on `fx` at each node (Scala 3, µs, the programs of `Measured`):
 
@@ -270,7 +274,7 @@ Its price, a `Program` made and then made again on `fx` at each node (Scala 3, �
 ## Interop
 
 Over any implementation, both compilers; another monad's programs inside a program are the standard `Lift % G`
-(`std.lift(ga)`), and a program of it given back as a `G[A]` by `std.lower(p)`, given a `Lowering[G]`:
+(`std.lift(ga)`), and a program of it given back as a `G[A]` by a `Runner`'s `lower(p)`, given a `Lowering[G]`:
 
 | Module | What it gives |
 |---|---|

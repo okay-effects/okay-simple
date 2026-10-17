@@ -1,11 +1,11 @@
 package okay.effects.examples
 
-import okay.effects.Effects
+import okay.effects.Runner
 
 /** the examples run on the implementation given, each value with its name: what a runner prints */
 object Report {
-  def lines(implicit fx: Effects): List[String] = {
-    val b = new Basics2[Effects]()
+  def lines(implicit fx: Runner): List[String] = {
+    val b = new Basics2[Runner]()
     List(
       s"greeted       ${b.greeted}",
       s"counted       ${b.counted}",

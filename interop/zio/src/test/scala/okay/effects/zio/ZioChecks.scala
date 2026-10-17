@@ -1,12 +1,12 @@
 package okay.effects.zio
 
-import okay.effects.Effects
+import okay.effects.Runner
 import okay.effects.machine.Machine
 import okay.effects.free.Free
 import zio.{Runtime, Unsafe, ZIO}
 
 /** ZIO over the effects, on an implementation */
-abstract class ZioChecks(val fx0: Effects) extends munit.FunSuite {
+abstract class ZioChecks(val fx0: Runner) extends munit.FunSuite {
   val z = ZioEffects(fx0)
   import z._
   import z.fx._

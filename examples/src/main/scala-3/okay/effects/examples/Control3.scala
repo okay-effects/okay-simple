@@ -1,12 +1,12 @@
 package okay.effects.examples
 
-import okay.effects.Effects
+import okay.effects.Runner
 
 /**
  * CONTROL, SCALA 3, over any implementation `fx`: generators (`Yield`), a search (`Choose`'s `first`), errors recovered, delimited control —
  * `shift`/`reset` with the answer type fixed (an effect of `std`), and with the answer type changed (`delimited`).
  */
-class Control3(using val fx: Effects):
+class Control3(using val fx: Runner):
   import fx.*
   import fx.std.*
 

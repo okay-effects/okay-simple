@@ -1,7 +1,7 @@
 package okay.effects
 
 /** the generators, the first way, recovery: one source for both compilers, rows by aliases */
-class MoreStd(val fx: Effects) {
+class MoreStd(val fx: Runner) {
   import fx._
   import fx.std._
 

@@ -70,7 +70,8 @@ final class Perform[F <: Effectful, E[_]](val fx: F) extends AnyVal {
  * `(*[Choose] + (State % Int))#L`. Here, for both, the row `R + E` is written `({ type L[x] = Sum[R, E, x] })#L`.
  *
  * An implementation is seen through this trait only, so its types are abstract to its users, and code written here
- * runs on any implementation.
+ * runs on any implementation. These are the words that MAKE programs; running one is `Runner`'s, apart — so words of
+ * no implementation (`okay.effects.tagless.Tagless`) are an `Effects` too.
  */
 trait Effectful {
   /** a program of value `A` over the row `R` */
@@ -115,7 +116,6 @@ trait Effectful {
    * Of each of the four shapes of handler; for all but the general one an implementation may do better than the
    * defaults below */
   def handleLast[E[_], R[_], A, B](p: A ! ({type L[x] = Sum[R, E, x]})#L, h: Handler[E, R, A, B]): B ! R
-  def run[A](p: A ! Pure): A
 
   /** a handler of `E`: its value's clause, and its operations' clause — each an `E[X]` — over the row outside, `R` */
   type Handler[E[_], R[_], A, B] = Clauses[E, A, B ! R]

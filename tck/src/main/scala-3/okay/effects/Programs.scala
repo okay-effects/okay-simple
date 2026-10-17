@@ -2,7 +2,7 @@ package okay.effects
 
 
 /** programs written on the interface, Scala 3's: whatever implementation `fx` is */
-class Programs(val fx: Effects):
+class Programs(val fx: Runner):
   import fx.*
   import fx.std.*
 

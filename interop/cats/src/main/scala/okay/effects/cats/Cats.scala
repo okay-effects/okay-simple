@@ -1,7 +1,7 @@
 package okay.effects.cats
 
 import cats.{Monad, StackSafeMonad}
-import okay.effects.{Effects, Std}
+import okay.effects.{Runner, Std}
 
 /**
  * CATS OVER THE EFFECTS, on any implementation `fx` (one source for both compilers):
@@ -9,11 +9,11 @@ import okay.effects.{Effects, Std}
  *  - `monad[R]`: cats' `Monad` of the programs over the row `R`, stack safe (`StackSafeMonad`, `tailRecM` by
  *    `flatMap`: the implementations run in constant stack) — code written over `F[_]: Monad` runs on them;
  *  - `lowering`: any cats monad as the standard effects' `Lowering` — so `std.lift(ga)` performs a `G[X]` inside a
- *    program and `std.lower(p)` gives the program back as a `G[A]`: `IO` (cats-effect), `Either`, `Option`.
+ *    program and `lower(p)` gives the program back as a `G[A]`: `IO` (cats-effect), `Either`, `Option`.
  *
  * `val cats = Cats(Machine); import cats._`
  */
-class Cats[F <: Effects](val fx: F) {
+class Cats[F <: Runner](val fx: F) {
   import fx._
 
   /** a program over the row `R` as cats sees it: a type constructor of its value */
@@ -31,5 +31,5 @@ class Cats[F <: Effects](val fx: F) {
 }
 
 object Cats {
-  def apply(fx: Effects): Cats[fx.type] = new Cats[fx.type](fx)
+  def apply(fx: Runner): Cats[fx.type] = new Cats[fx.type](fx)
 }

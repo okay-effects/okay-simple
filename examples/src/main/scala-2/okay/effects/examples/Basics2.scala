@@ -1,6 +1,6 @@
 package okay.effects.examples
 
-import okay.effects.Effects
+import okay.effects.Runner
 
 /**
  * THE BASICS, SCALA 2, over any implementation `fx` — `F` its type, so that code beside it, given the same `fx`, has
@@ -18,7 +18,7 @@ object Basics2 {
   }
 }
 
-class Basics2[F <: Effects](implicit val fx: F) {
+class Basics2[F <: Runner](implicit val fx: F) {
   import fx._
   import fx.std._
   import Basics2.Counter

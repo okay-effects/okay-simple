@@ -13,7 +13,7 @@ object Gen {
 }
 
 /** programs and the handler, one source for both compilers: a row of one effect, or of two by aliases */
-class Numbering(val fx: Effects) {
+class Numbering(val fx: Runner) {
   import fx._
   import fx.std._
 

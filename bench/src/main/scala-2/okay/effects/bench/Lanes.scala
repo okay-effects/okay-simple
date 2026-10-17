@@ -4,7 +4,7 @@ import okay.effects._
 
 /** the same programs on each implementation, n = 1000, Scala 2's rows by names: binds alone; `ask` under its
  * handler; `ask` across four handlers of other effects; a state's get and put */
-class Lanes(val fx: Effects) {
+class Lanes(val fx: Runner) {
   import fx._
   import fx.std._
   val n = 1000

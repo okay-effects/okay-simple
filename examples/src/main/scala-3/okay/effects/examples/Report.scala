@@ -1,10 +1,10 @@
 package okay.effects.examples
 
-import okay.effects.Effects
+import okay.effects.Runner
 
 /** the examples run on the implementation given, each value with its name: what a runner prints */
 object Report:
-  def lines(using fx: Effects): List[String] =
+  def lines(using fx: Runner): List[String] =
     val b = Basics3()
     val c = Control3()
     List(

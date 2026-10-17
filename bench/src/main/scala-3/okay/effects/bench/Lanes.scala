@@ -4,7 +4,7 @@ import okay.effects.*
 
 /** the same programs on each implementation, n = 1000: binds alone; `ask` under its handler; `ask` across four
  * handlers of other effects; a state's get and put */
-class Lanes(val fx: Effects) {
+class Lanes(val fx: Runner) {
   import fx.*
   import fx.std.*
   val n = 1000

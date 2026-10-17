@@ -1,6 +1,6 @@
 package okay.effects
 
-import okay.effects.Effects
+import okay.effects.Runner
 
 package object free {
   /** the interface on THE `Free` MONAD, seen as it is — its `inline` methods inlined where they are called:
@@ -8,5 +8,5 @@ package object free {
   val OnFree: monad.OnFree = new monad.OnFree
   /** the same, seen through the interface only — its own types abstract to its users:
    * `import okay.effects.free.Free.*`, its standard effects `import okay.effects.free.Free.std.*` */
-  val Free: Effects = OnFree
+  val Free: Runner = OnFree
 }

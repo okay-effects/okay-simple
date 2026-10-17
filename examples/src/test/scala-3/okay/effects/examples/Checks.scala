@@ -1,9 +1,9 @@
 package okay.effects.examples
 
-import okay.effects.Effects
+import okay.effects.Runner
 
 /** the Scala 3 examples' values on the implementation `fx`: a change that breaks an example breaks this */
-abstract class Checks(fx: Effects) extends SharedChecks(fx):
+abstract class Checks(fx: Runner) extends SharedChecks(fx):
   val basics = Basics3(using fx)
   val control = Control3(using fx)
 

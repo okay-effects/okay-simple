@@ -1,12 +1,12 @@
 package okay.effects.tofu
 
-import okay.effects.{Effects, Std, Sum, Void}
+import okay.effects.{Runner, Std, Sum, Void}
 import okay.effects.cats.Cats
 import okay.effects.machine.Machine
 import okay.effects.free.Free
 
 /** tofu's typeclasses over the effects, on an implementation */
-abstract class TofuChecks(val fx0: Effects) extends munit.FunSuite {
+abstract class TofuChecks(val fx0: Runner) extends munit.FunSuite {
   val t = Tofu(Cats(fx0))
   import t._
   import t.cats.fx._

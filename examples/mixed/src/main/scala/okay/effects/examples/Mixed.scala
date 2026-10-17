@@ -1,6 +1,6 @@
 package okay.effects.examples
 
-import okay.effects.Effects
+import okay.effects.Runner
 
 /**
  * ONE APPLICATION OF TWO COMPILERS, over any implementation `fx`, given: Scala 3 code taking the effect, the handler and the
@@ -8,7 +8,7 @@ import okay.effects.Effects
  * application with Scala 2 code in it takes the interface's Scala 2.13 build, which Scala 3 reads: so its Scala 3
  * code writes rows as Scala 2 does, by names, `#L`, and the context bounds `Has[E]#L`.
  */
-class Mixed(using val fx: Effects):
+class Mixed(using val fx: Runner):
   import fx.*
   import fx.std.*
   /** Scala 2's code over the same `fx`: its types this code's */

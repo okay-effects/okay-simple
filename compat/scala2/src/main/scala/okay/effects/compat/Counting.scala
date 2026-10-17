@@ -10,7 +10,7 @@ object Counter {
 }
 
 /** its operations, its handler and a program — on the interface, compiled by scalac 2.13 against Scala 3's build */
-class Counting(val fx: Effects) {
+class Counting(val fx: Runner) {
   import fx._
   import fx.std._
 

@@ -1,7 +1,7 @@
 package okay.effects.tofu
 
 import cats.Functor
-import okay.effects.{Effects, Std}
+import okay.effects.{Runner, Std}
 import okay.effects.cats.Cats
 import tofu.{Errors, WithLocal}
 
@@ -17,7 +17,7 @@ import tofu.{Errors, WithLocal}
  * Each asks where the effect is (`Split`) and that the rest of the row is in `R` (`Sub`): found for a row named.
  * `val tofu = Tofu(Cats(Machine)); import tofu._`
  */
-class Tofu[F <: Effects](val cats: Cats[F]) {
+class Tofu[F <: Runner](val cats: Cats[F]) {
   import cats.fx._
   /** the standard effects, named in full: tofu's classes have an `ask`, an `attempt` of their own */
   private val std = cats.fx.std
@@ -44,5 +44,5 @@ class Tofu[F <: Effects](val cats: Cats[F]) {
 }
 
 object Tofu {
-  def apply[F <: Effects](cats: Cats[F]): Tofu[F] = new Tofu[F](cats)
+  def apply[F <: Runner](cats: Cats[F]): Tofu[F] = new Tofu[F](cats)
 }

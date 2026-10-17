@@ -1,7 +1,7 @@
 package okay.effects
 
 /** delimited control changing answer types, one source for both compilers */
-class AnswerTypes(val fx: Effects) {
+class AnswerTypes(val fx: Runner) {
   import fx._
   val d = fx.delimited
 

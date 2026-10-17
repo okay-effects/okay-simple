@@ -1,6 +1,6 @@
 package okay.effects.examples
 
-import okay.effects.{Effects, Sum, Void}
+import okay.effects.{Runner, Sum, Void}
 
 /**
  * CODE WRITTEN ONCE FOR BOTH COMPILERS, over any implementation `fx`, given implicitly: `new Shared()`.
@@ -16,7 +16,7 @@ object Ticket {
   final case class Next[X](answer: Int => X) extends Ticket[X]
 }
 
-class Shared(implicit val fx: Effects) {
+class Shared(implicit val fx: Runner) {
   import fx._
   import fx.std._
 

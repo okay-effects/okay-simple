@@ -1,18 +1,18 @@
 package okay.effects.zio
 
-import okay.effects.{Effects, Std}
+import okay.effects.{Runner, Std}
 import zio.{Task, ZIO}
 
 /**
  * ZIO OVER THE EFFECTS, on any implementation `fx` (one source for both compilers): a task is a standard `Lift` —
  *
  *  - `fromZIO(task)`: a ZIO task performed inside a program, `std.lift`;
- *  - `toZIO(p)`: a program whose one effect is `Lift[Task, *]` as a `Task[A]`, `std.lower` by ZIO's bind — the rest
+ *  - `toZIO(p)`: a program whose one effect is `Lift[Task, *]` as a `Task[A]`, `lower` by ZIO's bind — the rest
  *    suspended in it, so a throw in it is the task's failure.
  *
  * `val z = ZioEffects(Machine); import z._`
  */
-class ZioEffects[F <: Effects](val fx: F) {
+class ZioEffects[F <: Runner](val fx: F) {
   import fx._
 
   /** the effect of ZIO's tasks: the standard `Lift` of `Task` */
@@ -24,9 +24,9 @@ class ZioEffects[F <: Effects](val fx: F) {
   }
 
   def fromZIO[X, R[_]](task: Task[X])(implicit in: In[Tasks, R]): X ! R = std.lift[Task, X, R](task)
-  def toZIO[A](p: A ! Tasks): Task[A] = std.lower[Task, A](p)
+  def toZIO[A](p: A ! Tasks): Task[A] = fx.lower[Task, A](p)
 }
 
 object ZioEffects {
-  def apply(fx: Effects): ZioEffects[fx.type] = new ZioEffects[fx.type](fx)
+  def apply(fx: Runner): ZioEffects[fx.type] = new ZioEffects[fx.type](fx)
 }

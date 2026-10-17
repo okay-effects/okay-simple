@@ -1,6 +1,6 @@
 package okay.effects.tagless
 
-import okay.effects.{Effects, Std, Sum, Void}
+import okay.effects.{Runner, Std, Sum, Void}
 import okay.effects.machine.Machine
 import okay.effects.free.Free
 import Tagless._
@@ -39,8 +39,8 @@ object Programs1 {
   val counted: (Int, Unit) ! Pure = state(0)(reader("x")(loop(100000)))
 }
 
-abstract class TaglessChecks(fx0: Effects) extends munit.FunSuite {
-  implicit val fx: Effects = fx0
+abstract class TaglessChecks(fx0: Runner) extends munit.FunSuite {
+  implicit val fx: Runner = fx0
   import Programs1._
 
   test("a program made once, run on the implementation given") { assertEquals(run(greeted), (11, "10: Ann")) }
@@ -59,8 +59,8 @@ class TaglessOnFree extends TaglessChecks(Free)
 
 class TaglessOnBoth extends munit.FunSuite {
   test("one value, two implementations") {
-    def onMachine = { implicit val fx: Effects = Machine; run(Programs1.greeted) }
-    def onFree = { implicit val fx: Effects = Free; run(Programs1.greeted) }
+    def onMachine = { implicit val fx: Runner = Machine; run(Programs1.greeted) }
+    def onFree = { implicit val fx: Runner = Free; run(Programs1.greeted) }
     assertEquals(onMachine, onFree)
   }
 }

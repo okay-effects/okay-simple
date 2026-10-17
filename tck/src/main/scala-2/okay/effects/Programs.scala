@@ -3,7 +3,7 @@ package okay.effects
 
 /** programs written on the interface, as Scala 2 writes them: whatever implementation `fx` is. A row by names,
  * taken as its constructor, `#L`; one precedence for all infix types, each `%` in parentheses */
-class Programs(val fx: Effects) {
+class Programs(val fx: Runner) {
   import fx._
   import fx.std._
 

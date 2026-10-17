@@ -1,7 +1,7 @@
 package okay.effects
 
 /** the interface's suite, compiled by both compilers, on each implementation */
-abstract class InterfaceSuite(fx: okay.effects.Effects) extends munit.FunSuite {
+abstract class InterfaceSuite(fx: okay.effects.Runner) extends munit.FunSuite {
   val p = new Programs(fx)
   val g = new Numbering(fx)
   val d = new ShiftReset(fx)

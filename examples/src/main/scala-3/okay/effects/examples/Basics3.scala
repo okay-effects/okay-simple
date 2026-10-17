@@ -1,6 +1,6 @@
 package okay.effects.examples
 
-import okay.effects.Effects
+import okay.effects.Runner
 
 /** the effects of the basics, of no implementation */
 object Basics3:
@@ -17,7 +17,7 @@ object Basics3:
  * THE BASICS, SCALA 3, over any implementation `fx`: a row of type constructors (`Reader % String + State % Int`),
  * its requirements as context bounds, an effect of one's own an `enum` whose clauses GADT inference types, handlers of each shape.
  */
-class Basics3(using val fx: Effects):
+class Basics3(using val fx: Runner):
   import fx.*
   import fx.std.*
   import Basics3.{Coin, Counter}

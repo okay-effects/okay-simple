@@ -33,7 +33,7 @@ object Std {
   }
 
   /** A PROGRAM OF ANOTHER MONAD'S, as an effect: `Of(ga)`, a `G[X]` performed as it is, its value the answer — `IO`,
-   * a ZIO task, an `Option`, a `Future`, anything `lower` can bind (`Lowering`) */
+   * a ZIO task, an `Option`, a `Future`, anything `Runner.lower` can bind (`Lowering`) */
   sealed trait Lift[G[_], X]
   object Lift {
     final case class Of[G[_], X](ga: G[X]) extends Lift[G, X]
@@ -170,18 +170,6 @@ class Std[F <: Effects](val fx: F) {
         case Right(a) => pure[A, Rest](a)
         case Left(e) => h(e)
       }
-  }
-
-  /** a program whose one effect is `Lift[G, *]` as a `G[A]`: each lifted `G[X]` bound in `G`, the rest run inside
-   * `G`'s bind — a program of effects run in `IO`, a ZIO task, an `Option` */
-  def lower[G[_], A](p: A ! ({ type L[x] = Lift[G, x] })#L)(implicit G: Lowering[G]): G[A] = {
-    type L[x] = Lift[G, x]
-    run(handle[L, L, Pure, A, G[A]](p, new Handler[L, Pure, A, G[A]] {
-      def ret(a: A) = pure[G[A], Pure](G.pure(a))
-      def op[X](op: Lift[G, X], k: X => G[A] ! Pure) = op match {
-        case Std.Lift.Of(ga) => pure[G[A], Pure](G.flatMap(ga)(x => run(k(x))))
-      }
-    }))
   }
 
   /** what the generator gave out, in order, and its value. Answered in place */

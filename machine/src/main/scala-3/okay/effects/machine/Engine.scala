@@ -1,6 +1,6 @@
 package okay.effects.machine
 
-import okay.effects.{AbortClauses, Cell, Clauses, Effects, StatefulClauses, StatefulTailClauses, Void, TailClauses}
+import okay.effects.{AbortClauses, Cell, Clauses, Runner, StatefulClauses, StatefulTailClauses, Void, TailClauses}
 import okay.effects.Places
 import okay.effects.Places.{+, Place, Renaming, toEnd}
 import scala.annotation.tailrec
@@ -206,7 +206,7 @@ private[machine] object Engine:
   inline def run[A](p: Prog[PureRow, A]): A = loop[PureRow, A, A, A](p, Frames.End(), Meta.Top())
 
 /** the interface over the machine: its types the object's, a handler kept as it is given */
-private[machine] class Engine extends Effects:
+private[machine] class Engine extends Runner:
   import Engine.*
 
   type ![+A, R[_]] = Prog[R, A]

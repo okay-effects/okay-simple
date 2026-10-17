@@ -1,6 +1,6 @@
 package okay.effects.free.monad
 
-import okay.effects.{Cell, Effects, Void}
+import okay.effects.{Cell, Runner, Void}
 import okay.effects.Places
 import okay.effects.Places.{+, Place, Renaming, Taken, take, toEnd}
 import scala.annotation.tailrec
@@ -202,7 +202,7 @@ enum At[R[_], X]:
 
 /** THE INTERFACE ON THE `Free` MONAD: a program a `Free`, the evidence typed places, every handler `Free.handle` or
  * `Free.handle`, or one answering in place `Free.answer` */
-class OnFree extends Effects:
+class OnFree extends Runner:
   import Free.{!, Bind, Perform, Return}
 
   type ![+A, R[_]] = Free.![A, R]
