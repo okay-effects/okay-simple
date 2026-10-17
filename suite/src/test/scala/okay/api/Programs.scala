@@ -1,6 +1,6 @@
 package okay.api
 
-import okay.std._
+import okay.simple._
 
 /** programs written on the interface: whatever implementation `fx` is */
 class Programs(val fx: Effects) {

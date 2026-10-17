@@ -1,4 +1,4 @@
-package okay.std
+package okay.simple
 
 import okay.api._
 
@@ -34,9 +34,9 @@ object Choose {
 /** THE STANDARD EFFECTS' OPERATIONS AND HANDLERS, written once on the interface, over any implementation of it —
  * which knows nothing of them: `val std = Std(fx); import fx._, std._`, the types `fx`'s. Each handler takes its
  * effect from anywhere in the row; the parameter named, the rest inferred: `writer[String](p)`. A handler answering
- * in place is `fx`'s `handleTail` / `handleStateful`: an implementation answers it its own way */
-final class Std[F <: Effects](val fx: F) {
-  import fx._
+ * in place is the implementation's `handleTail` / `handleStateful`: an implementation answers it its own way */
+final class Std[F <: Effects](val effects: F) {
+  import effects._
 
   def get[S, R](implicit in: In[State % S, R]): S ! R = perform[State % S].apply[R, S](State.Get(s => s))
   def put[S, R](s: S)(implicit in: In[State % S, R]): Unit ! R = perform[State % S].apply[R, Unit](State.Put(s, u => u))

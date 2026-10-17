@@ -6,7 +6,7 @@ import okay.api.*
 import okay.simple.machine.Simple
 import okay.api.core.OnCoreEffects
 import okay.api.kernel.OnKernel
-import okay.std.*
+import okay.simple.*
 
 /** the same programs on each implementation, n = 1000: binds alone; `ask` under its handler; `ask` across four
  * handlers of other effects; a state's get and put */

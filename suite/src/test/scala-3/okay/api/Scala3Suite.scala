@@ -1,6 +1,6 @@
 package okay.api
 
-import okay.std.*
+import okay.simple.*
 import okay.simple.machine.Simple
 
 /** Scala 3's conveniences over the same interface: no parentheses in a row, context bounds, a handler of `F Of S`,
