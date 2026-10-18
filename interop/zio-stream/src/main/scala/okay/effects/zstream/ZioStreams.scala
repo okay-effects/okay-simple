@@ -22,7 +22,7 @@ class ZioStreams[I <: Runner, S <: Streams[I]](val streams: S) {
   private implicit val exact: fx.type = fx
   val zioEffects: ZioEffects[fx.type] = new ZioEffects[fx.type]
   import fx._
-  import zioEffects.{Tasks, fromZIO, toZIO}
+  import zioEffects.{Tasks, fromZIOTask, toZIO}
   import streams.{End, Pull, Stream}
 
   def toZStream[O](s: Stream[O, Tasks]): ZStream[Any, Throwable, O] =
@@ -32,13 +32,13 @@ class ZioStreams[I <: Runner, S <: Streams[I]](val streams: S) {
     ZStream.unfold(s)(cur => run(cur.pull()).fold[Option[(O, Stream[O, Pure])]](None)((o, rest) => Some((o, rest))))
 
   def fromZStream[O](zs: => ZStream[Any, Throwable, O]): Stream[O, Tasks] = new Stream[O, Tasks](() =>
-    fromZIO[(Scope.Closeable, ZIO[Any, Option[Throwable], Chunk[O]]), Tasks](
+    fromZIOTask[(Scope.Closeable, ZIO[Any, Option[Throwable], Chunk[O]]), Tasks](
       Scope.make.flatMap(scope => scope.extend[Any](zs.toPull).map(pull => (scope, pull))))
       .flatMap { case (scope, pull) => pulling(scope, pull).pull() })
 
   /** the next chunk pulled, its elements given out one at a time, then the next */
   private def pulling[O](scope: Scope.Closeable, pull: ZIO[Any, Option[Throwable], Chunk[O]]): Stream[O, Tasks] =
-    new Stream[O, Tasks](() => fromZIO[Option[Chunk[O]], Tasks](pull.foldZIO(
+    new Stream[O, Tasks](() => fromZIOTask[Option[Chunk[O]], Tasks](pull.foldZIO(
       {
         case None => scope.close(Exit.unit).as(None)
         case Some(e) => scope.close(Exit.fail(e)) *> ZIO.fail(e)

@@ -15,13 +15,13 @@ abstract class ZioStreamsChecks(val fx0: Runner) extends munit.FunSuite {
   val z = ZioStreams()
   import z._
   import z.fx._
-  import z.zioEffects.{Tasks, fromZIO, toZIO}
+  import z.zioEffects.{Tasks, fromZIOTask, toZIO}
   import z.streams._
 
   private def unsafeRun[A](task: zio.Task[A]): Future[A] = Unsafe.unsafe { implicit u => Runtime.default.unsafe.runToFuture(task) }
 
   test("a stream of tasks as a ZStream: each element a task's") {
-    val s = range[Tasks](1, 5).evalMap(n => fromZIO[Int, Tasks](ZIO.succeed(n * 10)))
+    val s = range[Tasks](1, 5).evalMap(n => fromZIOTask[Int, Tasks](ZIO.succeed(n * 10)))
     unsafeRun(toZStream(s).runCollect).map(c => assertEquals(c.toList, List(10, 20, 30, 40)))
   }
   test("a stream of no effect as a ZStream, an endless one taken on ZIO's side") {
