@@ -233,8 +233,8 @@ Algebraic effects and their handlers.
 
 Effects in languages and libraries.
 
-- Ohad Kammar, Sam Lindley, Nicolas Oury. [*Handlers in action.*](https://denotational.co.uk/publications/kammar-lindley-oury-handlers-in-action.pdf) ICFP 2013: handlers as
-  implemented here, deep and shallow, in several languages — the foundation of this library.
+- Ohad Kammar, Sam Lindley, Nicolas Oury. [*Handlers in action.*](https://denotational.co.uk/publications/kammar-lindley-oury-handlers-in-action.pdf) ICFP 2013: effect handlers,
+  their semantics and their implementation in several languages — the foundation of this library.
 - Oleg Kiselyov, Amr Sabry, Cameron Swords. *Extensible effects: an alternative to monad transformers.* Haskell
   Symposium 2013.
 - Oleg Kiselyov, Hiromi Ishii. *Freer monads, more extensible effects.* Haskell Symposium 2015.
