@@ -16,6 +16,9 @@ modules of more effects: streams, asynchrony, concurrency, resources, I/O, proba
 retries. On the JVM, Scala.js and Scala Native; built on Scala 3.3 LTS and Scala 2.13, so any Scala 3 from 3.3 on can
 use it ([Scala versions](docs/getting-started.md#scala-versions)).
 
+**Get it:** `resolvers += "okay-effects" at "https://okay-effects.github.io/okay-simple/maven"`, then
+`"io.github.okay-effects" %% "okay-effects-machine" % "0.1.0"` ([getting started](docs/getting-started.md)).
+
 **Documentation: [docs/](docs/README.md)** — [getting started](docs/getting-started.md), [a tour](docs/tour.md), the
 guide, a page for each module, [the examples](docs/examples.md); every code block compiled and run.
 

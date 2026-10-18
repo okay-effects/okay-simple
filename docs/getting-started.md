@@ -9,26 +9,23 @@ This page takes you from nothing to a program that runs. The [tour](tour.md) goe
 
 ## Get the library
 
-The library is not on Maven Central yet. Build it and publish it to your local repository:
-
-```sh
-git clone https://github.com/okay-effects/okay-simple.git
-cd okay-simple
-sbt "+effects/publishLocal" "+machine/publishLocal"         # the interface and the machine, both compilers
-# Scala.js, Scala Native: sbt -Dplatforms=jvm,js,native "+effectsJS/publishLocal" "+effectsNative/publishLocal" ...
-```
-
-Then, in your build:
+Releases are a Maven repository on GitHub Pages: one resolver, and the modules you use.
 
 ```scala-sbt
+resolvers += "okay-effects" at "https://okay-effects.github.io/okay-simple/maven"
+
 libraryDependencies ++= Seq(
-  "io.github.okay-effects" %% "okay-effects"         % "0.1.0-SNAPSHOT",   // the interface and the standard effects
-  "io.github.okay-effects" %% "okay-effects-machine" % "0.1.0-SNAPSHOT"    // an implementation to run on
+  "io.github.okay-effects" %% "okay-effects"         % "0.1.0",   // the interface and the standard effects
+  "io.github.okay-effects" %% "okay-effects-machine" % "0.1.0"    // an implementation to run on
 )
 ```
 
 Any other implementation (`okay-effects-free`, `okay-effects-tagless`) and any module (`okay-effects-stream`,
-`okay-effects-async`, ...) is one more line of the same form; `%%%` for Scala.js and Scala Native.
+`okay-effects-async`, ...) is one more line of the same form; `%%%` for Scala.js and Scala Native. The list of all
+of them is the repository's index, [okay-effects.github.io/okay-simple](https://okay-effects.github.io/okay-simple/).
+
+The latest code, unreleased: clone the repository and `sbt "+effects/publishLocal" "+machine/publishLocal"`, then the
+version in `build.sbt` (a `-SNAPSHOT`).
 
 ## Scala versions
 
