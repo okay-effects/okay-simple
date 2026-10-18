@@ -1,7 +1,8 @@
 # okay-effects documentation
 
 One interface of algebraic effects for Scala 3 and Scala 2.13 — programs whose effects are named in their type,
-handlers that give them meaning, any number of implementations to run them on, on the JVM and on Scala.js.
+handlers that give them meaning, any number of implementations to run them on, on the JVM, Scala.js and Scala
+Native.
 
 Every code block here is compiled and its `assert`s run (`sbt docsCheck/test docsCheck2/test`), so what you read
 runs.
@@ -26,7 +27,7 @@ runs.
 | [Implementations](guide/implementations.md) | the machine, `Free`, tagless, okay-core's and okay-kernel's bridges; choosing; measured |
 | [Scala 2 and Scala 3](guide/scala-2-and-3.md) | one interface, two ways of writing a row; code for both; one application of both |
 | [Writing an implementation](guide/writing-an-implementation.md) | what to give, what to override, the interface's suite |
-| [Platforms and the build](guide/platforms.md) | the JVM and Scala.js, the sbt commands, the layout |
+| [Platforms and the build](guide/platforms.md) | the JVM, Scala.js and Scala Native (when asked), the sbt commands, the layout |
 
 ## The modules
 

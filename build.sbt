@@ -1,6 +1,7 @@
 val scala3 = "3.9.0"
 val scala2 = "2.13.18"
 import sbtcrossproject.{CrossProject, CrossType}
+import Platforms._
 
 ThisBuild / organization := "dev.okay"
 ThisBuild / version := "0.1.0-SNAPSHOT"
@@ -18,9 +19,19 @@ def crossBuilt: Seq[Def.Setting[?]] = Seq(
                      else Seq("-deprecation", "-feature", "-Xlint")),
   libraryDependencies += "org.scalameta" %%% "munit" % "1.2.3" % Test)
 
-/** ON THE JVM AND SCALA.JS: one source (`CrossType.Pure`), the JVM's project named as the module, Scala.js's `…JS` */
-def crossBoth(id: String, dir: String): CrossProject = CrossProject(id, file(dir))(JVMPlatform, JSPlatform).crossType(CrossType.Pure)
-  .settings(crossBuilt).jvmConfigure(_.withId(id)).jsConfigure(_.withId(id + "JS"))
+/** THE PLATFORMS BUILT: the JVM always; Scala.js and Scala Native when asked —
+ * `sbt -Dplatforms=jvm,js,native ...`, or the environment's `OKAY_PLATFORMS=js,native` */
+val platformsAsked: Set[String] =
+  (sys.props.get("platforms") orElse sys.env.get("OKAY_PLATFORMS")).getOrElse("jvm").split(',').map(_.trim.toLowerCase).toSet + "jvm"
+def platformsOf(can: Set[String]): Seq[sbtcrossproject.Platform] = Seq[sbtcrossproject.Platform](JVMPlatform) ++
+  (if (platformsAsked("js") && can("js")) Seq(JSPlatform) else Nil) ++
+  (if (platformsAsked("native") && can("native")) Seq(NativePlatform) else Nil)
+
+/** ON EACH PLATFORM ASKED, of those it `can` be built for: one source (`CrossType.Pure`), the JVM's project named as the
+ * module, Scala.js's `…JS`, Scala Native's `…Native` */
+def crossBoth(id: String, dir: String, can: Set[String] = Set("js", "native")): CrossProject =
+  CrossProject(id, file(dir))(platformsOf(can): _*).crossType(CrossType.Pure)
+    .settings(crossBuilt).jvmConfigure(_.withId(id)).onJS(_.withId(id + "JS")).onNative(_.withId(id + "Native"))
 /** munit, for the JVM-only projects */
 val munit = "org.scalameta" %% "munit" % "1.2.3" % Test
 
@@ -82,13 +93,14 @@ lazy val examplesMixed = (project in file("examples/mixed")).dependsOn(examples2
 lazy val interopCats = crossBoth("interopCats", "interop/cats").dependsOn(effects, machine, free % Test)
   .settings(name := "okay-effects-cats", libraryDependencies ++= Seq("org.typelevel" %%% "cats-core" % "2.13.0",
     // cats-effect 3's IO lowered to, in the checks: any cats monad is, the module asks no more
-    "org.typelevel" %%% "cats-effect" % "3.5.7" % Test))
+    "org.typelevel" %%% "cats-effect" % "3.7.1" % Test))
 
 /** INTEROP WITH ZIO: a task performed in a program, a program lowered to a task */
 lazy val interopZio = crossBoth("interopZio", "interop/zio").dependsOn(effects, machine, free % Test)
   .settings(name := "okay-effects-zio", libraryDependencies += "dev.zio" %%% "zio" % "2.1.14")
-  // ZIO's runtime on Scala.js reads `java.time`: a port of it, for the checks
-  .jsSettings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.6.0" % Test)
+  // ZIO's runtime on Scala.js and Scala Native reads `java.time`: a port of it, for the checks
+  .onJS(_.settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.6.0" % Test))
+  .onNative(_.settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.6.0" % Test))
 
 /** INTEROP WITH JAVA'S STREAMS AND ITERATORS: the stream module's streams to and from them. The JVM's: Scala.js has no
  * `java.util.stream` */
@@ -100,7 +112,8 @@ lazy val interopJavaStream = (project in file("interop/java-stream"))
 lazy val interopZioStream = crossBoth("interopZioStream", "interop/zio-stream")
   .dependsOn(interopZio, stream, machine, free % Test, tagless % Test)
   .settings(name := "okay-effects-zio-stream", libraryDependencies += "dev.zio" %%% "zio-streams" % "2.1.14")
-  .jsSettings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.6.0" % Test)
+  .onJS(_.settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.6.0" % Test))
+  .onNative(_.settings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.6.0" % Test))
 
 /** INTEROP WITH FS2'S STREAMS: a stream of `F`'s programs (cats-effect's `IO`, any cats monad) an `fs2.Stream`, and
  * back */
@@ -111,7 +124,7 @@ lazy val interopFs2 = crossBoth("interopFs2", "interop/fs2")
 
 /** INTEROP WITH MONIX: its `Task` an effect, its `Observable` a stream and back. Monix 3 is of cats-effect 2: its own
  * module, no other interop beside it */
-lazy val interopMonix = crossBoth("interopMonix", "interop/monix")
+lazy val interopMonix = crossBoth("interopMonix", "interop/monix", can = Set("js"))
   .dependsOn(effects, stream, machine, free % Test, tagless % Test)
   .settings(name := "okay-effects-monix", libraryDependencies ++= Seq("io.monix" %%% "monix-reactive" % "3.5.2",
     "io.monix" %%% "monix-tail" % "3.5.2"))
@@ -224,10 +237,16 @@ lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
     name := "okay-effects-compat-scala3", publish / skip := true,
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
-lazy val root = (project in file(".")).aggregate(docsCheck, docsCheck2, docsCheckMonix, effects.jvm, effects.js, tck.jvm, tck.js, machine.jvm, machine.js, suite.jvm, suite.js, free.jvm, free.js, suiteFree.jvm, suiteFree.js, tagless.jvm, tagless.js, concurrent.jvm, concurrent.js, resource.jvm, resource.js, io.jvm, io.js, probability.jvm, probability.js, parsing.jvm, parsing.js, logic.jvm, logic.js, transaction.jvm, transaction.js, resilience.jvm, resilience.js, stream.jvm, stream.js, async.jvm, async.js, interopCats.jvm, interopCats.js, interopZio.jvm, interopZio.js, interopTofu, interopJavaStream, interopZioStream.jvm, interopZioStream.js, interopFs2.jvm, interopFs2.js, interopMonix.jvm, interopMonix.js, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2)
+/** every cross-built module, on each platform built */
+lazy val crossBuiltModules: Seq[CrossProject] = Seq(effects, tck, machine, suite, free, suiteFree, tagless, concurrent, resource, io, probability, parsing, logic, transaction, resilience, stream, async, interopCats, interopZio, interopZioStream, interopFs2, interopMonix)
+lazy val root = (project in file(".")).aggregate((Seq[ProjectReference](docsCheck, docsCheck2, docsCheckMonix, interopTofu, interopJavaStream, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2) ++ crossBuiltModules.flatMap(_.projects.values.map(p => p: ProjectReference))): _*)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
 /** everything: the interface's suites by both compilers, then the two compilers in one application */
-/** the same suites on Scala.js (Node.js), by both compilers */
-addCommandAlias("testJS", "; ++3.9.0 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; asyncJS/test ; interopCatsJS/test ; interopZioJS/test ; interopZioStreamJS/test ; interopFs2JS/test ; interopMonixJS/test ; ++2.13.18 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; asyncJS/test ; interopCatsJS/test ; interopZioJS/test ; interopZioStreamJS/test ; interopFs2JS/test ; interopMonixJS/test ; ++3.9.0")
+/** the same suites on Scala.js (Node.js) and on Scala Native, by both compilers — when built: `sbt -Dplatforms=jvm,js testJS`,
+ * `sbt -Dplatforms=jvm,native testNative` */
+addCommandAlias("testJS", if (platformsAsked("js")) "; ++3.9.0 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; asyncJS/test ; interopCatsJS/test ; interopZioJS/test ; interopZioStreamJS/test ; interopFs2JS/test ; interopMonixJS/test ; ++2.13.18 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; asyncJS/test ; interopCatsJS/test ; interopZioJS/test ; interopZioStreamJS/test ; interopFs2JS/test ; interopMonixJS/test ; ++3.9.0" else "; show platformsHelp")
+addCommandAlias("testNative", if (platformsAsked("native")) "; ++3.9.0 suiteNative/test ; suiteFreeNative/test ; taglessNative/test ; concurrentNative/test ; resourceNative/test ; ioNative/test ; probabilityNative/test ; parsingNative/test ; logicNative/test ; transactionNative/test ; resilienceNative/test ; streamNative/test ; asyncNative/test ; interopCatsNative/test ; interopZioNative/test ; interopZioStreamNative/test ; interopFs2Native/test ; ++2.13.18 suiteNative/test ; suiteFreeNative/test ; taglessNative/test ; concurrentNative/test ; resourceNative/test ; ioNative/test ; probabilityNative/test ; parsingNative/test ; logicNative/test ; transactionNative/test ; resilienceNative/test ; streamNative/test ; asyncNative/test ; interopCatsNative/test ; interopZioNative/test ; interopZioStreamNative/test ; interopFs2Native/test ; ++3.9.0" else "; show platformsHelp")
+lazy val platformsHelp = taskKey[String]("how to build for Scala.js and Scala Native")
+ThisBuild / platformsHelp := "Scala.js and Scala Native are built when asked: sbt -Dplatforms=jvm,js,native (or OKAY_PLATFORMS=js,native)"
 addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; interopJavaStream/test ; interopZioStream/test ; interopFs2/test ; interopMonix/test ; ++2.13.18 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; interopJavaStream/test ; interopZioStream/test ; interopFs2/test ; interopMonix/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test ; docsCheck/test ; docsCheckMonix/test ; ++2.13.18 docsCheck2/test ; ++3.9.0")

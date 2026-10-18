@@ -10,7 +10,7 @@ type lambdas, `Choose + State % Int`; in Scala 2 by names taken as the construct
 Three implementations here — a machine, the `Free` monad, and tagless (programs of no implementation) — and two
 bridges in other repositories, to okay-core's machine and to okay-kernel's protocol, all checked by one suite; and
 modules of more effects: streams, asynchrony, concurrency, resources, I/O, probability, parsing, logic, transactions,
-retries. On the JVM and on Scala.js.
+retries. On the JVM, Scala.js and Scala Native.
 
 **Documentation: [docs/](docs/README.md)** — [getting started](docs/getting-started.md), [a tour](docs/tour.md), the
 guide, a page for each module; every code block compiled and run.
@@ -382,13 +382,16 @@ evidence, passed on to the recursion):
 
 ## Build
 
-The interface, the machine, `Free`, the suite, tagless, the modules and interop with cats and ZIO are built for the
-JVM and for Scala.js (`CrossType.Pure`: one source; the JVM's project named as the module, Scala.js's `…JS`); tofu,
-the examples, the benchmark and the compatibility checks for the JVM.
+The interface, the machine, `Free`, the suite, tagless, the modules and interop with cats, ZIO, fs2 and ZIO's streams
+are built for the JVM, Scala.js and Scala Native (`CrossType.Pure`: one source; the JVM's project named as the module,
+Scala.js's `…JS`, Scala Native's `…Native`); monix for the JVM and Scala.js; tofu, Java's streams, the examples, the
+benchmark and the compatibility checks for the JVM. By default only the JVM is built; Scala.js and Scala Native when
+asked: `sbt -Dplatforms=jvm,js,native` (or `OKAY_PLATFORMS=js,native`).
 
 ```sh
 sbt testAll                                      # both compilers: everything here, on the JVM
-sbt testJS                                       # both compilers: the suites, tagless, the modules, interop, on Scala.js (Node.js)
+sbt -Dplatforms=jvm,js testJS                    # both compilers: the suites, tagless, the modules, interop, on Scala.js (Node.js)
+sbt -Dplatforms=jvm,native testNative            # the same on Scala Native
 sbt "+effects/publishLocal" "+tck/publishLocal"  # the interface and its suite, for okay-core's and okay-kernel's bridges
 python3 /tmp/okz/tools/withlock.py sbt "bench/Jmh/run -f 2 -wi 5 -i 5 -w 1 -r 1 -prof gc"   # JMH, holding JMH's lock
 ```

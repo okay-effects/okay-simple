@@ -2,7 +2,8 @@
 
 okay-effects is one interface of algebraic effects for Scala 3 and Scala 2.13. You write a program against the
 interface — its effects named in its type, their handlers given later — and run it on any implementation: the
-machine, the `Free` monad, tagless, okay-core's machine, okay-kernel's protocol. On the JVM and on Scala.js.
+machine, the `Free` monad, tagless, okay-core's machine, okay-kernel's protocol. On the JVM, Scala.js and Scala
+Native.
 
 This page takes you from nothing to a program that runs. The [tour](tour.md) goes on from there.
 
@@ -14,7 +15,7 @@ The library is not on Maven Central yet. Build it and publish it to your local r
 git clone https://github.com/sergey-scherbina/okay-simple.git
 cd okay-simple
 sbt "+effects/publishLocal" "+machine/publishLocal"         # the interface and the machine, both compilers
-# Scala.js: "+effectsJS/publishLocal" "+machineJS/publishLocal"
+# Scala.js, Scala Native: sbt -Dplatforms=jvm,js,native "+effectsJS/publishLocal" "+effectsNative/publishLocal" ...
 ```
 
 Then, in your build:
@@ -27,7 +28,7 @@ libraryDependencies ++= Seq(
 ```
 
 Any other implementation (`okay-effects-free`, `okay-effects-tagless`) and any module (`okay-effects-stream`,
-`okay-effects-async`, ...) is one more line of the same form; `%%%` for Scala.js.
+`okay-effects-async`, ...) is one more line of the same form; `%%%` for Scala.js and Scala Native.
 
 ## A first program
 
