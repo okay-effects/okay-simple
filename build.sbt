@@ -7,11 +7,11 @@ val scala2 = "2.13.18"
 import sbtcrossproject.{CrossProject, CrossType}
 import Platforms._
 
-ThisBuild / organization := "io.github.sergey-scherbina"
-ThisBuild / organizationName := "Sergiy Shcherbyna"
-ThisBuild / homepage := Some(url("https://github.com/sergey-scherbina/okay-simple"))
-ThisBuild / scmInfo := Some(ScmInfo(url("https://github.com/sergey-scherbina/okay-simple"),
-  "scm:git:https://github.com/sergey-scherbina/okay-simple.git"))
+ThisBuild / organization := "io.github.okay-effects"
+ThisBuild / organizationName := "okay-effects"
+ThisBuild / homepage := Some(url("https://github.com/okay-effects/okay-simple"))
+ThisBuild / scmInfo := Some(ScmInfo(url("https://github.com/okay-effects/okay-simple"),
+  "scm:git:https://github.com/okay-effects/okay-simple.git"))
 ThisBuild / developers := List(Developer("sergey-scherbina", "Sergiy Shcherbyna", "sergey.scherbina@gmail.com",
   url("https://github.com/sergey-scherbina")))
 ThisBuild / startYear := Some(2026)
@@ -20,7 +20,7 @@ ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / licenses := List("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.txt"))
 /** RELEASES, ON GITHUB PAGES: `sbt publishPages` writes every published module, for both compilers and every platform
  * asked, as a Maven repository into `target/pages-maven/`; that directory goes to the `gh-pages` branch under
- * `maven/`, served at https://sergey-scherbina.github.io/okay-simple/maven (RELEASING.md) */
+ * `maven/`, served at https://okay-effects.github.io/okay-simple/maven (RELEASING.md) */
 val pagesRepository = settingKey[File]("the Maven repository a release is written to, for GitHub Pages")
 ThisBuild / pagesRepository := (ThisBuild / baseDirectory).value / "target" / "pages-maven"
 ThisBuild / publishTo := Some(MavenCache("pages", (ThisBuild / pagesRepository).value))
@@ -92,7 +92,7 @@ lazy val effects = crossBoth("effects", "core/effects").settings(name := "okay-e
 lazy val machine = crossBoth("machine", "core/machine").dependsOn(effects).settings(name := "okay-effects-machine")
 
 /** THE INTERFACE'S SUITE, a library: `InterfaceSuite(fx)` and its programs, for any implementation — here's, and the
- * bridges' in their own repositories (okay-core's, okay-kernel's): `"io.github.sergey-scherbina" %% "okay-effects-tck" % ... % Test` */
+ * bridges' in their own repositories (okay-core's, okay-kernel's): `"io.github.okay-effects" %% "okay-effects-tck" % ... % Test` */
 lazy val tck = crossBoth("tck", "tck").dependsOn(effects)
   .settings(name := "okay-effects-tck",
     libraryDependencies := libraryDependencies.value.filterNot(_.name == "munit") :+ ("org.scalameta" %%% "munit" % "1.2.3"))

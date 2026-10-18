@@ -1,16 +1,16 @@
 # Releasing
 
 Releases are a Maven repository on GitHub Pages: the `gh-pages` branch, its `maven/` directory, served at
-https://sergey-scherbina.github.io/okay-simple/maven. No account and no token is needed to use it, only a resolver.
+https://okay-effects.github.io/okay-simple/maven. No account and no token is needed to use it, only a resolver.
 
 ## Using a release
 
 ```scala-sbt
-resolvers += "okay-effects" at "https://sergey-scherbina.github.io/okay-simple/maven"
+resolvers += "okay-effects" at "https://okay-effects.github.io/okay-simple/maven"
 
 libraryDependencies ++= Seq(
-  "io.github.sergey-scherbina" %% "okay-effects"         % "0.1.0",
-  "io.github.sergey-scherbina" %% "okay-effects-machine" % "0.1.0"
+  "io.github.okay-effects" %% "okay-effects"         % "0.1.0",
+  "io.github.okay-effects" %% "okay-effects-machine" % "0.1.0"
 )
 ```
 

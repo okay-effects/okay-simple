@@ -12,7 +12,7 @@ This page takes you from nothing to a program that runs. The [tour](tour.md) goe
 The library is not on Maven Central yet. Build it and publish it to your local repository:
 
 ```sh
-git clone https://github.com/sergey-scherbina/okay-simple.git
+git clone https://github.com/okay-effects/okay-simple.git
 cd okay-simple
 sbt "+effects/publishLocal" "+machine/publishLocal"         # the interface and the machine, both compilers
 # Scala.js, Scala Native: sbt -Dplatforms=jvm,js,native "+effectsJS/publishLocal" "+effectsNative/publishLocal" ...
@@ -22,8 +22,8 @@ Then, in your build:
 
 ```scala-sbt
 libraryDependencies ++= Seq(
-  "io.github.sergey-scherbina" %% "okay-effects"         % "0.1.0-SNAPSHOT",   // the interface and the standard effects
-  "io.github.sergey-scherbina" %% "okay-effects-machine" % "0.1.0-SNAPSHOT"    // an implementation to run on
+  "io.github.okay-effects" %% "okay-effects"         % "0.1.0-SNAPSHOT",   // the interface and the standard effects
+  "io.github.okay-effects" %% "okay-effects-machine" % "0.1.0-SNAPSHOT"    // an implementation to run on
 )
 ```
 
