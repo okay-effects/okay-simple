@@ -6,7 +6,7 @@ a `G[A]` is a `Runner`'s `lower(p)`, given a `Lowering[G]`. The interop modules 
 | Module | Platforms | What it gives |
 |---|---|---|
 | `okay-effects-cats` | JVM, Scala.js | `monad[R]` (`import okay.effects.catsinterop.*`): cats' `Monad` of the programs, stack safe; `lowering[G]`: a `Lowering` of any cats `Monad` — cats-effect's `IO`, `Either`, `Option` |
-| `okay-effects-zio` | JVM, Scala.js | `fromZIOTask(task)`, `toZIO(p)` — a task a `Lift[Task, *]`, a program a `Task` |
+| `okay-effects-zio` | JVM, Scala.js | `fromZIOTask(task)`, `toZIOTask(p)` — a task a `Lift[Task, *]`, a program a `Task` |
 | `okay-effects-java-stream` | JVM | `import okay.effects.jstream.*`: Java's `Stream`s and `Iterator`s to and from the stream module's streams |
 | `okay-effects-zio-stream` | JVM, Scala.js | `import okay.effects.zstream.*`: a stream of ZIO's tasks a `ZStream`, and a `ZStream` a stream |
 | `okay-effects-fs2` | JVM, Scala.js | `import okay.effects.fs2interop.*`: a stream of `F`'s programs (cats-effect's `IO`, any cats monad) an `fs2.Stream`, and back |
@@ -46,7 +46,7 @@ object WithZio:
   import okay.effects.ziointerop.*
 
   val p: Int ! Tasks = fromZIOTask[Int, Tasks](ZIO.succeed(20)).flatMap(a => fromZIOTask[Int, Tasks](ZIO.attempt(a + 22)))
-  val value: Int = Unsafe.unsafe { implicit u => Runtime.default.unsafe.run(toZIO(p)).getOrThrow() }
+  val value: Int = Unsafe.unsafe { implicit u => Runtime.default.unsafe.run(toZIOTask(p)).getOrThrow() }
 
 assert(WithZio.value == 42)
 ```
@@ -202,7 +202,7 @@ object WithZioStreams:
   /** a stream of tasks, as a ZStream */
   val collected = unsafe(toZStream(range[Tasks](1, 4).evalMap(n => fromZIOTask[Int, Tasks](ZIO.succeed(n * 10)))).runCollect).toList
   /** a ZStream, transformed here */
-  val evens = unsafe(toZIO(fromZStream(ZStream.range(0, 100).map(_ * 3)).filter(_ % 2 == 0).take(3).toList))
+  val evens = unsafe(toZIOTask(fromZStream(ZStream.range(0, 100).map(_ * 3)).filter(_ % 2 == 0).take(3).toList))
 
 assert(WithZioStreams.collected == List(10, 20, 30))
 assert(WithZioStreams.evens == List(0, 6, 12))

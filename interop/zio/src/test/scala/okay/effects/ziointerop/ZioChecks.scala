@@ -21,11 +21,11 @@ abstract class ZioChecks(val fx0: Runner) extends munit.FunSuite {
 
   test("a program of ZIO tasks, lowered to a task, run by ZIO's runtime") {
     val p: Int ! Tasks = fromZIOTask[Int, Tasks](ZIO.succeed(20)).flatMap(a => fromZIOTask[Int, Tasks](ZIO.attempt(a + 22)))
-    unsafeRun(toZIO(p)).map(v => assertEquals(v, 42))
+    unsafeRun(toZIOTask(p)).map(v => assertEquals(v, 42))
   }
   test("a task failed: the program's failure ZIO's") {
     val p: Int ! Tasks = fromZIOTask[Int, Tasks](ZIO.fail(new RuntimeException("boom"))).map(_ + 1)
-    unsafeRun(toZIO(p).either).map(v => assertEquals(v.left.map(_.getMessage), Left("boom")))
+    unsafeRun(toZIOTask(p).either).map(v => assertEquals(v.left.map(_.getMessage), Left("boom")))
   }
 }
 

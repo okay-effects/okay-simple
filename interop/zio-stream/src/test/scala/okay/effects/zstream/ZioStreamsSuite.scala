@@ -15,7 +15,7 @@ abstract class ZioStreamsChecks(val fx0: Runner) extends munit.FunSuite {
   val z = ZioStreams()
   import z._
   import z.fx._
-  import z.zioEffects.{Tasks, fromZIOTask, toZIO}
+  import z.zioEffects.{Tasks, fromZIOTask, toZIOTask}
   import z.streams._
 
   private def unsafeRun[A](task: zio.Task[A]): Future[A] = Unsafe.unsafe { implicit u => Runtime.default.unsafe.runToFuture(task) }
@@ -29,11 +29,11 @@ abstract class ZioStreamsChecks(val fx0: Runner) extends munit.FunSuite {
   }
   test("a ZStream as a stream: transformed here, as far as asked") {
     val s = fromZStream(ZStream.range(0, 100).rechunk(7).map(_ * 2)).filter(_ % 3 == 0).take(5)
-    unsafeRun(toZIO(s.toList)).map(xs => assertEquals(xs, List(0, 6, 12, 18, 24)))
+    unsafeRun(toZIOTask(s.toList)).map(xs => assertEquals(xs, List(0, 6, 12, 18, 24)))
   }
   test("a ZStream read to its end; its failure the task's") {
-    unsafeRun(toZIO(fromZStream(ZStream(1, 2, 3)).fold(0)(_ + _))).map(n => assertEquals(n, 6))
-      .flatMap(_ => unsafeRun(toZIO(fromZStream(ZStream(1) ++ ZStream.fail(new RuntimeException("boom"))).toList).either))
+    unsafeRun(toZIOTask(fromZStream(ZStream(1, 2, 3)).fold(0)(_ + _))).map(n => assertEquals(n, 6))
+      .flatMap(_ => unsafeRun(toZIOTask(fromZStream(ZStream(1) ++ ZStream.fail(new RuntimeException("boom"))).toList).either))
       .map(e => assertEquals(e.left.map(_.getMessage), Left("boom")))
   }
 }

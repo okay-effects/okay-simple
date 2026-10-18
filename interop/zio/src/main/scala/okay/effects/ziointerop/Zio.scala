@@ -8,7 +8,7 @@ import zio.{Exit, Runtime, Tag, Task, Unsafe, ZEnvironment, ZIO, ZLayer}
  * ZIO OVER THE EFFECTS, on any implementation `fx` (one source for both compilers): a task is a standard `Lift` —
  *
  *  - `fromZIOTask(task)`: a ZIO task performed inside a program, `std.lift`;
- *  - `toZIO(p)`: a program whose one effect is `Lift[Task, *]` as a `Task[A]`, `lower` by ZIO's bind — the rest
+ *  - `toZIOTask(p)`: a program whose one effect is `Lift[Task, *]` as a `Task[A]`, `lower` by ZIO's bind — the rest
  *    suspended in it, so a throw in it is the task's failure.
  *
  * TYPED, each of ZIO's channels one of the effects: a `ZIO[Env, Err, A]` in a row `ZioRow[Env, Err]` —
@@ -37,7 +37,7 @@ class ZioEffects[F <: Runner](implicit implementation: F) {
   }
 
   def fromZIOTask[X, R[_]](task: Task[X])(implicit in: In[Tasks, R]): X ! R = std.lift[Task, X, R](task)
-  def toZIO[A](p: A ! Tasks): Task[A] = fx.lower[Task, A](p)
+  def toZIOTask[A](p: A ! Tasks): Task[A] = fx.lower[Task, A](p)
 
   private implicit val exact: fx.type = fx
   private implicit val context: scala.concurrent.ExecutionContext = Asynchrony.defaultContext
