@@ -3,7 +3,8 @@
 What the library is like, in the examples it has: the `examples/` module — programs written over the interface
 alone, run on every implementation — and the most interesting of the examples in the modules' pages.
 
-The excerpts below (```` ```scala excerpt ````) are from `examples/`, compiled and tested there (`sbt examples/test`);
+The excerpts below (```` ```scala excerpt ````) are from `examples/`, compiled and tested there (`sbt examples/test`) on
+Scala 3.3 LTS — so written in its forms (see [Scala versions](getting-started.md#scala-versions));
 the last block of the first part runs them, here, on two implementations.
 
 ## The `examples/` module
@@ -42,7 +43,7 @@ A program asks for three effects at any place of its row, so it runs in any row 
 its effect from wherever it is. The reader is handled first here, though it is the row's first:
 
 ```scala excerpt
-def greet[R[_]: {Has[Reader % String], Has[Writer % String], Has[State % Int]}]: Int ! R =
+def greet[R[_]: Has[Reader % String]: Has[Writer % String]: Has[State % Int]]: Int ! R =
   for
     name <- ask[String, R]
     _ <- tell[String, R](s"hello, $name")
@@ -50,7 +51,7 @@ def greet[R[_]: {Has[Reader % String], Has[Writer % String], Has[State % Int]}]:
     _ <- put[Int, R](n + 1)
   yield n
 
-type App = Reader % String + Writer % String + State % Int
+type App[X] = (Reader % String + Writer % String + State % Int)[X]   // Scala 3.3 LTS's form; 3.5 on: type App = ...
 def greeted: (Int, (List[String], Int)) = run(state(0)(writer[String](reader("Ann")(greet[App]))))
 ```
 
@@ -130,7 +131,7 @@ Scala 3 code takes Scala 2.13's effect, handler and program as they are, in one 
 ```scala excerpt
 val basics = Basics2[fx.type]()(using fx)       // compiled by Scala 2.13
 
-def doubled[R[_]: {Has[Basics2.Counter]#L, Has[(State % Int)#L]#L}]: Int ! R =
+def doubled[R[_]: Has[Basics2.Counter]#L: Has[(State % Int)#L]#L]: Int ! R =
   basics.tick[R].andThen(basics.peek[R]).flatMap(n => modify[Int, R](_ + 2 * n).as(n))
 
 type Row[X] = (*[Basics2.Counter] + (State % Int))#L[X]

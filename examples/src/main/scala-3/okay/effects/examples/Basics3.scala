@@ -23,7 +23,7 @@ class Basics3(using val fx: Runner):
   import Basics3.{Coin, Counter}
 
   /** a program in any row that has these three, at any place */
-  def greet[R[_]: {Has[Reader % String], Has[Writer % String], Has[State % Int]}]: Int ! R =
+  def greet[R[_]: Has[Reader % String]: Has[Writer % String]: Has[State % Int]]: Int ! R =
     for
       name <- ask[String, R]
       _ <- tell[String, R](s"hello, $name")
@@ -31,7 +31,7 @@ class Basics3(using val fx: Runner):
       _ <- put[Int, R](n + 1)
     yield n
 
-  type App = Reader % String + Writer % String + State % Int
+  type App[X] = (Reader % String + Writer % String + State % Int)[X]
 
   /** each handler takes its effect from wherever it is in the row: the order of handling is the reader's, the
    * writer's, the state's, from the inside out — the row's order is not */
@@ -49,7 +49,7 @@ class Basics3(using val fx: Runner):
         case Counter.Peek => cell.get)
 
   /** the same effect beside a standard one: ticks and a state, one row */
-  type Ticking = Counter + State % Int
+  type Ticking[X] = (Counter + State % Int)[X]
   def counted: (Int, (Int, Int)) =
     run(state(100)(counting(tick[Ticking].andThen(tick[Ticking]).andThen(peek[Ticking])
       .flatMap(n => modify[Int, Ticking](_ + n).as(n)))))

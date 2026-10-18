@@ -5,7 +5,7 @@ class ReadmeSuite extends munit.FunSuite:
   import okay.effects.machine.Machine.*
   import okay.effects.machine.Machine.std.*
 
-  def greet[R[_]: {Has[Reader % String], Has[Writer % String], Has[State % Int]}]: Int ! R =
+  def greet[R[_]: Has[Reader % String]: Has[Writer % String]: Has[State % Int]]: Int ! R =
     for
       name <- ask[String, R]
       _ <- tell[String, R](s"hello, $name")
@@ -13,7 +13,7 @@ class ReadmeSuite extends munit.FunSuite:
       _ <- put[Int, R](n + name.length)
     yield n
 
-  type Row = Reader % String + Writer % String + State % Int
+  type Row[X] = (Reader % String + Writer % String + State % Int)[X]
 
   test("README's program, one import"):
     assertEquals(run(reader("Ann")(state(10)(writer[String](greet[Row])))), (13, (List("hello, Ann"), 10)))

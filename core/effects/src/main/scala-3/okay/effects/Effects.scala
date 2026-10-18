@@ -16,8 +16,8 @@ trait Effects extends Effectful:
   /** the row `R` and the effect `E` after it */
   type +[R[_], E[_]] = [X] =>> Sum[R, E, X]
   /** the names here too: an implementation imported gives them (`import Machine.*`) */
-  type %[F[_, _], S] = okay.effects.%[F, S]
-  type *[F[_]] = okay.effects.*[F]
+  type %[F[_, _], S] = [X] =>> F[S, X]
+  type *[F[_]] = [X] =>> F[X]
   /** a context bound: `def greet[R[_]: {Has[Reader % String], Has[State % Int]}]: Int ! R` */
   type Has[E[_]] = [R[_]] =>> In[E, R]
 

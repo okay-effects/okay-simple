@@ -39,7 +39,7 @@ class Control3(using val fx: Runner):
     (run(recover[String](half[Error % String](10))(_ => pure(-1))), run(recover[String](half[Error % String](7))(e => pure(e.length))))
 
   /** SHIFT AND RESET, the answer type fixed: `k` the rest up to the `reset`, resumed twice — 1 + (1 + 10) */
-  type C = Control % (Int ! Pure)
+  type C[X] = (Control % (Int ! Pure))[X]
   def twice: Int = run(reset[Int, Pure](shift[Int, Int, Pure, Pure + C](k => k(10).flatMap(k)).map(_ + 1)))
 
   /** THE ANSWER TYPE CHANGED (`delimited`): the body's answer a `String`, the `reset`'s a function of the name */

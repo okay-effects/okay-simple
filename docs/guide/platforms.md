@@ -3,7 +3,7 @@
 ## The JVM, Scala.js, Scala Native
 
 The interface, the machine, `Free`, the suite, tagless, every module and interop with cats, ZIO, fs2 and ZIO's streams
-are built for the JVM, Scala.js and Scala Native, by both compilers (Scala 3.9, Scala 2.13); monix for the JVM and
+are built for the JVM, Scala.js and Scala Native, by both compilers (Scala 3.3 LTS, Scala 2.13; kyo's interop on Scala 3.9, as kyo is); monix for the JVM and
 Scala.js (it has no Scala Native build); tofu and Java's streams for the JVM. One source for every platform
 (`CrossType.Pure`); the platform's own only where it must be — the `async` module's timer and execution context: a
 scheduler and the global context on the JVM and Scala Native, `setTimeout` and the microtask queue on Scala.js.

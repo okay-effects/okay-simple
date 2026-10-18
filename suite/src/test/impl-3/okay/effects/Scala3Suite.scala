@@ -8,9 +8,9 @@ class Scala3Suite extends munit.FunSuite:
   import Machine.*
   import Machine.std.*
 
-  type Row = Reader % String + State % Int
+  type Row[X] = (Reader % String + State % Int)[X]
 
-  def greet[R[_]: {Has[Reader % String], Has[State % Int]}]: Int ! R =
+  def greet[R[_]: Has[Reader % String]: Has[State % Int]]: Int ! R =
     for name <- ask[String, R]; n <- get[Int, R]; _ <- put[Int, R](n + name.length) yield n
 
   /** an effect of one's own: its operations an enum, named by itself in a row */
@@ -34,7 +34,7 @@ class Scala3Suite extends munit.FunSuite:
     assertEquals(run(state(1)(reader("Ann")(greet[Row]))), (4, 1))
 
   test("an effect of one's own, its clauses typed by GADT inference"):
-    type C = Counter + State % Int
+    type C[X] = (Counter + State % Int)[X]
     val p: Int ! C = tick[C].andThen(tick[C]).andThen(peek[C]).flatMap(n => put[Int, C](n * 10).as(n))
     assertEquals(run(state(0)(counting(p))), (20, (2, 2)))
 

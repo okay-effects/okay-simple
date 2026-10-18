@@ -13,7 +13,8 @@ type lambdas, `Choose + State % Int`; in Scala 2 by names taken as the construct
 Three implementations here — a machine, the `Free` monad, and tagless (programs of no implementation) — and two
 bridges in other repositories, to okay-core's machine and to okay-kernel's protocol, all checked by one suite; and
 modules of more effects: streams, asynchrony, concurrency, resources, I/O, probability, parsing, logic, transactions,
-retries. On the JVM, Scala.js and Scala Native.
+retries. On the JVM, Scala.js and Scala Native; built on Scala 3.3 LTS and Scala 2.13, so any Scala 3 from 3.3 on can
+use it ([Scala versions](docs/getting-started.md#scala-versions)).
 
 **Documentation: [docs/](docs/README.md)** — [getting started](docs/getting-started.md), [a tour](docs/tour.md), the
 guide, a page for each module, [the examples](docs/examples.md); every code block compiled and run.
@@ -404,3 +405,9 @@ sbt -Dplatforms=jvm,native testNative            # the same on Scala Native
 sbt "+effects/publishLocal" "+tck/publishLocal"  # the interface and its suite, for okay-core's and okay-kernel's bridges
 python3 /tmp/okz/tools/withlock.py sbt "bench/Jmh/run -f 2 -wi 5 -i 5 -w 1 -r 1 -prof gc"   # JMH, holding JMH's lock
 ```
+
+Releases: [RELEASING.md](RELEASING.md) — a Maven repository on GitHub Pages, and how one is made.
+
+## License
+
+Apache License 2.0: [LICENSE](LICENSE).

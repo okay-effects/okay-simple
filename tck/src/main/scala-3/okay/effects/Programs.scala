@@ -7,7 +7,7 @@ class Programs(val fx: Runner):
   import fx.std.*
 
   /** row-polymorphic: in any row that has these, at any place */
-  def greet[R[_]: {Has[Reader % String], Has[Writer % String], Has[State % Int]}]: Int ! R =
+  def greet[R[_]: Has[Reader % String]: Has[Writer % String]: Has[State % Int]]: Int ! R =
     for
       name <- ask[String, R]
       _ <- tell[String, R](s"hello, $name")
@@ -15,8 +15,8 @@ class Programs(val fx: Runner):
       _ <- put[Int, R](n + name.length)
     yield n
 
-  type Row = Reader % String + Writer % String + State % Int
-  type Reordered = State % Int + Reader % String + Writer % String
+  type Row[X] = (Reader % String + Writer % String + State % Int)[X]
+  type Reordered[X] = (State % Int + Reader % String + Writer % String)[X]
 
   def handledInOrder = run(state(10)(writer[String](reader("Ann")(greet[Row]))))
   def handledOutOfOrder = run(reader("Ann")(state(10)(writer[String](greet[Row]))))
@@ -26,7 +26,7 @@ class Programs(val fx: Runner):
   def counter: Int ! State % Int = get[Int, State % Int]
   def grown = run(reader("x")(writer[String](state(5)(counter.into[Row]))))
 
-  type Choosing = Choose + State % Int
+  type Choosing[X] = (Choose + State % Int)[X]
   def pick: Int ! Choosing =
     for x <- among[Int, Choosing](List(1, 2, 3)); _ <- modify[Int, Choosing](_ + x) yield x * 10
   /** the state outside the choice: one state through every branch */
@@ -34,7 +34,7 @@ class Programs(val fx: Runner):
   /** the state inside: each branch its own, from the state of its time */
   def stateInside = run(all(state(0)(pick)))
 
-  type Failing = Error % String + State % Int
+  type Failing[X] = (Error % String + State % Int)[X]
   def safeDiv(a: Int, b: Int): Int ! Failing =
     if b == 0 then raise[String, Failing, Int]("div by zero") else modify[Int, Failing](_ + 1).as(a / b)
   def divided(b: Int) = run(state(0)(attempt[String](safeDiv(10, b))))
@@ -42,7 +42,7 @@ class Programs(val fx: Runner):
 
   /** a split on its own, then a general handler of the effect now last; the rest of a row of two, one taken, is
    * `Pure + E` */
-  type RS = Reader % String + State % Int
+  type RS[X] = (Reader % String + State % Int)[X]
   def asked: Int ! RS = ask[String, RS].flatMap(n => get[Int, RS].map(_ + n.length))
   def splitThenHandle = run(state(1)(handleLast(split[Reader % String, RS, Pure + State % Int, Int](asked),
     new Handler[Reader % String, Pure + State % Int, Int, Int]:

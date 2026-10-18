@@ -15,7 +15,7 @@ class Mixed(using val fx: Runner):
   val basics = Basics2[fx.type]()(using fx)
 
   /** a Scala 3 program over Scala 2's effect and a standard one */
-  def doubled[R[_]: {Has[Basics2.Counter]#L, Has[(State % Int)#L]#L}]: Int ! R =
+  def doubled[R[_]: Has[Basics2.Counter]#L: Has[(State % Int)#L]#L]: Int ! R =
     basics.tick[R].andThen(basics.peek[R]).flatMap(n => modify[Int, R](_ + 2 * n).as(n))
 
   type Row[X] = (*[Basics2.Counter] + (State % Int))#L[X]

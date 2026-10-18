@@ -14,7 +14,7 @@ trait Log { def info(s: String): Unit }
 class ZioAccumulated extends munit.FunSuite:
   given scala.concurrent.ExecutionContext = munitExecutionContext
   type AppErr = String | Int
-  type Row = ZioRow[Db & Log, AppErr]#L
+  type Row[X] = ZioRow[Db & Log, AppErr]#L[X]
 
   val db: Db = id => s"row $id"
   var logged = List.empty[String]

@@ -39,7 +39,7 @@ interface — handlers of each shape, multi-shot `k`, state through branches and
 generators, delimited control, interception, constant stack.
 
 ```scala-sbt
-libraryDependencies += "dev.okay" %% "okay-effects-tck" % "0.1.0-SNAPSHOT" % Test
+libraryDependencies += "io.github.sergey-scherbina" %% "okay-effects-tck" % "0.1.0-SNAPSHOT" % Test
 ```
 
 ```scala

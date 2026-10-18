@@ -11,7 +11,7 @@ class MixedSuite extends munit.FunSuite {
   import counting.fx.std.*
 
   /** a Scala 3 program over Scala 2's effect: context bounds; the rows by the 2.13 build's names */
-  def countedState[R[_]: {Has[Counter]#L, Has[(State % Int)#L]#L}]: Int ! R =
+  def countedState[R[_]: Has[Counter]#L: Has[(State % Int)#L]#L]: Int ! R =
     counting.tick[R].andThen(counting.tick[R]).andThen(counting.peek[R]).flatMap(n => modify[Int, R](_ + n).as(n))
 
   type Row[X] = (*[Counter] + (Writer % String) + (State % Int))#L[X]

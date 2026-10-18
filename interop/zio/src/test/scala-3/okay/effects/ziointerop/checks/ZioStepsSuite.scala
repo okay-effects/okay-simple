@@ -15,7 +15,7 @@ class ZioStepsSuite extends munit.FunSuite:
   def unsafeRun[E, A](z: ZIO[Any, E, A]): Either[E, A] =
     Unsafe.unsafe(implicit u => Runtime.default.unsafe.run(z.either).getOrThrowFiberFailure())
 
-  type Row = ZioStep[Db, DbErr] + ZioStep[Log, LogErr]
+  type Row[X] = (ZioStep[Db, DbErr] + ZioStep[Log, LogErr])[X]
   val env: ZEnvironment[Db & Log] = ZEnvironment[Db, Log](new Db { def n = 2 }, new Log { def tag = "abc" })
   val z1: ZIO[Db, DbErr, Int] = ZIO.serviceWith[Db](_.n)
   val z2: ZIO[Log, LogErr, Int] = ZIO.serviceWith[Log](_.tag.length)
@@ -44,7 +44,7 @@ class ZioStepsSuite extends munit.FunSuite:
   }
 
   test("three members, the steps in their order") {
-    type Three = ZioStep[Db, DbErr] + ZioStep[Log, LogErr] + ZioStep[Any, Nothing]
+    type Three[X] = (ZioStep[Db, DbErr] + ZioStep[Log, LogErr] + ZioStep[Any, Nothing])[X]
     var seen = List.empty[String]
     def note(s: String): ZIO[Any, Nothing, Unit] = ZIO.succeed { seen = s :: seen }
     val q: Int ! Three = for
@@ -59,13 +59,13 @@ class ZioStepsSuite extends munit.FunSuite:
   }
 
   test("a thousand steps") {
-    type One = ZioStep[Any, Nothing]
+    type One[X] = ZioStep[Any, Nothing][X]
     val q: Int ! One = (1 to 1000).foldLeft(ZIO.succeed(0).step[One])((m, _) => m.flatMap(x => ZIO.succeed(x + 1).step[One]))
     assertEquals(unsafeRun(q.toZIOSteps), Right(1000))
   }
 
   test("the program run twice, each its own ZIO") {
-    type One = ZioStep[Any, Nothing]
+    type One[X] = ZioStep[Any, Nothing][X]
     val q: Int ! One = ZIO.succeed(20).step[One].flatMap(x => ZIO.succeed(x + 1).step[One])
     assertEquals(unsafeRun(q.toZIOSteps.zipWith(q.toZIOSteps)(_ + _)), Right(42))
   }

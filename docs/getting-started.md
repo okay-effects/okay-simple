@@ -22,13 +22,27 @@ Then, in your build:
 
 ```scala-sbt
 libraryDependencies ++= Seq(
-  "dev.okay" %% "okay-effects"         % "0.1.0-SNAPSHOT",   // the interface and the standard effects
-  "dev.okay" %% "okay-effects-machine" % "0.1.0-SNAPSHOT"    // an implementation to run on
+  "io.github.sergey-scherbina" %% "okay-effects"         % "0.1.0-SNAPSHOT",   // the interface and the standard effects
+  "io.github.sergey-scherbina" %% "okay-effects-machine" % "0.1.0-SNAPSHOT"    // an implementation to run on
 )
 ```
 
 Any other implementation (`okay-effects-free`, `okay-effects-tagless`) and any module (`okay-effects-stream`,
 `okay-effects-async`, ...) is one more line of the same form; `%%%` for Scala.js and Scala Native.
+
+## Scala versions
+
+The libraries are built on Scala 3.3, the LTS, and on Scala 2.13: an application on any Scala 3 from 3.3 on, or on
+Scala 2.13, can use them. The documentation's code is compiled on the latest Scala 3 (3.9), and writes two things
+the LTS does not take:
+
+| | Scala 3.3 LTS | newer Scala 3 |
+|---|---|---|
+| a row named by an alias | `type App[X] = (Reader % String + State % Int)[X]` | `type App = Reader % String + State % Int` (3.5 on) |
+| several effects asked as context bounds | `R[_]: Has[Reader % String]: Has[State % Int]` | `R[_]: {Has[Reader % String], Has[State % Int]}` (3.6 on) |
+
+Both forms of each mean the same, and the newer compilers take the LTS's forms too. kyo's interop
+(`okay-effects-kyo`) is the one module built on the latest Scala 3, as kyo is.
 
 ## A first program
 

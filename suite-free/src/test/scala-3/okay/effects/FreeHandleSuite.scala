@@ -11,7 +11,7 @@ class FreeHandleSuite extends munit.FunSuite:
   enum Tell[X]:
     case Say(s: String) extends Tell[Unit]
 
-  type R = Void + Tell + Ask
+  type R[X] = (Void + Tell + Ask)[X]
 
   val program: Int ! R =
     Free.Bind(Free.Perform(At.Placed(Place.Init[Tell, Void + Tell, Ask, Void](Place.Last()), Tell.Say("hi"))), (_: Unit) =>
@@ -21,7 +21,7 @@ class FreeHandleSuite extends munit.FunSuite:
     [X] => (op: Ask[X], k: X => A ! (Void + Tell)) => op match
       case Ask.Number => k(41))
 
-  def telling[A](p: A ! (Void + Tell)): (List[String], A) ! Void = Free.handle(p)(a => Free.Return((Nil, a)),
+  def telling[A](p: A ! (Void + Tell)): (List[String], A) ! Void = Free.handle(p)(a => Free.Return((List.empty[String], a)),
     [X] => (op: Tell[X], k: X => (List[String], A) ! Void) => op match
       case Tell.Say(s) => k(()).map { case (said, a) => (s :: said, a) })
 
