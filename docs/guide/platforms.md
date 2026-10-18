@@ -19,7 +19,8 @@ sbt "bench/Jmh/run -f 2 -wi 5 -i 5"                        # the benchmark
 ```
 
 `testJS` needs Node.js. The documentation's code blocks are compiled and their `assert`s run by `docsCheck`
-(```scala blocks, Scala 3) and `docsCheck2` (```scala2 blocks, Scala 2.13).
+(```scala blocks, Scala 3), `docsCheck2` (```scala2 blocks, Scala 2.13) and `docsCheckMonix` (```scala monix blocks:
+monix 3 is of cats-effect 2, so a classpath of its own).
 
 ## Layout
 

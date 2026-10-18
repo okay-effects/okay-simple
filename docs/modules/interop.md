@@ -9,6 +9,8 @@ a `G[A]` is a `Runner`'s `lower(p)`, given a `Lowering[G]`. The interop modules 
 | `okay-effects-zio` | JVM, Scala.js | `ZioEffects()`: `fromZIO(task)`, `toZIO(p)` — a task a `Lift[Task, *]`, a program a `Task` |
 | `okay-effects-java-stream` | JVM | `JavaStreams()`: Java's `Stream`s and `Iterator`s to and from the stream module's streams |
 | `okay-effects-zio-stream` | JVM, Scala.js | `ZioStreams()`: a stream of ZIO's tasks a `ZStream`, and a `ZStream` a stream |
+| `okay-effects-fs2` | JVM, Scala.js | `Fs2Streams()`: a stream of `F`'s programs (cats-effect's `IO`, any cats monad) an `fs2.Stream`, and back |
+| `okay-effects-monix` | JVM, Scala.js | `Monix()`: monix's `Task` an effect; its `Observable` a stream, and back — monix 3 is of cats-effect 2 |
 | `okay-effects-tofu` | JVM | `Tofu(Cats())`: tofu's `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row |
 
 ## cats
@@ -109,6 +111,69 @@ object WithZioStreams:
 
 assert(WithZioStreams.collected == List(10, 20, 30))
 assert(WithZioStreams.evens == List(0, 6, 12))
+```
+
+## fs2
+
+A stream of `Lifted[F]` — its pulls performing `F`'s, cats-effect's `IO` or any `F` with a cats `Monad` — is an
+`fs2.Stream[F, O]`, and back. `toFs2(s)` lowers each pull to an `F`; `toFs2Pure(s)` makes a stream of no effect an
+fs2 stream of `Pure`; `fromFs2(fs)` makes an fs2 stream a stream here, a chunk at a time, as far as asked. Each step of
+`fromFs2` is compiled on its own (`uncons`), so a resource the fs2 stream holds across its elements is released at
+each step's end: compile such a stream on fs2's side, and lift what it gives.
+
+```scala
+import cats.effect.IO
+import cats.effect.unsafe.implicits.global
+import okay.effects.fs2interop.Fs2Streams
+
+object WithFs2:
+  given runner: okay.effects.Runner = Machine
+  val f: Fs2Streams[runner.type] = Fs2Streams()
+  import f.*, f.fx.*, f.fx.std.*, f.streams.*
+
+  type LIO = Lifted[IO]#L
+  given okay.effects.Std.Lowering[IO] = f.cats.lowering[IO]
+
+  /** a stream of IO's, as an fs2 stream */
+  val collected = toFs2(range[LIO](1, 4).evalMap(n => lift[IO, Int, LIO](IO(n * 10)))).compile.toList.unsafeRunSync()
+  /** an fs2 stream, transformed here */
+  val evens = f.fx.lower[IO, List[Int]](fromFs2(_root_.fs2.Stream.range(0, 100).covary[IO].map(_ * 3)).filter(_ % 2 == 0).take(3).toList).unsafeRunSync()
+
+assert(WithFs2.collected == List(10, 20, 30))
+assert(WithFs2.evens == List(0, 6, 12))
+```
+
+## monix
+
+`Monix()` makes monix's `Task` an effect (`fromTask`, `toTask`, the standard `Lift`) and its `Observable` a stream:
+`toObservable(s)` each pull a task, `toObservablePure(s)` of no effect, `fromObservable(obs)` an `Observable` a stream
+pulled as far as asked — through monix's `Iterant`, its back-pressure ours, subscribed at the first pull and released
+at its end or its failure. Monix 3 is of cats-effect 2: it cannot be in one application with cats-effect 3 (fs2, the
+cats module's checks).
+
+```scala monix
+import scala.concurrent.Await
+import scala.concurrent.duration.*
+import monix.eval.Task
+import monix.execution.Scheduler
+import monix.reactive.Observable
+import okay.effects.machine.Machine
+import okay.effects.monixinterop.Monix
+
+class WithMonix:
+  given Scheduler = Scheduler.global
+  given runner: okay.effects.Runner = Machine
+  val m: Monix[runner.type] = Monix()
+  import m.*, m.fx.*, m.streams.*
+
+  /** a stream of tasks, as an Observable */
+  def collected = toObservable(range[Tasks](1, 4).evalMap(n => fromTask[Int, Tasks](Task(n * 10)))).toListL.runToFuture
+  /** an Observable, pulled as far as asked */
+  def evens = toTask(fromObservable(Observable.range(0, 1000000).map(_.toInt * 3)).filter(_ % 2 == 0).take(3).toList).runToFuture
+
+val withMonix = WithMonix()
+assert(Await.result(withMonix.collected, 5.seconds) == List(10, 20, 30))
+assert(Await.result(withMonix.evens, 5.seconds) == List(0, 6, 12))
 ```
 
 ## tofu
