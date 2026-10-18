@@ -322,14 +322,8 @@ another implementation fails).
 suite runs on it, on the machine and on `Free`. One per compiler; Scala 3's every word `inline`. A chain of binds is
 made by nested calls 64 deep at most, then `delay`ed: constant stack, one `delay` in 64.
 
-Its price, a `Program` made and then made again on `fx` at each node (Scala 3, µs, the programs of `Measured`):
-
-| Program | machine | tagless on the machine | `Free` | tagless on `Free` |
-|---|---|---|---|---|
-| 1000 maps | 6.9 | 10.1 | 12.0 | 16.1 |
-| 1000 `ask`s under their handler | 17.2 | 23.9 | 33.9 | 40.4 |
-| across four handlers | 23.3 | 39.7 | 71.0 | 89.9 |
-| 1000 `get`/`put` pairs | 18.5 | 31.3 | 20.5 | 39.7 |
+Its price, a `Program` made and then made again on `fx` at each node: 1.2–1.9× the same program written on the
+implementation directly.
 
 ## Interop
 
