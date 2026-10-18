@@ -2,7 +2,7 @@ package okay.effects.ziointerop
 
 import okay.effects.{Runner, Std, Sum}
 import okay.effects.async.{Async, Asynchrony}
-import zio.{Exit, Runtime, Task, Unsafe, ZEnvironment, ZIO}
+import zio.{Exit, Runtime, Tag, Task, Unsafe, ZEnvironment, ZIO, ZLayer}
 
 /**
  * ZIO OVER THE EFFECTS, on any implementation `fx` (one source for both compilers): a task is a standard `Lift` —
@@ -83,6 +83,16 @@ class ZioEffects[F <: Runner](implicit implementation: F) {
         Left(ZIO.succeed(running.cancel()))
       }
     }
+
+  /** LAYERS. The program's environment built by `layer` for its run, released after: its `Reader % ZEnvironment[Env]`
+   * answered, the row of the layer's input `In0` asked instead */
+  def provideLayer[In0, Err, Env, A, R[_]](layer: ZLayer[In0, Err, Env])(p: A ! ZioRow[Env, Err]#L)(
+      implicit env: In[({ type N[Y] = Std.Reader[ZEnvironment[In0], Y] })#N, R], err: In[({ type E[Z] = Std.Error[Err, Z] })#E, R],
+      as: In[Async, R]): A ! R =
+    fromZIOTyped[In0, Err, A, R](toZIOTyped[Env, Err, A](p).provideLayer(layer))
+
+  /** a program making a service as a layer: its row's environment the layer's input */
+  def layer[In0, Err, A](p: A ! ZioRow[In0, Err]#L)(implicit tag: Tag[A]): ZLayer[In0, Err, A] = ZLayer(toZIOTyped[In0, Err, A](p))
 }
 
 object ZioEffects {

@@ -5,7 +5,7 @@ import okay.effects.Runner
 import okay.effects.machine.Machine
 import okay.effects.free.Free
 import okay.effects.ziointerop.ZioEffects
-import zio.{Runtime, Unsafe, ZEnvironment, ZIO}
+import zio.{Runtime, Unsafe, ZEnvironment, ZIO, ZLayer}
 
 trait Greeting { def greet(name: String): String }
 
@@ -56,6 +56,15 @@ abstract class ZioTypedChecks(val fx0: Runner) extends munit.FunSuite {
       r <- unsafeRun(toZIOTyped(waiting).provideEnvironment(ZEnvironment(hello)).timeout(zio.Duration.fromMillis(30)).either)
       _ <- stopped.future
     } yield assertEquals(r, Right(None))
+  }
+  test("layers: a program's environment built by a layer; a program making a service a layer") {
+    type NoEnv[X] = ZioRow[Any, String]#L[X]
+    val greeted: String ! Row = ask[ZEnvironment[Greeting], Row].map(_.get[Greeting].greet("Cy"))
+    val provided: String ! NoEnv = provideLayer[Any, String, Greeting, String, NoEnv](ZLayer.succeed(hello))(greeted)
+    val made: ZLayer[Any, String, Greeting] = layer[Any, String, Greeting](pure[Greeting, NoEnv](hello))
+    toFuture(attempt[String](reader[ZEnvironment[Any]](ZEnvironment.empty)(provided))).map(v => assertEquals(v, Right("hello, Cy")))
+      .flatMap(_ => unsafeRun(ZIO.serviceWith[Greeting](_.greet("Di")).provideLayer(made).either))
+      .map(v => assertEquals(v, Right("hello, Di")))
   }
   test("there and back: a ZIO, a program, a ZIO") {
     val zio0: ZIO[Greeting, String, Int] = ZIO.serviceWith[Greeting](_.greet("x").length)
