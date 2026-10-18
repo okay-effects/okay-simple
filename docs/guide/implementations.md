@@ -63,13 +63,13 @@ place, so two effects of one type in a row stay two places. Both live in their o
 | clarity, a reference to compare with | `Free` |
 | okay's platform, okay-kernel's runtimes | the bridges |
 
-Measured (JMH, Scala 3, µs per program of 1000 steps; `bench/`, `bench.d/`):
+Measured (JMH, Scala 3, µs per program of 1000 steps; `bench/`, `bench.d/`; every column, both compilers, in the README's [Measured](../../README.md#measured)):
 
 | Program | machine | `Free` | okay-core | tagless on the machine |
 |---|---|---|---|---|
 | 1000 maps | 6.9 | 12.0 | 9.1 | 10.1 |
-| 1000 `ask`s under their handler | 17.2 | 33.9 | 15.8 | 24.9 |
-| across four handlers of other effects | 23.3 | 71.0 | 18.6 | 39.2 |
-| 1000 `get`/`put` pairs | 18.5 | 20.5 | 14.3 | 30.5 |
+| 1000 `ask`s under their handler | 17.0 | 33.8 | 15.9 | 24.6 |
+| across four handlers of other effects | 23.5 | 70.1 | 19.1 | 39.1 |
+| 1000 `get`/`put` pairs | 18.3 | 20.4 | 14.0 | 30.1 |
 
 To write one of your own, see [writing an implementation](writing-an-implementation.md).

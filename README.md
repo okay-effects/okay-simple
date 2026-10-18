@@ -1,4 +1,7 @@
-# okay-simple
+# Okay, it is simple! Algebraic effects and handlers for Scala
+
+**What algebraic effects are, and why: [docs/algebraic-effects.md](docs/algebraic-effects.md)** — an interface of
+operations, handled many ways, combined predictably; exceptions that can go back; `shift` and `reset`; reading.
 
 One simple interface for effect systems, for Scala 3 and Scala 2.13: the types `!`, `+`, `%`, the functions
 `perform`, `handle`, `split`, `run`, and the standard effects written once on them. The interface is ONE for both
@@ -323,7 +326,7 @@ suite runs on it, on the machine and on `Free`. One per compiler; Scala 3's ever
 made by nested calls 64 deep at most, then `delay`ed: constant stack, one `delay` in 64.
 
 Its price, a `Program` made and then made again on `fx` at each node: 1.2–1.9× the same program written on the
-implementation directly.
+implementation directly (see [Measured](#measured)).
 
 ## Interop
 
@@ -360,25 +363,31 @@ sbt "examples/runMain okay.effects.examples.OnFree"      # on the Free monad
 
 ## Measured
 
-`bench/`, both compilers (JMH `-f 2 -wi 5 -i 5 -w 1 -r 1`, JDK 26; `bench.d/`), one run of each program, n = 1000,
-µs. Each program twice where it says so: at a row named in it, and row-polymorphic (`…In`: its effects asked as `In`
-evidence, passed on to the recursion):
+`bench/`, one run of each program, n = 1000, µs (JMH `-f 2 -wi 5 -i 5 -w 1 -r 1`, JDK 26, one machine, one session;
+`bench.d/`). Each program twice where it says so: at a row named in it, and row-polymorphic (`…In`: its effects
+asked as `In` evidence, passed on to the recursion). The same programs on each implementation: the machine and `Free`
+under both compilers, tagless on each of them (Scala 3), and okay-core's machine through its bridge,
+`okay.effects.core.Core` (Scala 3; okay-core 54aa76f, the programs of `bench/` run in its `effects/` module):
 
-| Program | machine, Scala 3 | machine, Scala 2 | `Free`, Scala 3 | `Free`, Scala 2 |
-|---|---|---|---|---|
-| 1000 maps, no operation | 6.9 | 6.9 | 11.9 | 11.8 |
-| 1000 `ask`s under their handler, a map pending each | 17.3 | 20.8 | 34.0 | 32.1 |
-| the same, row-polymorphic | 17.3 | 21.6 | 31.5 | 31.9 |
-| across four handlers of other effects | 23.6 | 17.2 | 70.7 | 70.4 |
-| the same, row-polymorphic | 19.0 | 16.7 | 64.6 | 68.5 |
-| 1000 `get`/`put` pairs under `State` | 18.6 | 16.3 | 20.6 | 23.6 |
-| the same, row-polymorphic | 17.6 | 16.6 | 18.7 | 22.4 |
+| Program | machine, Scala 3 | machine, Scala 2 | `Free`, Scala 3 | `Free`, Scala 2 | tagless on the machine | tagless on `Free` | okay-core |
+|---|---|---|---|---|---|---|---|
+| 1000 maps, no operation | 6.9 | 6.8 | 12.0 | 11.9 | 10.1 | 16.0 | 9.1 |
+| 1000 `ask`s under their handler, a map pending each | 17.0 | 20.8 | 33.8 | 32.0 | 24.6 | 40.3 | 15.9 |
+| the same, row-polymorphic | 17.9 | 21.5 | 31.2 | 31.8 | — | — | 16.8 |
+| across four handlers of other effects | 23.5 | 17.0 | 70.1 | 68.9 | 39.1 | 89.4 | 19.1 |
+| the same, row-polymorphic | 18.8 | 16.8 | 64.6 | 68.8 | — | — | 17.1 |
+| 1000 `get`/`put` pairs under `State` | 18.3 | 16.1 | 20.4 | 23.3 | 30.1 | 39.2 | 14.0 |
+| the same, row-polymorphic | 17.3 | 16.5 | 18.8 | 21.8 | — | — | 13.8 |
 
+- okay-core is the fastest on operations: its look-up of a handler is cached on the path, so crossing handlers costs
+  little; the machine is the fastest on bare maps.
 - Scala 3's places are typed paths, made where a row is named and matched by type; Scala 2's are numbers, walked by
   the levels' fields — across handlers Scala 2's machine is the faster, its trusted steps the price.
 - `Free` interprets the tree by each handler in turn, so an operation across handlers costs per handler. A handler
   taking its effect from its place, with no remap of the program, made `State` under Scala 3's `Free` 31.2 → 20.6.
-- okay-core's machine and the protocol's implementations are measured in their repositories, beside their bridges.
+- Tagless makes a `Program`, then makes it again on the implementation at each node: 1.2–1.9× the same program
+  written on the implementation directly.
+- The protocol's implementations (okay-kernel) are measured in okay-kernel's repository, beside its bridge.
 
 ## Build
 

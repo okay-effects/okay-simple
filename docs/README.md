@@ -9,6 +9,9 @@ runs.
 
 ## Start
 
+- [Algebraic effects: what they are, and why](algebraic-effects.md) — an effect an interface, one program handled
+  many ways, effects combined predictably, compared with monads; exceptions that can go back; how it works, by
+  delimited continuations (`perform` a `shift`, `handle` a `reset`); a reading list.
 - [Getting started](getting-started.md) — the library in your build, a first program, run on two implementations, in
   Scala 3 and in Scala 2.
 - [A tour](tour.md) — eleven steps: rows, handling in any order, an effect of your own, a handler resuming twice,
