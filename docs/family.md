@@ -1,7 +1,7 @@
 # The okay family
 
-okay-simple is one of a family of projects about algebraic effects and handlers. Each project is its own repository on
-GitHub, and they meet at two places:
+okay-simple is one of a family of projects about algebraic effects and handlers. Each project is its own repository,
+all of them in the GitHub organization [okay-effects](https://github.com/okay-effects), and they meet at two places:
 
 - **okay-core**: the machine that the others port, test against and bridge to;
 - **okay-kernel**: a protocol that lets implementations in different languages run each other's programs under their
@@ -9,14 +9,14 @@ GitHub, and they meet at two places:
 
 | Project | Language | What it is | Meets okay-simple |
 |---|---|---|---|
-| [okay-core](https://github.com/sergey-scherbina/okay-core) | Scala 3 (and 2.13) | the kernel: one monad `Cont[R, I, O, A]`, delimited control, a CEK machine with `k` as data | module `effects/`: `okay.effects.core.Core`, a `Runner` |
-| [okay-kernel](https://github.com/sergey-scherbina/okay-kernel) | Java API, Scala, JS | the protocol: a program steps to `Done`, `Yield(op, k)`, `Failed`, `Cancelled`; a TCK | module `effects/`: `okay.effects.kernel.OnKernel.on(effects)` |
-| [okay](https://github.com/sergey-scherbina/okay) | Scala 3 | the platform: effects and over a hundred libraries on them — HTTP, SQL, streams, agents, cluster, durable workflows | through okay-core, its kernel |
-| [okay-java](https://github.com/sergey-scherbina/okay-java) | Java 25 | okay-core's design in Java, on `shift0`; an implementation of okay-kernel's protocol | through okay-kernel |
-| [okay-go](https://github.com/sergey-scherbina/okay-go) | Go | direct-style effects on Go's coroutines, capabilities; the protocol, a wire to okay | through okay-kernel |
-| [okay-rust](https://github.com/sergey-scherbina/okay-rust) | Rust | okay-core's kernel in Rust (crate `okay`), and effects in async Rust (crate `okay-effects`) | through okay-kernel |
-| [okay-python](https://github.com/sergey-scherbina/okay-python) | Python 3.11+ | typed effects on generators, `mypy --strict` clean; the protocol, a wire to okay | through okay-kernel |
-| [okay-ts](https://github.com/sergey-scherbina/okay-ts) | TypeScript | okay-core's effects in TypeScript, programs as data or generators; the protocol | through okay-kernel |
+| [okay-core](https://github.com/okay-effects/okay-core) | Scala 3 (and 2.13) | the kernel: one monad `Cont[R, I, O, A]`, delimited control, a CEK machine with `k` as data | module `effects/`: `okay.effects.core.Core`, a `Runner` |
+| [okay-kernel](https://github.com/okay-effects/okay-kernel) | Java API, Scala, JS | the protocol: a program steps to `Done`, `Yield(op, k)`, `Failed`, `Cancelled`; a TCK | module `effects/`: `okay.effects.kernel.OnKernel.on(effects)` |
+| [okay](https://github.com/okay-effects/okay) | Scala 3 | the platform: effects and over a hundred libraries on them — HTTP, SQL, streams, agents, cluster, durable workflows | through okay-core, its kernel |
+| [okay-java](https://github.com/okay-effects/okay-java) | Java 25 | okay-core's design in Java, on `shift0`; an implementation of okay-kernel's protocol | through okay-kernel |
+| [okay-go](https://github.com/okay-effects/okay-go) | Go | direct-style effects on Go's coroutines, capabilities; the protocol, a wire to okay | through okay-kernel |
+| [okay-rust](https://github.com/okay-effects/okay-rust) | Rust | okay-core's kernel in Rust (crate `okay`), and effects in async Rust (crate `okay-effects`) | through okay-kernel |
+| [okay-python](https://github.com/okay-effects/okay-python) | Python 3.11+ | typed effects on generators, `mypy --strict` clean; the protocol, a wire to okay | through okay-kernel |
+| [okay-ts](https://github.com/okay-effects/okay-ts) | TypeScript | okay-core's effects in TypeScript, programs as data or generators; the protocol | through okay-kernel |
 
 okay-simple gives the family ONE typed Scala interface, `Effectful`, written over any machine. Its own
 implementations are the machine, `Free` and tagless. okay-core's machine and okay-kernel's protocol are two more,
