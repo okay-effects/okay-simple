@@ -51,8 +51,9 @@ interface (the interface's suite runs on it).
 okay-core's bridge is okay-core's machine itself: a program is okay-core's `Cont`, a place its path, a handler one of
 its forms (`Deep`, `Answering`, `Stateful`), delimited control its native `shift0` and `$`, interception its
 observer. okay-kernel's bridge runs on any implementation of the protocol: each operation of one key carrying its
-place, so two effects of one type in a row stay two places. Both live in their own repositories and need
-`okay-effects` and `okay-effects-tck` published locally.
+place, so two effects of one type in a row stay two places. Both live in their own repositories
+(`io.github.okay-effects::okay-effects-core`, `::okay-effects-kernel`), built on the release of `okay-effects` and
+`okay-effects-tck`, 0.1.0.
 
 ## Choosing
 

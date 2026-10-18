@@ -41,10 +41,11 @@ okay-rust, okay-python, okay-ts: what each is, and how each meets this interface
 
 See [the family](docs/family.md) for okay-core, okay-kernel and the implementations in other languages.
 
-In okay-core's repository, module `effects/` (`okay-effects-core`): the interface on okay-core's machine,
-`okay.effects.core.Core`. In okay-kernel's repository, module `effects/` (`okay-effects-kernel`): the interface on
-okay-kernel's protocol, `okay.effects.kernel.OnKernel.on(effects)`. Both need `okay-effects` and `okay-effects-tck`
-published locally from here.
+In okay-core's repository, module `effects/` (`io.github.okay-effects::okay-effects-core`): the interface on
+okay-core's machine, `okay.effects.core.Core`. In okay-kernel's repository, module `effects/`
+(`io.github.okay-effects::okay-effects-kernel`): the interface on okay-kernel's protocol,
+`okay.effects.kernel.OnKernel.on(effects)`. Both are built on this repository's release, `okay-effects` and
+`okay-effects-tck` 0.1.0.
 
 ## A program
 
@@ -405,7 +406,7 @@ asked: `sbt -Dplatforms=jvm,js,native` (or `OKAY_PLATFORMS=js,native`).
 sbt testAll                                      # both compilers: everything here, on the JVM
 sbt -Dplatforms=jvm,js testJS                    # both compilers: the suites, tagless, the modules, interop, on Scala.js (Node.js)
 sbt -Dplatforms=jvm,native testNative            # the same on Scala Native
-sbt "+effects/publishLocal" "+tck/publishLocal"  # the interface and its suite, for okay-core's and okay-kernel's bridges
+sbt "+effects/publishLocal" "+tck/publishLocal"  # the interface and its suite unreleased, for a bridge built on a -SNAPSHOT
 python3 /tmp/okz/tools/withlock.py sbt "bench/Jmh/run -f 2 -wi 5 -i 5 -w 1 -r 1 -prof gc"   # JMH, holding JMH's lock
 ```
 
