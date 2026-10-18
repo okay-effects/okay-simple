@@ -8,7 +8,9 @@ import okay.effects.Effects
  * `p` raised. Each run of `p` starts anew: what it did in effects outside (told, written) stays done. A timeout needs
  * a runtime of its own: interop's ZIO or cats-effect, its program lifted.
  */
-class Resilience[F <: Effects](implicit val fx: F) {
+class Resilience[F <: Effects](implicit implementation: F) {
+  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
+  val fx: F = implementation
   import fx._
   import fx.std._
 

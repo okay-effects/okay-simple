@@ -11,13 +11,10 @@ breadth-first, for searches with ways that never end.
 | run | `solutions(p)`: every answer, depth-first; `fair(n)(p)`: the first `n`, breadth-first |
 
 ```scala
-import okay.effects.machine.Machine
-import okay.effects.logic.{Logic, Term}
+import okay.effects.*
+import okay.effects.std.*
+import okay.effects.logic.*
 import okay.effects.logic.Term.*
-
-given okay.effects.Runner = Machine
-val lg = Logic()
-import lg.*, lg.fx.*, lg.fx.std.*
 
 type L = Choose + Fresh + Bindings
 

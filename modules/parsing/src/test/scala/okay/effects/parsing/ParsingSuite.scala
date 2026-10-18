@@ -1,4 +1,6 @@
-package okay.effects.parsing
+package okay.effects.parsing.checks
+
+import okay.effects.parsing.{Parsing}
 
 import okay.effects.{Runner, Std, Sum, Void}
 import okay.effects.machine.Machine

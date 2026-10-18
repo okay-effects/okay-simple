@@ -7,5 +7,7 @@ private[async] object Timers {
   private lazy val scheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactory {
     def newThread(r: Runnable): Thread = { val t = new Thread(r, "okay-effects-timer"); t.setDaemon(true); t }
   })
+  /** the default's execution context: the JVM's global one */
+  def executionContext: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
   def after(ms: Long)(f: () => Unit): Unit = { scheduler.schedule(new Runnable { def run(): Unit = f() }, ms, TimeUnit.MILLISECONDS); () }
 }

@@ -1,8 +1,8 @@
 package okay.effects.fs2interop
 
-import cats.Monad
+import _root_.cats.Monad
 import okay.effects.{Runner, Std}
-import okay.effects.cats.Cats
+import okay.effects.catsinterop.Cats
 import okay.effects.stream.Streams
 
 /**
@@ -16,10 +16,11 @@ import okay.effects.stream.Streams
  *    its own (`uncons`), so a resource the fs2 stream holds across its elements is released at each step's end: for
  *    such a stream, compile it on fs2's side and lift what it gives.
  */
-class Fs2Streams[F0 <: Runner](implicit val fx: F0) {
+class Fs2Streams[I <: Runner, S <: Streams[I]](val streams: S) {
+  /** the implementation: the streams' own */
+  val fx: streams.fx.type = streams.fx
   private implicit val exact: fx.type = fx
-  val cats: Cats[fx.type] = new Cats[fx.type]
-  val streams: Streams[fx.type] = new Streams[fx.type]
+  val catsInterop: Cats[fx.type] = new Cats[fx.type]
   import fx._
   import streams.{End, Pull, Stream}
 
@@ -27,7 +28,7 @@ class Fs2Streams[F0 <: Runner](implicit val fx: F0) {
   type Lifted[F[_]] = { type L[X] = Std.Lift[F, X] }
 
   def toFs2[F[_], O](s: Stream[O, Lifted[F]#L])(implicit F: Monad[F]): _root_.fs2.Stream[F, O] = {
-    implicit val lowering: Std.Lowering[F] = cats.lowering[F]
+    implicit val lowering: Std.Lowering[F] = catsInterop.lowering[F]
     _root_.fs2.Stream.unfoldEval[F, Stream[O, Lifted[F]#L], O](s)(cur =>
       F.map(fx.lower[F, Pull[O, Lifted[F]#L]](cur.pull()))(
         _.fold[Option[(O, Stream[O, Lifted[F]#L])]](None)((o, rest) => Some((o, rest)))))
@@ -49,8 +50,8 @@ class Fs2Streams[F0 <: Runner](implicit val fx: F0) {
 }
 
 object Fs2Streams {
-  def apply()(implicit fx: Runner): Fs2Streams[fx.type] = {
+  def apply()(implicit fx: Runner): Fs2Streams[fx.type, Streams[fx.type]] = {
     implicit val exact: fx.type = fx
-    new Fs2Streams[fx.type]
+    new Fs2Streams[fx.type, Streams[fx.type]](new Streams[fx.type])
   }
 }

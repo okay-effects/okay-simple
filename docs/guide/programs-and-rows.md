@@ -29,8 +29,8 @@ nested calls, one per step, before it runs. `tailcall(p)` makes the call when th
 implementation's loop's own, none nested in the one before: a million calls in constant stack, effects or none.
 
 ```scala
-import okay.effects.machine.Machine.*
-import okay.effects.machine.Machine.std.*
+import okay.effects.*
+import okay.effects.std.*
 
 def even(n: Int): Boolean ! Pure = if n == 0 then pure(true) else tailcall(odd(n - 1))
 def odd(n: Int): Boolean ! Pure = if n == 0 then pure(false) else tailcall(even(n - 1))
@@ -62,8 +62,8 @@ An effect is a type constructor, the GADT of its operations: `E[X]` an operation
 `enum`, each case its answer:
 
 ```scala
-import okay.effects.machine.Machine.*
-import okay.effects.machine.Machine.std.*
+import okay.effects.*
+import okay.effects.std.*
 
 enum Console[X]:
   case Print(line: String) extends Console[Unit]

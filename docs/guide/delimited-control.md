@@ -11,8 +11,8 @@ answer type changing.
 
 ```scala
 import okay.effects.machine.Machine
-import okay.effects.machine.Machine.*
-import okay.effects.machine.Machine.std.*
+import okay.effects.*
+import okay.effects.std.*
 
 type C = Control % (Int ! Pure)
 
@@ -35,6 +35,18 @@ val f = d.reset[String, String => String ! Pure, Pure](
   d.map(d.shift[String, String, String => String ! Pure, Pure](k => pure((name: String) => k(name))))("hello, " + _))
 
 assert(run(f.flatMap(g => g("Ann"))) == "hello, Ann")
+```
+
+On the machine, the default, `import okay.effects.delimited.*` gives these words — in a scope of their own, as their
+`pure`, `map`, `flatMap` are `Cps`'s:
+
+```scala
+object WithDelimited:
+  import okay.effects.delimited.*
+  val greeting = reset[String, String => String ! Pure, Pure](
+    map(shift[String, String, String => String ! Pure, Pure](k => okay.effects.pure((name: String) => k(name))))("hi, " + _))
+
+assert(run(WithDelimited.greeting.flatMap(g => g("Bo"))) == "hi, Bo")
 ```
 
 By default `Delimited.ByCps`, continuation-passing over the implementation's programs, in constant stack. okay-core's

@@ -11,12 +11,9 @@ store when `p` ends. What ends `p` before drops the log: nothing written.
 | handler | `atomically[K, V](p)`, over a row with `Store[K, V, *]` |
 
 ```scala
-import okay.effects.machine.Machine
-import okay.effects.transaction.{Transactions, Tx}
-
-given okay.effects.Runner = Machine
-val t = Transactions()
-import t.*, t.fx.*, t.fx.std.*
+import okay.effects.*
+import okay.effects.std.*
+import okay.effects.transaction.*
 
 type Accounts = [x] =>> Tx[String, Int, x]
 type Db = [x] =>> Store[String, Int, x]

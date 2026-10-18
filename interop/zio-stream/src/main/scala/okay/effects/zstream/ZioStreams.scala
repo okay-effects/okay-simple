@@ -2,7 +2,7 @@ package okay.effects.zstream
 
 import okay.effects.Runner
 import okay.effects.stream.Streams
-import okay.effects.zio.ZioEffects
+import okay.effects.ziointerop.ZioEffects
 import zio.{Chunk, Exit, Scope, ZIO}
 import zio.stream.ZStream
 
@@ -16,10 +16,11 @@ import zio.stream.ZStream
  *    first pull: its scope opened then, closed at its end or its failure — so a stream not pulled to its end keeps
  *    the `ZStream`'s scope open; take what you need from it with `ZStream`'s `take` on ZIO's side when that matters.
  */
-class ZioStreams[F <: Runner](implicit val fx: F) {
+class ZioStreams[I <: Runner, S <: Streams[I]](val streams: S) {
+  /** the implementation: the streams' own */
+  val fx: streams.fx.type = streams.fx
   private implicit val exact: fx.type = fx
   val zioEffects: ZioEffects[fx.type] = new ZioEffects[fx.type]
-  val streams: Streams[fx.type] = new Streams[fx.type]
   import fx._
   import zioEffects.{Tasks, fromZIO, toZIO}
   import streams.{End, Pull, Stream}
@@ -49,8 +50,8 @@ class ZioStreams[F <: Runner](implicit val fx: F) {
 }
 
 object ZioStreams {
-  def apply()(implicit fx: Runner): ZioStreams[fx.type] = {
+  def apply()(implicit fx: Runner): ZioStreams[fx.type, Streams[fx.type]] = {
     implicit val exact: fx.type = fx
-    new ZioStreams[fx.type]
+    new ZioStreams[fx.type, Streams[fx.type]](new Streams[fx.type])
   }
 }

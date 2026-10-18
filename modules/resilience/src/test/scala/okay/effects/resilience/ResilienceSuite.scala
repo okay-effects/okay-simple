@@ -1,4 +1,6 @@
-package okay.effects.resilience
+package okay.effects.resilience.checks
+
+import okay.effects.resilience.{Resilience}
 
 import okay.effects.{Runner, Sum, Void}
 import okay.effects.machine.Machine

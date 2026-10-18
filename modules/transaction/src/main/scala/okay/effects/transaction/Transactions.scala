@@ -15,7 +15,9 @@ object Tx {
  * ends `p` before (an error raised and handled outside, an abort) drops the log: nothing written. `attempt[E]` outside
  * `atomically` is a transaction that rolls back on `E`.
  */
-class Transactions[F <: Effects](implicit val fx: F) {
+class Transactions[F <: Effects](implicit implementation: F) {
+  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
+  val fx: F = implementation
   import fx._
   import fx.std._
 

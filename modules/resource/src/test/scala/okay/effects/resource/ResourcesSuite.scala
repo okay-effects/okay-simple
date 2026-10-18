@@ -1,4 +1,6 @@
-package okay.effects.resource
+package okay.effects.resource.checks
+
+import okay.effects.resource.{Resources, Scope}
 
 import okay.effects.{Runner, Sum, Void}
 import okay.effects.machine.Machine

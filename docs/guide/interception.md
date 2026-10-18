@@ -9,8 +9,8 @@ interception, so an operation of `E` it performs goes to `E`'s handler further o
 - refuse it, or answer it here, never passing it on.
 
 ```scala
-import okay.effects.machine.Machine.*
-import okay.effects.machine.Machine.std.*
+import okay.effects.*
+import okay.effects.std.*
 
 type Bank = Writer % String + State % Int
 

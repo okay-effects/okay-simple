@@ -31,14 +31,14 @@ Any other implementation (`okay-effects-free`, `okay-effects-tagless`) and any m
 
 ## A first program
 
-A program is a value of type `A ! R`: it gives a value `A`, and on its way performs operations of the effects of
-the row `R`. Here a program reads a name from an environment (`Reader`) and counts the greetings in a state
+`import okay.effects.*` gives a program's types and words on the machine, the default implementation;
+`import okay.effects.std.*` the standard effects. A program is a value of type `A ! R`: it gives a value `A`, and on
+its way performs operations of the effects of the row `R`. Here a program reads a name from an environment (`Reader`) and counts the greetings in a state
 (`State`):
 
 ```scala
-import okay.effects.machine.Machine
-import okay.effects.machine.Machine.*
-import okay.effects.machine.Machine.std.*
+import okay.effects.*
+import okay.effects.std.*
 
 /** greets, in any row that has a `Reader` of the name and a `State` of the count */
 def greet[R[_]: {Has[Reader % String], Has[State % Int]}]: String ! R =
@@ -67,9 +67,12 @@ assert(result == (1, "hello, Ann (#1)"))
 
 Each handler takes its effect from wherever it is in the row — the order you handle in is yours, not the row's.
 
+Every module works so too: `import okay.effects.stream.*` gives the stream module on the machine,
+`import okay.effects.async.*` asynchrony, `import okay.effects.delimited.*` delimited control — nothing else to set up.
+
 ## The same program on another implementation
 
-Nothing in `greet` named the machine but its imports. Write it over the interface, `Effects`, and choose the
+Nothing in `greet` named the machine but its imports, the defaults. Write it over the interface, `Effects`, and choose the
 implementation where you run:
 
 ```scala
@@ -101,8 +104,8 @@ programs `g` makes are of `fx`'s own types, so `fx` runs them.)
 Scala 2 has no type lambdas, so a row is written by names — `Reader % String` is a name, its constructor `#L`:
 
 ```scala2
-import okay.effects.machine.Machine._
-import okay.effects.machine.Machine.std._
+import okay.effects._
+import okay.effects.std._
 
 object Greeting {
   def greet[R[_]](implicit r: In[(Reader % String)#L, R], s: In[(State % Int)#L, R]): String ! R =

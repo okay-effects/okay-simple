@@ -10,12 +10,9 @@ what to make of it: the exact distribution of its outcomes, or one outcome sampl
 | handlers | `exact(p)`: every outcome with its probability, the same outcomes summed; `sampled(p)`: one way, each choice by the standard `Random` outside |
 
 ```scala
-import okay.effects.machine.Machine
-import okay.effects.probability.{Dist, Probability}
-
-given okay.effects.Runner = Machine
-val pr = Probability()
-import pr.*, pr.fx.*, pr.fx.std.*
+import okay.effects.*
+import okay.effects.std.*
+import okay.effects.probability.*
 
 def dice: Int ! Dist = uniform[Int, Dist]((1 to 6).toList).flatMap(a => uniform[Int, Dist]((1 to 6).toList).map(_ + a))
 

@@ -10,12 +10,9 @@
 | handler | `scoped(p)`: `p`, then its finalizers |
 
 ```scala
-import okay.effects.machine.Machine
-import okay.effects.resource.{Resources, Scope}
-
-given okay.effects.Runner = Machine
-val r = Resources()
-import r.*, r.fx.*, r.fx.std.*
+import okay.effects.*
+import okay.effects.std.*
+import okay.effects.resource.*
 
 type Out = Writer % String
 type In0 = Writer % String + Scope % (Unit ! Out) + Error % String

@@ -1,4 +1,6 @@
-package okay.effects.logic
+package okay.effects.logic.checks
+
+import okay.effects.logic.{Logic, Term}
 
 import okay.effects.{Runner, Std, Sum, Void}
 import okay.effects.machine.Machine

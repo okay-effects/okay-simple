@@ -6,8 +6,8 @@ same code runs on any implementation.
 
 ```scala
 import okay.effects.machine.Machine
-import okay.effects.machine.Machine.*
-import okay.effects.machine.Machine.std.*
+import okay.effects.*
+import okay.effects.std.*
 ```
 
 ## 1. Programs and rows

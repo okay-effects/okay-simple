@@ -6,8 +6,8 @@ the row; the effect's parameter is given, the rest inferred: `writer[String](p)`
 
 ```scala
 import okay.effects.Std
-import okay.effects.machine.Machine.*
-import okay.effects.machine.Machine.std.*
+import okay.effects.*
+import okay.effects.std.*
 ```
 
 | Effect | Operations | Handlers |

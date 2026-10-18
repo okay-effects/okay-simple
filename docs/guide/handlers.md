@@ -17,8 +17,8 @@ Five shapes, from the most general to the most specialised. An implementation ma
 `R` in a shape is the row OUTSIDE the handler; `A` the program's value, `B` the handler's.
 
 ```scala
-import okay.effects.machine.Machine.*
-import okay.effects.machine.Machine.std.*
+import okay.effects.*
+import okay.effects.std.*
 
 enum Ask[X]:
   case Name extends Ask[String]

@@ -1,4 +1,6 @@
-package okay.effects.zstream
+package okay.effects.zstream.checks
+
+import okay.effects.zstream.{ZioStreams}
 
 import scala.concurrent.{ExecutionContext, Future}
 import okay.effects.Runner

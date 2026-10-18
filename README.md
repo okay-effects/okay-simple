@@ -25,7 +25,7 @@ guide, a page for each module; every code block compiled and run.
 | `core/tagless/` | `okay-effects-tagless` | `okay.effects.tagless` | TAGLESS: `Tagless`, an `Effects` of no implementation — a program a value, run on the `Runner` in the implicit context |
 | `modules/`: `concurrent`, `resource`, `io`, `probability`, `parsing`, `logic`, `transaction`, `resilience`, `stream`, `async` | `okay-effects-concurrent`, ... | `okay.effects.concurrent`, ... | MORE EFFECTS, each over the interface: see below |
 | `tck/` | `okay-effects-tck` | `okay.effects` | the interface's suite, a library: `InterfaceSuite(fx)` for any implementation |
-| `interop/*` | `okay-effects-cats`, `-zio`, `-zio-stream`, `-fs2`, `-monix`, `-java-stream`, `-tofu` | `okay.effects.cats`, `.zio`, `.zstream`, `.fs2interop`, `.monixinterop`, `.jstream`, `.tofu` | interop with cats (and cats-effect 3), ZIO and its streams, fs2, monix, Java's streams, tofu |
+| `interop/*` | `okay-effects-cats`, `-zio`, `-zio-stream`, `-fs2`, `-monix`, `-java-stream`, `-tofu` | `okay.effects.catsinterop`, `.ziointerop`, `.zstream`, `.fs2interop`, `.monixinterop`, `.jstream`, `.tofuinterop` | interop with cats (and cats-effect 3), ZIO and its streams, fs2, monix, Java's streams, tofu |
 | `examples/` | — | `okay.effects.examples` | examples over `Effects` alone, run on the machine and on `Free` |
 | `suite/`, `suite-free/`, `compat/`, `bench/` | — | — | the suite on each implementation, the compatibility checks, the benchmark |
 
@@ -36,14 +36,16 @@ published locally from here.
 
 ## A program
 
-An implementation is a value of type `Effects`: its types and primitives one import, its standard effects
-another, from its `std`.
+`import okay.effects._` gives a program's types and words — `!`, `perform`, `handle`, `run` — on the machine, the
+default; `import okay.effects.std._` the standard effects; `import okay.effects.delimited._` delimited control
+changing answer types; and each module's package the module on the machine, `import okay.effects.stream._` — nothing
+else to set up. (An implementation is a value of type `Effects`; the defaults are the machine's.)
 
 Scala 3:
 
 ```scala
-import okay.effects.machine.Machine.*
-import okay.effects.machine.Machine.std.*
+import okay.effects.*
+import okay.effects.std.*
 
 // in any row that has these three, at any place
 def greet[R[_]: {Has[Reader % String], Has[Writer % String], Has[State % Int]}]: Int ! R =
@@ -61,8 +63,8 @@ run(reader("Ann")(state(10)(writer[String](greet[Row]))))             // (13, (L
 Scala 2:
 
 ```scala
-import okay.effects.machine.Machine._
-import okay.effects.machine.Machine.std._
+import okay.effects._
+import okay.effects.std._
 
 def greet[R[_]](implicit r: In[(Reader % String)#L, R], w: In[(Writer % String)#L, R], s: In[(State % Int)#L, R]): Int ! R =
   for {

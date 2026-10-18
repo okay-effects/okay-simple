@@ -9,18 +9,17 @@
 | operations | `async(register)`, `fromFuture(f)`, `sleep(ms)` |
 | combinators | `both(p, q)`, `parTraverse(xs)(f)`, `race(p, q)`, `timeout(ms)(p)` |
 | run | `toFuture(p)`: a `Future` of the value, failed if a callback gave a failure or the program threw |
-| streams | `AsyncStreams().mergeAsync(streams)` |
+| streams | `mergeAsync(streams)`: streams of the default `okay.effects.stream` merged as they come |
 
 ```scala
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.*
-import okay.effects.machine.Machine
-import okay.effects.async.{Async, Asynchrony}
+import okay.effects.*
+import okay.effects.std.*
+import okay.effects.async.*
 
-class Basics(using ExecutionContext):
-  given okay.effects.Runner = Machine
-  val as = Asynchrony()
-  import as.*, as.fx.*, as.fx.std.*
+class Basics:
+  given ExecutionContext = ExecutionContext.global
 
   val p: Int ! Async = sleep[Async](10).andThen(fromFuture[Int, Async](Future(20))).map(_ + 22)
   def answer: Future[Int] = toFuture(p)
@@ -30,7 +29,7 @@ class Basics(using ExecutionContext):
   def tick(n: Int): Unit ! SA = if n == 0 then pure(()) else sleep[SA](1).andThen(modify[Int, SA](_ + 1)).andThen(tick(n - 1))
   def ticked: Future[(Int, Unit)] = toFuture(state(0)(tick(5)))
 
-val basics = Basics(using ExecutionContext.global)
+val basics = Basics()
 assert(Await.result(basics.answer, 5.seconds) == 42)
 assert(Await.result(basics.ticked, 5.seconds) == (5, ()))
 ```
@@ -38,10 +37,7 @@ assert(Await.result(basics.ticked, 5.seconds) == (5, ()))
 At once, and first:
 
 ```scala
-class AtOnce(using ExecutionContext):
-  given okay.effects.Runner = Machine
-  val as = Asynchrony()
-  import as.*, as.fx.*
+class AtOnce:
 
   val slow = sleep[Async](300).as("slow")
   val fast = sleep[Async](5).as(7)
@@ -50,7 +46,7 @@ class AtOnce(using ExecutionContext):
   def timedOut = toFuture(timeout(50)(slow))
   def squares = toFuture(parTraverse((1 to 4).toList)(i => sleep[Async](5).as(i * i)))
 
-val atOnce = AtOnce(using ExecutionContext.global)
+val atOnce = AtOnce()
 assert(Await.result(atOnce.bothOf, 5.seconds) == (7, "x"))
 assert(Await.result(atOnce.raced, 5.seconds) == Right(7))
 assert(Await.result(atOnce.timedOut, 5.seconds) == None)
@@ -66,23 +62,19 @@ the JVM, `setTimeout` on Scala.js.
 
 ## Streams merged as they come
 
-`AsyncStreams().mergeAsync(streams)`: streams of `Async`, each one's next element pulled at once, all at the same
+`mergeAsync(streams)` (`AsyncStreams(...)` over streams of your own): streams of `Async`, each one's next element pulled at once, all at the same
 time; the merged stream gives whichever is ready first, then pulls the next of that stream. A stream that ends is
 left out.
 
 ```scala
-import okay.effects.async.AsyncStreams
+import okay.effects.stream.*
 
-class Merging(using ExecutionContext):
-  given okay.effects.Runner = Machine
-  val a = AsyncStreams()
-  import a.*, a.fx.*, a.streams.*
-  import a.asynchrony.{sleep, toFuture}
+class Merging:
 
   def ticks(name: String, ms: Long, n: Int): Stream[String, Async] =
     range[Async](1, n + 1).evalMap(i => sleep[Async](ms).as(s"$name$i"))
 
   def merged: Future[List[String]] = toFuture(mergeAsync(List(ticks("a", 50, 3), ticks("b", 20, 3))).toList)
 
-assert(Await.result(Merging(using ExecutionContext.global).merged, 5.seconds) == List("b1", "b2", "a1", "b3", "a2", "a3"))
+assert(Await.result(Merging().merged, 5.seconds) == List("b1", "b2", "a1", "b3", "a2", "a3"))
 ```

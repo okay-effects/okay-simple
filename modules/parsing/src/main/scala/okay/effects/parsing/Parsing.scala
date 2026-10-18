@@ -7,7 +7,9 @@ import okay.effects.Effects
  * alternatives, `Choose`. A parser is a program in any row with both; `parse(input)(p)` runs it — the state inside
  * the choice, so each alternative tried from the input of its time, the first that parses all of it taken.
  */
-class Parsing[F <: Effects](implicit val fx: F) {
+class Parsing[F <: Effects](implicit implementation: F) {
+  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
+  val fx: F = implementation
   import fx._
   import fx.std._
 

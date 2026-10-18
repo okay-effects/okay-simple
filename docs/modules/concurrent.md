@@ -12,12 +12,9 @@ scheduler is a handler.
 | coroutine | `coroutine(p)`: a thread run to its next operation, a `Step` — `Done`, `Passed`, `Sending`, `Receiving` |
 
 ```scala
-import okay.effects.machine.Machine
-import okay.effects.concurrent.{Concurrent, Coop}
-
-given okay.effects.Runner = Machine
-val c = Concurrent()
-import c.*, c.fx.*, c.fx.std.*
+import okay.effects.*
+import okay.effects.std.*
+import okay.effects.concurrent.*
 
 type T = Writer % String + Coop % Int
 

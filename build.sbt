@@ -79,13 +79,13 @@ lazy val examplesMixed = (project in file("examples/mixed")).dependsOn(examples2
 
 /** INTEROP WITH CATS: cats' `Monad` of the programs, a cats monad's programs lifted in and a program lowered to one —
  * over any implementation, both compilers */
-lazy val interopCats = crossBoth("interopCats", "interop/cats").dependsOn(effects, machine % Test, free % Test)
+lazy val interopCats = crossBoth("interopCats", "interop/cats").dependsOn(effects, machine, free % Test)
   .settings(name := "okay-effects-cats", libraryDependencies ++= Seq("org.typelevel" %%% "cats-core" % "2.13.0",
     // cats-effect 3's IO lowered to, in the checks: any cats monad is, the module asks no more
     "org.typelevel" %%% "cats-effect" % "3.5.7" % Test))
 
 /** INTEROP WITH ZIO: a task performed in a program, a program lowered to a task */
-lazy val interopZio = crossBoth("interopZio", "interop/zio").dependsOn(effects, machine % Test, free % Test)
+lazy val interopZio = crossBoth("interopZio", "interop/zio").dependsOn(effects, machine, free % Test)
   .settings(name := "okay-effects-zio", libraryDependencies += "dev.zio" %%% "zio" % "2.1.14")
   // ZIO's runtime on Scala.js reads `java.time`: a port of it, for the checks
   .jsSettings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.6.0" % Test)
@@ -93,31 +93,31 @@ lazy val interopZio = crossBoth("interopZio", "interop/zio").dependsOn(effects, 
 /** INTEROP WITH JAVA'S STREAMS AND ITERATORS: the stream module's streams to and from them. The JVM's: Scala.js has no
  * `java.util.stream` */
 lazy val interopJavaStream = (project in file("interop/java-stream"))
-  .dependsOn(effects.jvm, stream.jvm, machine.jvm % Test, free.jvm % Test, tagless.jvm % Test)
+  .dependsOn(effects.jvm, stream.jvm, machine.jvm, free.jvm % Test, tagless.jvm % Test)
   .settings(crossBuilt, name := "okay-effects-java-stream")
 
 /** INTEROP WITH ZIO'S STREAMS: a stream of ZIO's tasks a `ZStream`, and back */
 lazy val interopZioStream = crossBoth("interopZioStream", "interop/zio-stream")
-  .dependsOn(interopZio, stream, machine % Test, free % Test, tagless % Test)
+  .dependsOn(interopZio, stream, machine, free % Test, tagless % Test)
   .settings(name := "okay-effects-zio-stream", libraryDependencies += "dev.zio" %%% "zio-streams" % "2.1.14")
   .jsSettings(libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % "2.6.0" % Test)
 
 /** INTEROP WITH FS2'S STREAMS: a stream of `F`'s programs (cats-effect's `IO`, any cats monad) an `fs2.Stream`, and
  * back */
 lazy val interopFs2 = crossBoth("interopFs2", "interop/fs2")
-  .dependsOn(interopCats, stream, machine % Test, free % Test, tagless % Test)
+  .dependsOn(interopCats, stream, machine, free % Test, tagless % Test)
   .settings(name := "okay-effects-fs2", libraryDependencies ++= Seq("co.fs2" %%% "fs2-core" % "3.14.0",
     "org.typelevel" %%% "cats-effect" % "3.7.1" % Test))
 
 /** INTEROP WITH MONIX: its `Task` an effect, its `Observable` a stream and back. Monix 3 is of cats-effect 2: its own
  * module, no other interop beside it */
 lazy val interopMonix = crossBoth("interopMonix", "interop/monix")
-  .dependsOn(effects, stream, machine % Test, free % Test, tagless % Test)
+  .dependsOn(effects, stream, machine, free % Test, tagless % Test)
   .settings(name := "okay-effects-monix", libraryDependencies ++= Seq("io.monix" %%% "monix-reactive" % "3.5.2",
     "io.monix" %%% "monix-tail" % "3.5.2"))
 
 /** INTEROP WITH TOFU: `WithLocal` of a `Reader`, `Errors` of an `Error`, over cats' monad of the programs */
-lazy val interopTofu = (project in file("interop/tofu")).dependsOn(interopCats.jvm, machine.jvm % Test, free.jvm % Test)
+lazy val interopTofu = (project in file("interop/tofu")).dependsOn(interopCats.jvm, machine.jvm, free.jvm % Test)
   // the JVM's only: tofu is not built for Scala.js
   .settings(crossBuilt, name := "okay-effects-tofu", libraryDependencies += "tf.tofu" %% "tofu-kernel" % "0.14.3")
 
@@ -128,7 +128,8 @@ lazy val tagless = crossBoth("tagless", "core/tagless").dependsOn(effects, machi
 
 /** MORE EFFECTS, each a module over the interface in `modules/`, both compilers, checked on the machine, on `Free`, on tagless */
 def effectModule(dir: String, artifact: String) = crossBoth(dir, "modules/" + dir)
-  .dependsOn(effects, machine % Test, free % Test, tagless % Test).settings(name := artifact)
+  // the machine its default: `import okay.effects.stream._` the module on it
+  .dependsOn(effects, machine, free % Test, tagless % Test).settings(name := artifact)
 /** cooperative threads in turns, a channel between them */
 lazy val concurrent = effectModule("concurrent", "okay-effects-concurrent")
 /** resources released at a scope's end */

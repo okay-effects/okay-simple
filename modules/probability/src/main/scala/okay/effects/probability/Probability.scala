@@ -13,7 +13,9 @@ object Dist {
  * and its handlers: `exact`, every way it can go, each outcome with its probability, the same outcomes summed; and
  * `sampled`, one way, each choice made by the standard `Random` effect in the row outside.
  */
-class Probability[F <: Effects](implicit val fx: F) {
+class Probability[F <: Effects](implicit implementation: F) {
+  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
+  val fx: F = implementation
   import fx._
   import fx.std._
 

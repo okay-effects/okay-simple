@@ -1,4 +1,6 @@
-package okay.effects.monixinterop
+package okay.effects.monixinterop.checks
+
+import okay.effects.monixinterop.{Monix}
 
 import _root_.monix.eval.Task
 import _root_.monix.execution.Scheduler
@@ -10,7 +12,7 @@ import okay.effects.free.Free
 abstract class MonixChecks(val fx0: Runner) extends munit.FunSuite {
   private implicit val scheduler: Scheduler = Scheduler.global
   implicit val runner: Runner = fx0
-  val m: Monix[runner.type] = Monix()
+  val m: Monix[runner.type, okay.effects.stream.Streams[runner.type]] = Monix()
   import m._
   import m.fx._
   import m.streams._

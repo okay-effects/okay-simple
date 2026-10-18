@@ -1,0 +1,5 @@
+package okay.effects.stream
+
+/** `import okay.effects.stream.*`: the module on the machine, its words at once, nothing else to do */
+val onMachine = Streams()(using okay.effects.machine.Machine)
+export onMachine.*

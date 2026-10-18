@@ -1,6 +1,6 @@
 # io — the console, the clock, the environment
 
-`okay-effects-io`, `okay.effects.io`. The world as effects: a program names what it touches in its row, and its
+`okay-effects-io`, `okay.effects.world`. The world as effects: a program names what it touches in its row, and its
 handler says how — the world's, or a pure one for tests. The same program under either.
 
 | Effect | Operations | The world's handler | A pure handler |
@@ -10,12 +10,9 @@ handler says how — the world's, or a pure one for tests. The same program unde
 | `Env` | `getEnv(name)` | `systemEnv` | `env(vars)` |
 
 ```scala
-import okay.effects.machine.Machine
-import okay.effects.io.{Clock, Console, Env, Io}
-
-given okay.effects.Runner = Machine
-val io = Io()
-import io.*, io.fx.*
+import okay.effects.*
+import okay.effects.std.*
+import okay.effects.world.*
 
 type App = Console + Clock + Env
 

@@ -9,12 +9,9 @@
 | `fallback[E](p)(q)` | `q(e)` where `p` raised `e` |
 
 ```scala
-import okay.effects.machine.Machine
-import okay.effects.resilience.Resilience
-
-given okay.effects.Runner = Machine
-val rs = Resilience()
-import rs.*, rs.fx.*, rs.fx.std.*
+import okay.effects.*
+import okay.effects.std.*
+import okay.effects.resilience.*
 
 type T = State % Int + Error % String
 

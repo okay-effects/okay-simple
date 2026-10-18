@@ -1,4 +1,6 @@
-package okay.effects.fs2interop
+package okay.effects.fs2interop.checks
+
+import okay.effects.fs2interop.{Fs2Streams}
 
 import scala.concurrent.ExecutionContext
 import cats.effect.IO
@@ -10,14 +12,14 @@ import okay.effects.free.Free
 abstract class Fs2StreamsChecks(val fx0: Runner) extends munit.FunSuite {
   private implicit val ec: ExecutionContext = munitExecutionContext
   implicit val runner: Runner = fx0
-  val f: Fs2Streams[runner.type] = Fs2Streams()
+  val f: Fs2Streams[runner.type, okay.effects.stream.Streams[runner.type]] = Fs2Streams()
   import f._
   import f.fx._
   import f.fx.std._
   import f.streams._
 
   type LIO[X] = Lifted[IO]#L[X]
-  private implicit val ioLowering: okay.effects.Std.Lowering[IO] = f.cats.lowering[IO]
+  private implicit val ioLowering: okay.effects.Std.Lowering[IO] = f.catsInterop.lowering[IO]
   def lowered[A](p: A ! LIO): IO[A] = f.fx.lower[IO, A](p)
 
   test("a stream of IO's as an fs2 stream: each element an IO's") {

@@ -16,8 +16,8 @@ classes there) and taken as the constructor the names make, `#L`. All infix type
 put each `%` in parentheses.
 
 ```scala2
-import okay.effects.machine.Machine._
-import okay.effects.machine.Machine.std._
+import okay.effects._
+import okay.effects.std._
 
 object TwoEffects {
   def greet[R[_]](implicit r: In[(Reader % String)#L, R], w: In[(Writer % String)#L, R]): Int ! R =
@@ -39,7 +39,7 @@ sealed trait Ticket[X]
 object Ticket { final case class Next[X](answer: Int => X) extends Ticket[X] }
 
 object Tickets {
-  import okay.effects.machine.Machine._
+  import okay.effects._
   def next[R[_]](implicit in: In[Ticket, R]): Int ! R = perform[Ticket].apply[R, Int](Ticket.Next(n => n))
 
   def tickets[R[_], Rest[_], A](p: A ! R)(implicit s: Split[Ticket, R, Rest]): A ! Rest =

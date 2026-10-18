@@ -5,8 +5,8 @@ a `G[A]` is a `Runner`'s `lower(p)`, given a `Lowering[G]`. The interop modules 
 
 | Module | Platforms | What it gives |
 |---|---|---|
-| `okay-effects-cats` | JVM, Scala.js | `Cats().monad[R]`: cats' `Monad` of the programs, stack safe; `lowering[G]`: a `Lowering` of any cats `Monad` — cats-effect's `IO`, `Either`, `Option` |
-| `okay-effects-zio` | JVM, Scala.js | `ZioEffects()`: `fromZIO(task)`, `toZIO(p)` — a task a `Lift[Task, *]`, a program a `Task` |
+| `okay-effects-cats` | JVM, Scala.js | `monad[R]` (`import okay.effects.catsinterop.*`): cats' `Monad` of the programs, stack safe; `lowering[G]`: a `Lowering` of any cats `Monad` — cats-effect's `IO`, `Either`, `Option` |
+| `okay-effects-zio` | JVM, Scala.js | `fromZIO(task)`, `toZIO(p)` — a task a `Lift[Task, *]`, a program a `Task` |
 | `okay-effects-java-stream` | JVM | `JavaStreams()`: Java's `Stream`s and `Iterator`s to and from the stream module's streams |
 | `okay-effects-zio-stream` | JVM, Scala.js | `ZioStreams()`: a stream of ZIO's tasks a `ZStream`, and a `ZStream` a stream |
 | `okay-effects-fs2` | JVM, Scala.js | `Fs2Streams()`: a stream of `F`'s programs (cats-effect's `IO`, any cats monad) an `fs2.Stream`, and back |
@@ -19,35 +19,30 @@ a `G[A]` is a `Runner`'s `lower(p)`, given a `Lowering[G]`. The interop modules 
 import cats.Monad
 import cats.effect.IO
 import cats.effect.unsafe.implicits.global
-import okay.effects.machine.Machine
-import okay.effects.cats.Cats
-
-given okay.effects.Runner = Machine
-val c = Cats()
-import c.*, c.fx.*, c.fx.std.*
+import okay.effects.*
+import okay.effects.std.*
+import okay.effects.catsinterop.*
 
 /** cats' Monad of the programs of a row: cats' code over any monad runs on the effects */
 def twice[F[_]: Monad](fa: F[Int]): F[Int] = Monad[F].flatMap(fa)(a => Monad[F].map(fa)(_ + a))
 type R = State % Int
-val p: Int ! R = twice[c.Program[R]#L](modify[Int, R](_ + 1).andThen(get[Int, R]))
+val p: Int ! R = twice[Program[R]#L](modify[Int, R](_ + 1).andThen(get[Int, R]))
 assert(run(state(0)(p)) == (2, 3))
 
-/** cats-effect's IO lifted, lowered to an IO */
+/** cats-effect's IO lifted, lowered to an IO: the `Lowering` of any cats monad found, `lowering` */
 type LIO = [x] =>> Lift[IO, x]
 val io = lift[IO, Int, LIO](IO(20)).flatMap(a => lift[IO, Int, LIO](IO(a + 22)))
-assert(c.fx.lower[IO, Int](io).unsafeRunSync() == 42)
+assert(lower[IO, Int](io).unsafeRunSync() == 42)
 ```
 
 ## ZIO
 
 ```scala
 import zio.{Runtime, Unsafe, ZIO}
-import okay.effects.zio.ZioEffects
 
 object WithZio:
-  given okay.effects.Runner = Machine
-  val z = ZioEffects()
-  import z.*, z.fx.*
+  import okay.effects.*
+  import okay.effects.ziointerop.*
 
   val p: Int ! Tasks = fromZIO[Int, Tasks](ZIO.succeed(20)).flatMap(a => fromZIO[Int, Tasks](ZIO.attempt(a + 22)))
   val value: Int = Unsafe.unsafe { implicit u => Runtime.default.unsafe.run(toZIO(p)).getOrThrow() }
@@ -66,12 +61,12 @@ when Java asks, so an endless stream is `limit`ed on Java's side.
 
 ```scala
 import java.util.stream.{Collectors, Stream as JStream}
-import okay.effects.jstream.JavaStreams
 
 object WithJava:
-  given okay.effects.Runner = Machine
-  val j = JavaStreams()
-  import j.*, j.fx.*, j.fx.std.*, j.streams.*
+  import okay.effects.*
+  import okay.effects.std.*
+  import okay.effects.stream.*
+  import okay.effects.jstream.*
 
   val doubled: List[Int] = run(fromJava[Int, Pure](JStream.of(1, 2, 3, 4)).map(_ * 2).filter(_ > 2).toList)
 
@@ -94,13 +89,12 @@ not pulled to its end keeps it open: take what you need with `ZStream`'s own `ta
 
 ```scala
 import zio.stream.ZStream
-import okay.effects.zstream.ZioStreams
 
 object WithZioStreams:
-  given okay.effects.Runner = Machine
-  val zs = ZioStreams()
-  import zs.*, zs.fx.*, zs.streams.*
-  import zs.zioEffects.{Tasks, fromZIO, toZIO}
+  import okay.effects.*
+  import okay.effects.stream.*
+  import okay.effects.ziointerop.*
+  import okay.effects.zstream.*
 
   private def unsafe[A](task: zio.Task[A]): A = Unsafe.unsafe { implicit u => Runtime.default.unsafe.run(task).getOrThrow() }
 
@@ -122,22 +116,19 @@ fs2 stream of `Pure`; `fromFs2(fs)` makes an fs2 stream a stream here, a chunk a
 each step's end: compile such a stream on fs2's side, and lift what it gives.
 
 ```scala
-import cats.effect.IO
-import cats.effect.unsafe.implicits.global
-import okay.effects.fs2interop.Fs2Streams
-
 object WithFs2:
-  given runner: okay.effects.Runner = Machine
-  val f: Fs2Streams[runner.type] = Fs2Streams()
-  import f.*, f.fx.*, f.fx.std.*, f.streams.*
+  import okay.effects.*
+  import okay.effects.std.*
+  import okay.effects.stream.*
+  import okay.effects.fs2interop.*
 
   type LIO = Lifted[IO]#L
-  given okay.effects.Std.Lowering[IO] = f.cats.lowering[IO]
+  given okay.effects.Std.Lowering[IO] = catsInterop.lowering[IO]
 
   /** a stream of IO's, as an fs2 stream */
   val collected = toFs2(range[LIO](1, 4).evalMap(n => lift[IO, Int, LIO](IO(n * 10)))).compile.toList.unsafeRunSync()
   /** an fs2 stream, transformed here */
-  val evens = f.fx.lower[IO, List[Int]](fromFs2(_root_.fs2.Stream.range(0, 100).covary[IO].map(_ * 3)).filter(_ % 2 == 0).take(3).toList).unsafeRunSync()
+  val evens = lower[IO, List[Int]](fromFs2(_root_.fs2.Stream.range(0, 100).covary[IO].map(_ * 3)).filter(_ % 2 == 0).take(3).toList).unsafeRunSync()
 
 assert(WithFs2.collected == List(10, 20, 30))
 assert(WithFs2.evens == List(0, 6, 12))
@@ -157,14 +148,12 @@ import scala.concurrent.duration.*
 import monix.eval.Task
 import monix.execution.Scheduler
 import monix.reactive.Observable
-import okay.effects.machine.Machine
-import okay.effects.monixinterop.Monix
+import okay.effects.*
+import okay.effects.stream.*
+import okay.effects.monixinterop.*
 
 class WithMonix:
   given Scheduler = Scheduler.global
-  given runner: okay.effects.Runner = Machine
-  val m: Monix[runner.type] = Monix()
-  import m.*, m.fx.*, m.streams.*
 
   /** a stream of tasks, as an Observable */
   def collected = toObservable(range[Tasks](1, 4).evalMap(n => fromTask[Int, Tasks](Task(n * 10)))).toListL.runToFuture

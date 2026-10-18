@@ -30,20 +30,21 @@ runs.
 ## The modules
 
 Each a module over the interface, for both compilers and both platforms, each checked on the machine, `Free` and
-tagless. A module is a class over the implementation in the implicit context — `class Streams[F <: Effects](implicit
-val fx: F)` — made by `Streams()`, which keeps the implementation's own type, so the programs it makes run on it:
+tagless. Its package is the module on the machine, ready: import it and write.
 
 ```scala
-import okay.effects.Runner
-import okay.effects.machine.Machine
-import okay.effects.stream.Streams
+import okay.effects.*
+import okay.effects.std.*
+import okay.effects.stream.*
 
-given Runner = Machine
-val streams = Streams()
-import streams.*, streams.fx.*
-
+type St = State % Int
 assert(run(range[Pure](0, 5).map(_ * 2).toList) == List(0, 2, 4, 6, 8))
+assert(run(state(0)(range[St](1, 4).evalMap(n => modify[Int, St](_ + n).andThen(get[Int, St])).toList)) == (6, List(1, 3, 6)))
 ```
+
+On another implementation, a module is a class over the implementation in the implicit context —
+`class Streams[F <: Effects](implicit implementation: F)` — made by `Streams()`, which keeps the implementation's
+own type, so the programs it makes run on it: `given Runner = Free; val s = Streams(); import s.*, s.fx.*`.
 
 | Module | |
 |---|---|

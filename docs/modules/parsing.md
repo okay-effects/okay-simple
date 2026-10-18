@@ -11,12 +11,9 @@ alternative tried from the input of its time — and gives the first way that pa
 | run | `parse(input)(p)`: `Option[A]` |
 
 ```scala
-import okay.effects.machine.Machine
-import okay.effects.parsing.Parsing
-
-given okay.effects.Runner = Machine
-val ps = Parsing()
-import ps.*, ps.fx.*, ps.fx.std.*
+import okay.effects.*
+import okay.effects.std.*
+import okay.effects.parsing.*
 
 type P = Choose + Input
 

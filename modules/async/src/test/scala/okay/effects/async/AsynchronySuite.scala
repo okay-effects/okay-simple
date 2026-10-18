@@ -1,4 +1,6 @@
-package okay.effects.async
+package okay.effects.async.checks
+
+import okay.effects.async.{Async, Asynchrony}
 
 import scala.concurrent.{ExecutionContext, Future}
 import okay.effects.{Runner, Sum}

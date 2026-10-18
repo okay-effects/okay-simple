@@ -1,4 +1,6 @@
-package okay.effects.probability
+package okay.effects.probability.checks
+
+import okay.effects.probability.{Dist, Probability}
 
 import okay.effects.{Runner, Sum}
 import okay.effects.machine.Machine

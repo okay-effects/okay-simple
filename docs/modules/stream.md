@@ -13,12 +13,9 @@ endless stream is taken as far as it is asked. A stream is a value: pulled twice
 | generators | `fromGenerator(p)`: a program that `emit`s as a stream; `s.emitAll`: a stream as a program that `emit`s |
 
 ```scala
-import okay.effects.machine.Machine
-import okay.effects.stream.Streams
-
-given okay.effects.Runner = Machine
-val st = Streams()
-import st.*, st.fx.*, st.fx.std.*
+import okay.effects.*
+import okay.effects.std.*
+import okay.effects.stream.*
 
 type P = Pure
 assert(run(range[P](0, 10).map(_ * 3).filter(_ % 2 == 0).drop(1).take(3).toList) == List(6, 12, 18))

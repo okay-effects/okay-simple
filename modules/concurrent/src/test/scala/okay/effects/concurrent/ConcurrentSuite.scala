@@ -1,4 +1,6 @@
-package okay.effects.concurrent
+package okay.effects.concurrent.checks
+
+import okay.effects.concurrent.{Concurrent, Coop}
 
 import okay.effects.{Runner, Sum, Void}
 import okay.effects.machine.Machine

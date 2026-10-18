@@ -1,4 +1,6 @@
-package okay.effects.transaction
+package okay.effects.transaction.checks
+
+import okay.effects.transaction.{Transactions, Tx}
 
 import okay.effects.{Runner, Std, Sum, Void}
 import okay.effects.machine.Machine

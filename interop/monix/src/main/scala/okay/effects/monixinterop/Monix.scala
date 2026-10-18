@@ -16,9 +16,9 @@ import okay.effects.stream.Streams
  *  - `fromObservable(obs)`: an `Observable` a stream of `Tasks`, pulled as far as asked — through monix's `Iterant`,
  *    its back-pressure ours; subscribed at the first pull, released at its end or its failure.
  */
-class Monix[F0 <: Runner](implicit val fx: F0) {
-  private implicit val exact: fx.type = fx
-  val streams: Streams[fx.type] = new Streams[fx.type]
+class Monix[I <: Runner, S <: Streams[I]](val streams: S) {
+  /** the implementation: the streams' own */
+  val fx: streams.fx.type = streams.fx
   import fx._
   import streams.{Emit, End, Pull, Stream}
 
@@ -59,8 +59,8 @@ class Monix[F0 <: Runner](implicit val fx: F0) {
 }
 
 object Monix {
-  def apply()(implicit fx: Runner): Monix[fx.type] = {
+  def apply()(implicit fx: Runner): Monix[fx.type, Streams[fx.type]] = {
     implicit val exact: fx.type = fx
-    new Monix[fx.type]
+    new Monix[fx.type, Streams[fx.type]](new Streams[fx.type])
   }
 }

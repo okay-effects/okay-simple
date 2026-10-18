@@ -1,4 +1,6 @@
-package okay.effects.jstream
+package okay.effects.jstream.checks
+
+import okay.effects.jstream.{JavaStreams}
 
 import java.util.stream.{Collectors, IntStream, Stream => JStream}
 import okay.effects.Runner

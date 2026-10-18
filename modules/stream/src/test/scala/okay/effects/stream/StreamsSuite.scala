@@ -1,4 +1,6 @@
-package okay.effects.stream
+package okay.effects.stream.checks
+
+import okay.effects.stream.{Streams}
 
 import okay.effects.{Runner, Sum, Void}
 import okay.effects.machine.Machine

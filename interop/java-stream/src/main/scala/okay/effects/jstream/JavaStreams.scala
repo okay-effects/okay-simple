@@ -16,9 +16,9 @@ import okay.effects.stream.Streams
  *  - `toJava(s)`, `toIterator(s)`: a stream of no effect as a Java stream, an iterator — lazy, each element pulled
  *    by `fx`'s run when Java asks for it: endless streams too, `limit`ed on Java's side.
  */
-class JavaStreams[F <: Runner](implicit val fx: F) {
-  private implicit val exact: fx.type = fx
-  val streams: Streams[fx.type] = new Streams[fx.type]
+class JavaStreams[I <: Runner, S <: Streams[I]](val streams: S) {
+  /** the implementation: the streams' own */
+  val fx: streams.fx.type = streams.fx
   import fx._
   import streams.{Emit, End, Pull, Stream}
 
@@ -56,8 +56,8 @@ class JavaStreams[F <: Runner](implicit val fx: F) {
 }
 
 object JavaStreams {
-  def apply()(implicit fx: Runner): JavaStreams[fx.type] = {
+  def apply()(implicit fx: Runner): JavaStreams[fx.type, Streams[fx.type]] = {
     implicit val exact: fx.type = fx
-    new JavaStreams[fx.type]
+    new JavaStreams[fx.type, Streams[fx.type]](new Streams[fx.type])
   }
 }
