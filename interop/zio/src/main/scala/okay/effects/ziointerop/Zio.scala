@@ -48,13 +48,16 @@ class ZioEffects[F <: Runner](implicit implementation: F) {
   type ZioRow[Env, Err] = { type L[X] = Sum[({ type M[Y] = Sum[Async, ({ type E[Z] = Std.Error[Err, Z] })#E, Y] })#M,
     ({ type N[Y] = Std.Reader[ZEnvironment[Env], Y] })#N, X] }
 
-  /** a ZIO run on `runtime` as an `Async`: its exit the callback's — its value, or a failure or defect as a throwable */
+  /** a ZIO run on `runtime` as an `Async`: its exit the callback's — its value, or a failure or defect as a throwable;
+   * the wait cancelled, its fiber interrupted */
   def fromTaskAsync[A, R[_]](z: ZIO[Any, Nothing, A], runtime: Runtime[Any] = Runtime.default)(implicit as: In[Async, R]): A ! R =
-    asynchrony.async[A, R](cb => Unsafe.unsafe { implicit u =>
-      runtime.unsafe.fork(z).unsafe.addObserver {
+    asynchrony.cancellable[A, R](cb => Unsafe.unsafe { implicit u =>
+      val fiber = runtime.unsafe.fork(z)
+      fiber.unsafe.addObserver {
         case Exit.Success(a) => cb(Right(a))
         case Exit.Failure(cause) => cb(Left(cause.squashTrace))
       }
+      () => { runtime.unsafe.fork(fiber.interrupt); () }
     })
 
   /** a ZIO in the effects: its environment asked, its typed error raised, its run an `Async` */
@@ -66,10 +69,19 @@ class ZioEffects[F <: Runner](implicit implementation: F) {
       case Left(e) => std.raise[Err, R, A](e)
     }
 
-  /** the program as a ZIO: its reader ZIO's environment, its raise ZIO's failure, a throw out of it a defect */
+  /** the program as a ZIO: its reader ZIO's environment, its raise ZIO's failure, a throw out of it a defect; the ZIO
+   * interrupted, the program cancelled (the ZIOs it waits on interrupted in turn) */
   def toZIOTyped[Env, Err, A](p: A ! ZioRow[Env, Err]#L): ZIO[Env, Err, A] =
     ZIO.environmentWithZIO[Env] { (env: ZEnvironment[Env]) =>
-      ZIO.fromFuture(_ => asynchrony.toFuture(std.attempt[Err](std.reader[ZEnvironment[Env]](env)(p)))).orDie.flatMap(ZIO.fromEither(_))
+      ZIO.asyncInterrupt[Any, Err, A] { done =>
+        val running = asynchrony.start(std.attempt[Err](std.reader[ZEnvironment[Env]](env)(p)))
+        running.future.onComplete {
+          case scala.util.Success(Right(a)) => done(ZIO.succeed(a))
+          case scala.util.Success(Left(e)) => done(ZIO.fail(e))
+          case scala.util.Failure(t) => done(ZIO.die(t))
+        }
+        Left(ZIO.succeed(running.cancel()))
+      }
     }
 }
 

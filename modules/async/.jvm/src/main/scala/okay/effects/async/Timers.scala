@@ -9,5 +9,9 @@ private[async] object Timers {
   })
   /** the default's execution context: the JVM's global one */
   def executionContext: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
-  def after(ms: Long)(f: () => Unit): Unit = { scheduler.schedule(new Runnable { def run(): Unit = f() }, ms, TimeUnit.MILLISECONDS); () }
+  /** `f` after `ms` milliseconds; what is given back cancels it */
+  def after(ms: Long)(f: () => Unit): () => Unit = {
+    val scheduled = scheduler.schedule(new Runnable { def run(): Unit = f() }, ms, TimeUnit.MILLISECONDS)
+    () => { scheduled.cancel(false); () }
+  }
 }

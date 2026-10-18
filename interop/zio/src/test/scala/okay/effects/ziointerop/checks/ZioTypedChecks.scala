@@ -42,6 +42,21 @@ abstract class ZioTypedChecks(val fx0: Runner) extends munit.FunSuite {
       .flatMap(_ => unsafeRun(toZIOTyped(q).provideEnvironment(ZEnvironment(hello)).either))
       .map(v => assertEquals(v, Left("no")))
   }
+  test("cancelled here: the ZIO's fiber interrupted") {
+    val interrupted = scala.concurrent.Promise[Unit]()
+    val never: ZIO[Greeting, String, Int] = ZIO.never.onInterrupt(ZIO.succeed { interrupted.trySuccess(()); () })
+    val p: Option[Int] ! okay.effects.async.Async = z.asynchrony.timeout(30)(attempt[String](reader[ZEnvironment[Greeting]](ZEnvironment(hello))(
+      fromZIOTyped[Greeting, String, Int, Row](never)))).map(_.map(_.getOrElse(-1)))
+    for { t <- toFuture(p); _ <- interrupted.future } yield assertEquals(t, None)
+  }
+  test("interrupted in ZIO: the program cancelled, the wait it was in cancelled") {
+    val stopped = scala.concurrent.Promise[Unit]()
+    val waiting: Int ! Row = z.asynchrony.cancellable[Int, Row](_ => () => { stopped.trySuccess(()); () })
+    for {
+      r <- unsafeRun(toZIOTyped(waiting).provideEnvironment(ZEnvironment(hello)).timeout(zio.Duration.fromMillis(30)).either)
+      _ <- stopped.future
+    } yield assertEquals(r, Right(None))
+  }
   test("there and back: a ZIO, a program, a ZIO") {
     val zio0: ZIO[Greeting, String, Int] = ZIO.serviceWith[Greeting](_.greet("x").length)
     unsafeRun(toZIOTyped(fromZIOTyped[Greeting, String, Int, Row](zio0)).provideEnvironment(ZEnvironment(hello)).either)

@@ -1,6 +1,6 @@
 package okay.effects.async.checks
 
-import okay.effects.async.{Async, Asynchrony}
+import okay.effects.async.{Async, Asynchrony, Cancelled}
 
 import scala.concurrent.{ExecutionContext, Future}
 import okay.effects.{Runner, Sum}
@@ -45,6 +45,25 @@ abstract class AsynchronyChecks(val fx0: Runner) extends munit.FunSuite {
       assertEquals(t2, Some(7))
       assertEquals(ps, List(1, 4, 9, 16, 25))
     }
+  }
+  test("cancelled: the wait cancelled, the rest never run, the future failed") {
+    @volatile var cancelledWait = false
+    @volatile var ranOn = false
+    val p = cancellable[Int, Async](_ => () => cancelledWait = true).map { n => ranOn = true; n }
+    val running = start(p)
+    running.cancel()
+    running.future.failed.map { e =>
+      assert(e.isInstanceOf[Cancelled])
+      assert(cancelledWait && !ranOn)
+    }
+  }
+  test("a timeout cancels the program that lost; a race the slower") {
+    val stopped = scala.concurrent.Promise[Unit]()
+    val never = cancellable[Int, Async](_ => () => { stopped.trySuccess(()); () })
+    for {
+      t <- toFuture(timeout(20)(never))
+      _ <- stopped.future
+    } yield assertEquals(t, None)
   }
   test("10 000 waits in turn, in constant stack") {
     def loop(n: Int, acc: Int): Int ! Async = if (n == 0) pure[Int, Async](acc) else fromFuture[Int, Async](Future.successful(1)).flatMap(x => loop(n - 1, acc + x))
