@@ -41,3 +41,16 @@ class RowWordsSuite extends munit.FunSuite:
   test("raise is a program of any value"):
     assertEquals(run(attempt[String](state(0)(failing.half(7)))), Left("7 is odd"))
     assertEquals(run(attempt[String](state(0)(failing.half(8)))), Right((0, 4)))
+
+  object counter extends std.On[Reader % Int + State % Int]:
+    def tick: Int ! Row =
+      for
+        step <- ask[Int]
+        n    <- get
+        _    <- put(n + step)
+      yield n + step
+    val three = for a <- tick; b <- tick; c <- tick yield List(a, b, c)
+
+  test("the row written once, inline, and named Row inside"):
+    assertEquals(run(state(0)(reader(1)(counter.three))), (3, List(1, 2, 3)))
+    assertEquals(run(state(100)(reader(10)(counter.three))), (130, List(110, 120, 130)))

@@ -55,6 +55,22 @@ object RowWords:
 assert(RowWords.result == (2, (List("served ann", "served bob", "refused cid: busy"), List("hello ann", "hello bob", "try later"))))
 ```
 
+The row need not have a name of its own: inside `On[R]`, `Row` is `R`.
+
+```scala
+object ticks extends std.On[Reader % Int + State % Int]:
+  def tick: Int ! Row =
+    for
+      step <- ask[Int]
+      n    <- get
+      _    <- put(n + step)
+    yield n + step
+  val three = for a <- tick; b <- tick; c <- tick yield List(a, b, c)
+
+assert(run(state(0)(reader(1)(ticks.three))) == (3, List(1, 2, 3)))
+assert(run(state(100)(reader(10)(ticks.three))) == (130, List(110, 120, 130)))
+```
+
 Scala 2 the same: `object service extends std.On[Service] { ... }`, the row by names, `get[Int]`.
 
 ## State

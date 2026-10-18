@@ -138,6 +138,8 @@ class Std[F <: Effects](val fx: F) {
    * then in it (or after `import service.*`) `ask[Config]`, `get[Int]`, `put(n)`, `tell(line)`, `raise(e)`. Each
    * word is the standard one at `R`; what is left to give is only what the row does not decide */
   class On[R[_]] {
+    /** the row itself, by name: `def tick: Int ! Row` in an object extending `std.On[Reader % Int + State % Int]` */
+    type Row[X] = R[X]
     def pure[A](a: A): A ! R = fx.pure[A, R](a)
     def ask[E](implicit in: In[({ type L[x] = Reader[E, x] })#L, R]): E ! R = Std.this.ask[E, R]
     def get[S](implicit in: In[({ type L[x] = State[S, x] })#L, R]): S ! R = Std.this.get[S, R]

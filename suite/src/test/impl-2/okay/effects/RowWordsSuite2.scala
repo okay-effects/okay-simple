@@ -23,4 +23,17 @@ class RowWordsSuite2 extends munit.FunSuite {
     assertEquals(run(state(0)(writer[String](reader(Config("hello", 2))(day)))),
       (2, (List("served ann", "served bob", "refused cid: busy"), List("hello ann", "hello bob", "try later"))))
   }
+
+  object counter extends okay.effects.machine.Machine.std.On[((Reader % Int) + (State % Int))#L] {
+    def tick: Int ! Row =
+      for {
+        step <- ask[Int]
+        n    <- get[Int]
+        _    <- put(n + step)
+      } yield n + step
+  }
+
+  test("Row in Scala 2") {
+    assertEquals(run(state(0)(reader(5)(counter.tick.flatMap(_ => counter.tick)))), (10, 10))
+  }
 }
