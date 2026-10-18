@@ -13,21 +13,26 @@ modules of more effects: streams, asynchrony, concurrency, resources, I/O, proba
 retries. On the JVM, Scala.js and Scala Native.
 
 **Documentation: [docs/](docs/README.md)** — [getting started](docs/getting-started.md), [a tour](docs/tour.md), the
-guide, a page for each module; every code block compiled and run.
+guide, a page for each module, [the examples](docs/examples.md); every code block compiled and run.
+
+**The family: [docs/family.md](docs/family.md)** — okay-core, okay-kernel, okay (the platform), okay-java, okay-go,
+okay-rust, okay-python, okay-ts: what each is, and how each meets this interface.
 
 ## Modules and packages
 
-| Module | Artifact | Package | What it is |
-|---|---|---|---|
-| `core/effects/` | `okay-effects` | `okay.effects` | the interface (`Effectful`, each compiler's `Effects`; `Runner`, an implementation that runs), the standard effects (`Std`), delimited control changing answer types (`Delimited`); typed places for Scala 3 implementations (`Places`) |
-| `core/machine/` | `okay-effects-machine` | `okay.effects.machine` | THE MACHINE, one per compiler: `okay.effects.machine.Machine` |
-| `core/free/` | `okay-effects-free` | `okay.effects.free` | THE `Free` MONAD, one per compiler: `okay.effects.free.Free` (through the interface), `OnFree` (as it is) |
-| `core/tagless/` | `okay-effects-tagless` | `okay.effects.tagless` | TAGLESS: `Tagless`, an `Effects` of no implementation — a program a value, run on the `Runner` in the implicit context |
-| `modules/`: `concurrent`, `resource`, `io`, `probability`, `parsing`, `logic`, `transaction`, `resilience`, `stream`, `async` | `okay-effects-concurrent`, ... | `okay.effects.concurrent`, ... | MORE EFFECTS, each over the interface: see below |
-| `tck/` | `okay-effects-tck` | `okay.effects` | the interface's suite, a library: `InterfaceSuite(fx)` for any implementation |
-| `interop/*` | `okay-effects-cats`, `-zio`, `-zio-stream`, `-fs2`, `-monix`, `-java-stream`, `-tofu` | `okay.effects.catsinterop`, `.ziointerop`, `.zstream`, `.fs2interop`, `.monixinterop`, `.jstream`, `.tofuinterop` | interop with cats (and cats-effect 3), ZIO and its streams, fs2, monix, Java's streams, tofu |
-| `examples/` | — | `okay.effects.examples` | examples over `Effects` alone, run on the machine and on `Free` |
-| `suite/`, `suite-free/`, `compat/`, `bench/` | — | — | the suite on each implementation, the compatibility checks, the benchmark |
+| Module | Artifact | Package | What it is | Docs |
+|---|---|---|---|---|
+| `core/effects/` | `okay-effects` | `okay.effects` | the interface (`Effectful`, each compiler's `Effects`; `Runner`, an implementation that runs), the standard effects (`Std`), delimited control changing answer types (`Delimited`); typed places for Scala 3 implementations (`Places`) | [programs and rows](docs/guide/programs-and-rows.md), [handlers](docs/guide/handlers.md), [standard effects](docs/guide/standard-effects.md), [interception](docs/guide/interception.md), [delimited control](docs/guide/delimited-control.md) |
+| `core/machine/` | `okay-effects-machine` | `okay.effects.machine` | THE MACHINE, one per compiler: `okay.effects.machine.Machine` | [implementations](docs/guide/implementations.md) |
+| `core/free/` | `okay-effects-free` | `okay.effects.free` | THE `Free` MONAD, one per compiler: `okay.effects.free.Free` (through the interface), `OnFree` (as it is) | [implementations](docs/guide/implementations.md) |
+| `core/tagless/` | `okay-effects-tagless` | `okay.effects.tagless` | TAGLESS: `Tagless`, an `Effects` of no implementation — a program a value, run on the `Runner` in the implicit context | [implementations](docs/guide/implementations.md), [tour, step 11](docs/tour.md) |
+| `modules/`: `concurrent`, `resource`, `io`, `probability`, `parsing`, `logic`, `transaction`, `resilience`, `stream`, `async` | `okay-effects-concurrent`, ... | `okay.effects.concurrent`, ... | MORE EFFECTS, each over the interface: see below | [the modules](docs/README.md#the-modules), a page each |
+| `tck/` | `okay-effects-tck` | `okay.effects` | the interface's suite, a library: `InterfaceSuite(fx)` for any implementation | [writing an implementation](docs/guide/writing-an-implementation.md) |
+| `interop/*` | `okay-effects-cats`, `-zio`, `-zio-stream`, `-fs2`, `-monix`, `-java-stream`, `-kyo`, `-tofu` | `okay.effects.catsinterop`, `.ziointerop`, `.zstream`, `.fs2interop`, `.monixinterop`, `.jstream`, `.kyointerop`, `.tofuinterop` | interop with cats (and cats-effect 3), ZIO and its streams, fs2, monix, Java's streams, kyo, tofu | [interop](docs/modules/interop.md) |
+| `examples/` | — | `okay.effects.examples` | examples over `Effects` alone, run on the machine and on `Free` | [examples](docs/examples.md) |
+| `suite/`, `suite-free/`, `compat/`, `bench/` | — | — | the suite on each implementation, the compatibility checks, the benchmark | [platforms and the build](docs/guide/platforms.md) |
+
+See [the family](docs/family.md) for okay-core, okay-kernel and the implementations in other languages.
 
 In okay-core's repository, module `effects/` (`okay-effects-core`): the interface on okay-core's machine,
 `okay.effects.core.Core`. In okay-kernel's repository, module `effects/` (`okay-effects-kernel`): the interface on
@@ -116,7 +121,7 @@ Five shapes, each a trait of clauses of no implementation (`Clauses`, `TailClaus
 `Clauses[E, A, B ! R]`. `handle(p, h)` and `handleLast(p, h)` take each shape, `handle(p, s0, h)` the stateful ones:
 
 | | its clause gets `k` | answered in place, every clause resuming `k` once, at once | never resuming `k` |
-|---|---|---|---|
+|---|---|---|---|---|
 | no state | `Handler` | `TailHandler` (`Reader`) | `AbortHandler` (`Error`) |
 | a state of its own | `StatefulHandler`: the state of its time, `k(x, s)` resumed with the next | `StatefulTailHandler`, the state in a `Cell` (`State`, `Writer`) | |
 
@@ -222,16 +227,16 @@ on the machine as its package — `import okay.effects.concurrent._` — and on 
 
 | Module | What it gives |
 |---|---|
-| `concurrent` | cooperative threads: `pass`, a rendezvous channel (`send`, `recv`); `scheduled[V](threads)` runs them in turns, each a coroutine (its `Coop` handled to a `Step`, its rest resumed once); a thread waiting forever `None`. Structured: no `fork` from inside a thread — an effect carrying a program of its own row is of a type that contains itself |
-| `resource` | `scoped(p)`, `defer(fin)`, `bracket(acquire)(release)(use)`: finalizers run at the scope's end, the last first; an error handled inside the scope ends it too |
-| `io` | `Console`, `Clock`, `Env` as effects: the world's handlers (`realConsole`, `systemClock`, `systemEnv`) and pure ones for tests (`console(inputs)`, `clock(start, step)`, `env(vars)`) |
-| `probability` | `flip`, `uniform`, `weighted`; `exact(p)` every outcome with its probability, `sampled(p)` one way by `Random` |
-| `parsing` | parsers of `State[String]` and `Choose`: `item`, `satisfy`, `char`, `string`, `orElse`, `many`, `eof`; `parse(input)(p)` the first parse of all the input, backtracking |
-| `logic` | terms, logic variables (`Fresh`), `unify` (bindings a `State`), `either`; `solutions(p)` every answer — a relation runs either way; `fair(n)(p)` a breadth-first search, so a way that never ends does not hide the others |
-| `transaction` | `read`, `write` and `atomically(p)` on the standard `Store` outside: a log written at the end; an error handled outside drops it — rolled back |
-| `resilience` | `retry[E](n)(p)`, `retryIf[E](n)(worth)(p)`, `fallback[E](p)(q)` |
-| `async` | asynchrony with no runtime of its own: `async(register)` waits on a callback; `toFuture(p)` drives a program to a `Future` — a loop, a callback called at once taken in place, a later one resuming on the execution context; `fromFuture`, `sleep` (the platform's timer: a scheduler on the JVM, `setTimeout` on Scala.js), `both`, `parTraverse`, `race`, `timeout`; `mergeAsync(a, b, ...)` (or of a list): streams of `Async` merged as their elements come — each one's next pulled at once, the first ready given out |
-| `stream` | `Stream[O, R]`: elements pulled one at a time, each pull a program of `R` — lazy, endless if need be; sources `emits`, `range`, `iterate`, `unfold`, `eval`, `repeatEval`, Scala's iterators, iterables, lazy lists; `map`, `evalMap`, `filter`, `take`, `drop`, `takeWhile`, `scan`, `zip`, `interleave`, `++`, `flatMap`, `merge(a, b, ...)` (or of a list: one element of each in turn, an ended one left out — no channel, no buffer); sinks `toList`, `fold`, `foreach`, `drain`, and a stream of no effect as a lazy list or an iterator; with the standard generators, `fromGenerator(p)` and `s.emitAll` |
+| [`concurrent`](docs/modules/concurrent.md) | cooperative threads: `pass`, a rendezvous channel (`send`, `recv`); `scheduled[V](threads)` runs them in turns, each a coroutine (its `Coop` handled to a `Step`, its rest resumed once); a thread waiting forever `None`. Structured: no `fork` from inside a thread — an effect carrying a program of its own row is of a type that contains itself |
+| [`resource`](docs/modules/resource.md) | `scoped(p)`, `defer(fin)`, `bracket(acquire)(release)(use)`: finalizers run at the scope's end, the last first; an error handled inside the scope ends it too |
+| [`io`](docs/modules/io.md) | `Console`, `Clock`, `Env` as effects: the world's handlers (`realConsole`, `systemClock`, `systemEnv`) and pure ones for tests (`console(inputs)`, `clock(start, step)`, `env(vars)`) |
+| [`probability`](docs/modules/probability.md) | `flip`, `uniform`, `weighted`; `exact(p)` every outcome with its probability, `sampled(p)` one way by `Random` |
+| [`parsing`](docs/modules/parsing.md) | parsers of `State[String]` and `Choose`: `item`, `satisfy`, `char`, `string`, `orElse`, `many`, `eof`; `parse(input)(p)` the first parse of all the input, backtracking |
+| [`logic`](docs/modules/logic.md) | terms, logic variables (`Fresh`), `unify` (bindings a `State`), `either`; `solutions(p)` every answer — a relation runs either way; `fair(n)(p)` a breadth-first search, so a way that never ends does not hide the others |
+| [`transaction`](docs/modules/transaction.md) | `read`, `write` and `atomically(p)` on the standard `Store` outside: a log written at the end; an error handled outside drops it — rolled back |
+| [`resilience`](docs/modules/resilience.md) | `retry[E](n)(p)`, `retryIf[E](n)(worth)(p)`, `fallback[E](p)(q)` |
+| [`async`](docs/modules/async.md) | asynchrony with no runtime of its own: `async(register)` waits on a callback; `toFuture(p)` drives a program to a `Future` — a loop, a callback called at once taken in place, a later one resuming on the execution context; `fromFuture`, `sleep` (the platform's timer: a scheduler on the JVM, `setTimeout` on Scala.js), `both`, `parTraverse`, `race`, `timeout`; `mergeAsync(a, b, ...)` (or of a list): streams of `Async` merged as their elements come — each one's next pulled at once, the first ready given out |
+| [`stream`](docs/modules/stream.md) | `Stream[O, R]`: elements pulled one at a time, each pull a program of `R` — lazy, endless if need be; sources `emits`, `range`, `iterate`, `unfold`, `eval`, `repeatEval`, Scala's iterators, iterables, lazy lists; `map`, `evalMap`, `filter`, `take`, `drop`, `takeWhile`, `scan`, `zip`, `interleave`, `++`, `flatMap`, `merge(a, b, ...)` (or of a list: one element of each in turn, an ended one left out — no channel, no buffer); sinks `toList`, `fold`, `foreach`, `drain`, and a stream of no effect as a lazy list or an iterator; with the standard generators, `fromGenerator(p)` and `s.emitAll` |
 
 A timeout is `async`'s; one of ZIO's or cats-effect's runtime, through interop.
 
@@ -333,18 +338,18 @@ Over any implementation, both compilers; another monad's programs inside a progr
 
 | Module | What it gives |
 |---|---|
-| `interop/cats` | `import okay.effects.catsinterop._`: `monad[R]`, cats' `Monad` of the programs (stack safe); a `Lowering` of any cats monad — `IO` of cats-effect 3, `Either`, `Option` |
-| `interop/zio` | `import okay.effects.ziointerop._`: `fromZIOTyped(z)`, `toZIOTyped(p)` — a `ZIO[Env, Err, A]`'s environment, typed error and run our `Reader`, `Error`, `Async`, the row accumulating as ZIO's types do, cancellation both ways, `provideLayer`/`layer` for `ZLayer`s; ZIO's own types as effects (Scala 3), `z.step`, `p.toZIOSteps` — one member per `ZIO[Env, Err, *]`; and `fromZIOTask(task)`, `toZIOTask(p)` — a ZIO task a `Lift[Task, *]`, a program a `Task` |
-| `interop/java-stream` | `import okay.effects.jstream._`: Java's `Stream`s, `Iterator`s, `Iterable`s to and from the stream module's streams, both ways lazy (`fromJava`, `fromJavaIterator`, `toJava`, `toJavaIterator`; the JVM's) |
-| `interop/zio-stream` | `import okay.effects.zstream._`: a stream of ZIO's tasks a `ZStream` (`toZStream`), a `ZStream` a stream (`fromZStream`) |
-| `interop/fs2` | `import okay.effects.fs2interop._`: a stream of `F`'s programs (cats-effect's `IO`, any cats monad) an `fs2.Stream` (`toFs2`), an fs2 stream a stream (`fromFs2`) |
-| `interop/monix` | `import okay.effects.monixinterop._`: monix's `Task` an effect; its `Observable` a stream (`fromObservable`) and back (`toObservable`) — monix 3 is of cats-effect 2 |
-| `interop/kyo` | `import okay.effects.kyointerop._`: a kyo computation `A < S` a standard `Lift` (`fromKyo`), a program of them a kyo computation (`toKyo`), streams to kyo's and back (Scala 3's) |
-| `interop/tofu` | `import okay.effects.tofuinterop._`: `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row named |
+| [`interop/cats`](docs/modules/interop.md#cats) | `import okay.effects.catsinterop._`: `monad[R]`, cats' `Monad` of the programs (stack safe); a `Lowering` of any cats monad — `IO` of cats-effect 3, `Either`, `Option` |
+| [`interop/zio`](docs/modules/interop.md#zio) | `import okay.effects.ziointerop._`: `fromZIOTyped(z)`, `toZIOTyped(p)` — a `ZIO[Env, Err, A]`'s environment, typed error and run our `Reader`, `Error`, `Async`, the row accumulating as ZIO's types do, cancellation both ways, `provideLayer`/`layer` for `ZLayer`s; ZIO's own types as effects (Scala 3), `z.step`, `p.toZIOSteps` — one member per `ZIO[Env, Err, *]`; and `fromZIOTask(task)`, `toZIOTask(p)` — a ZIO task a `Lift[Task, *]`, a program a `Task` |
+| [`interop/java-stream`](docs/modules/interop.md#javas-streams) | `import okay.effects.jstream._`: Java's `Stream`s, `Iterator`s, `Iterable`s to and from the stream module's streams, both ways lazy (`fromJava`, `fromJavaIterator`, `toJava`, `toJavaIterator`; the JVM's) |
+| [`interop/zio-stream`](docs/modules/interop.md#zios-streams) | `import okay.effects.zstream._`: a stream of ZIO's tasks a `ZStream` (`toZStream`), a `ZStream` a stream (`fromZStream`) |
+| [`interop/fs2`](docs/modules/interop.md#fs2) | `import okay.effects.fs2interop._`: a stream of `F`'s programs (cats-effect's `IO`, any cats monad) an `fs2.Stream` (`toFs2`), an fs2 stream a stream (`fromFs2`) |
+| [`interop/monix`](docs/modules/interop.md#monix) | `import okay.effects.monixinterop._`: monix's `Task` an effect; its `Observable` a stream (`fromObservable`) and back (`toObservable`) — monix 3 is of cats-effect 2 |
+| [`interop/kyo`](docs/modules/interop.md#kyo) | `import okay.effects.kyointerop._`: a kyo computation `A < S` a standard `Lift` (`fromKyo`), a program of them a kyo computation (`toKyo`), streams to kyo's and back (Scala 3's) |
+| [`interop/tofu`](docs/modules/interop.md#tofu) | `import okay.effects.tofuinterop._`: `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row named |
 
 ## Examples
 
-`examples/`, written over `Effects` alone and run on each implementation, `OnMachine` and `OnFree`:
+`examples/`, written over `Effects` alone and run on each implementation, `OnMachine` and `OnFree` — shown and told in [docs/examples.md](docs/examples.md), with the most interesting examples of the modules' pages:
 
 | File | What it shows |
 |---|---|

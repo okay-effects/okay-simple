@@ -199,7 +199,7 @@ def docBlocks(lang: String) = Def.task {
 lazy val docsCheck = (project in file("docs/check/scala-3"))
   .dependsOn(tck.jvm, machine.jvm, free.jvm, tagless.jvm, concurrent.jvm, resource.jvm, io.jvm, probability.jvm, parsing.jvm, logic.jvm,
     transaction.jvm, resilience.jvm, stream.jvm, async.jvm, interopCats.jvm, interopZio.jvm, interopTofu, interopJavaStream,
-    interopZioStream.jvm, interopFs2.jvm, interopKyo.jvm)
+    interopZioStream.jvm, interopFs2.jvm, interopKyo.jvm, examples)
   .settings(scalaVersion := scala3, crossScalaVersions := Seq(scala3), publish / skip := true, libraryDependencies += munit,
     libraryDependencies += "org.typelevel" %% "cats-effect" % "3.5.7",
     scalacOptions ++= Seq("-deprecation", "-feature", "-Wconf:msg=unused:s"), Test / sourceGenerators += docBlocks("scala").taskValue)

@@ -14,6 +14,13 @@ runs.
 - [A tour](tour.md) — eleven steps: rows, handling in any order, an effect of your own, a handler resuming twice,
   code generic in its row, choice, errors, generators, interception, delimited control, tagless.
 
+## Examples and the family
+
+- [Examples](examples.md) — the `examples/` module, shown and told: rows in any order, a handler resuming twice, a
+  search, delimited control, code for both compilers, one application of both; and the best of the modules' pages.
+- [The okay family](family.md) — okay-core, okay-kernel, okay (the platform), okay-java, okay-go, okay-rust,
+  okay-python, okay-ts: what each is, an example of each, how each meets this interface.
+
 ## The guide
 
 | Page | |
