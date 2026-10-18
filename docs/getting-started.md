@@ -79,6 +79,9 @@ assert(result == (1, "hello, Ann (#1)"))
 
 Each handler takes its effect from wherever it is in the row — the order you handle in is yours, not the row's.
 
+A program of one row can name it once and drop the type arguments: in `object app extends std.On[App]`, the same
+program is `ask[String]`, `get`, `put(n + 1)` — see [the words of one row](guide/standard-effects.md#the-words-of-one-row-onr).
+
 Every module works so too: `import okay.effects.stream.*` gives the stream module on the machine,
 `import okay.effects.async.*` asynchrony, `import okay.effects.delimited.*` delimited control — nothing else to set up.
 

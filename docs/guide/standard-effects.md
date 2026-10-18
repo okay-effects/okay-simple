@@ -26,6 +26,37 @@ import okay.effects.std.*
 | `Control % (B ! R)` | `shift(f)` | `reset(p)` — see [delimited control](delimited-control.md) |
 | `observe`, `around` | — | over any effect: see [interception](interception.md) |
 
+## The words of one row: `On[R]`
+
+The operations take the row as a type argument, `get[Int, R]`, because a program's first operation has nothing to
+infer it from. A program of one row names it once instead: in an object extending `std.On[R]` (or after
+`val words = std.on[R]; import words.*`) the words are the standard ones at `R` — `ask[E]`, `get`, `put(s)`,
+`modify[S](f)`, `tell(w)`, `raise(e)`, `among(xs)`, `fail`, `pure(a)` — and only what the row does not decide is
+left to give. A state's type is the row's when the row has one state, so `get` alone is enough; `raise(e)` is a
+program of no value, `Nothing ! R`, so of any.
+
+```scala
+object RowWords:
+  case class Config(greeting: String, limit: Int)
+  type Service = Reader % Config + Writer % String + State % Int
+
+  object service extends std.On[Service]:
+    def serve(user: String): String ! Service =
+      for
+        c <- ask[Config]
+        n <- get
+        reply <- if n >= c.limit then tell(s"refused $user: busy").as("try later")
+                 else put(n + 1).andThen(tell(s"served $user")).as(s"${c.greeting} $user")
+      yield reply
+
+  val day = for a <- service.serve("ann"); b <- service.serve("bob"); c <- service.serve("cid") yield List(a, b, c)
+  val result = run(state(0)(writer[String](reader(Config("hello", 2))(day))))
+
+assert(RowWords.result == (2, (List("served ann", "served bob", "refused cid: busy"), List("hello ann", "hello bob", "try later"))))
+```
+
+Scala 2 the same: `object service extends std.On[Service] { ... }`, the row by names, `get[Int]`.
+
 ## State
 
 ```scala

@@ -134,6 +134,24 @@ class Std[F <: Effects](val fx: F) {
   type Store[K, V, X] = Std.Store[K, V, X]
   val Store: Std.Store.type = Std.Store
 
+  /** THE WORDS OF ONE ROW: the row named once, the words without it — `object service extends std.On[Service]`,
+   * then in it (or after `import service.*`) `ask[Config]`, `get[Int]`, `put(n)`, `tell(line)`, `raise(e)`. Each
+   * word is the standard one at `R`; what is left to give is only what the row does not decide */
+  class On[R[_]] {
+    def pure[A](a: A): A ! R = fx.pure[A, R](a)
+    def ask[E](implicit in: In[({ type L[x] = Reader[E, x] })#L, R]): E ! R = Std.this.ask[E, R]
+    def get[S](implicit in: In[({ type L[x] = State[S, x] })#L, R]): S ! R = Std.this.get[S, R]
+    def put[S](s: S)(implicit in: In[({ type L[x] = State[S, x] })#L, R]): Unit ! R = Std.this.put[S, R](s)
+    def modify[S](f: S => S)(implicit in: In[({ type L[x] = State[S, x] })#L, R]): Unit ! R = Std.this.modify[S, R](f)
+    def tell[W](w: W)(implicit in: In[({ type L[x] = Writer[W, x] })#L, R]): Unit ! R = Std.this.tell[W, R](w)
+    /** a raise is a program of no value, so of any: `Nothing ! R` */
+    def raise[E](e: E)(implicit in: In[({ type L[x] = Error[E, x] })#L, R]): Nothing ! R = Std.this.raise[E, R, Nothing](e)
+    def among[X](xs: List[X])(implicit in: In[Choose, R]): X ! R = Std.this.among[X, R](xs)
+    def fail(implicit in: In[Choose, R]): Nothing ! R = Std.this.fail[Nothing, R]
+  }
+  /** the words of the row `R`: `val words = std.on[Service]; import words.*` */
+  def on[R[_]]: On[R] = new On[R]
+
   def get[S, R[_]](implicit in: In[({ type L[x] = State[S, x] })#L, R]): S ! R = perform[({ type L[x] = State[S, x] })#L].apply[R, S](Std.State.Get(s => s))
   def put[S, R[_]](s: S)(implicit in: In[({ type L[x] = State[S, x] })#L, R]): Unit ! R = perform[({ type L[x] = State[S, x] })#L].apply[R, Unit](Std.State.Put(s, u => u))
   def modify[S, R[_]](f: S => S)(implicit in: In[({ type L[x] = State[S, x] })#L, R]): Unit ! R = get[S, R].flatMap(s => put[S, R](f(s)))
