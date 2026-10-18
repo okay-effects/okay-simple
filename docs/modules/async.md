@@ -1,6 +1,6 @@
 # async — asynchrony with no runtime
 
-`okay-effects-async`, `okay.effects.async`. A program of `Async` waits on callbacks; `toFuture(p)` drives it to a
+`okay-effects-async`, `okay.effects.async` — `import okay.effects.async.*`, the module on the machine. A program of `Async` waits on callbacks; `toFuture(p)` drives it to a
 `Future`. No runtime of its own, no threads of its own: on the JVM and on Scala.js.
 
 | | |

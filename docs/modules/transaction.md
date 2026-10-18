@@ -1,6 +1,6 @@
 # transaction — transactions on a store
 
-`okay-effects-transaction`, `okay.effects.transaction`. `atomically(p)` runs `p`'s reads and writes against a log of
+`okay-effects-transaction`, `okay.effects.transaction` — `import okay.effects.transaction.*`, the module on the machine. `atomically(p)` runs `p`'s reads and writes against a log of
 its own over the standard `Store` outside — a read sees the log first, then the store — and writes the log to the
 store when `p` ends. What ends `p` before drops the log: nothing written.
 

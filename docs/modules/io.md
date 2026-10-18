@@ -1,6 +1,6 @@
 # io — the console, the clock, the environment
 
-`okay-effects-io`, `okay.effects.world`. The world as effects: a program names what it touches in its row, and its
+`okay-effects-io`, `okay.effects.world` — `import okay.effects.world.*`, the module on the machine. The world as effects: a program names what it touches in its row, and its
 handler says how — the world's, or a pure one for tests. The same program under either.
 
 | Effect | Operations | The world's handler | A pure handler |

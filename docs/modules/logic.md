@@ -1,6 +1,6 @@
 # logic — logic programming
 
-`okay-effects-logic`, `okay.effects.logic`. Terms, logic variables, unification — of standard effects: variables
+`okay-effects-logic`, `okay.effects.logic` — `import okay.effects.logic.*`, the module on the machine. Terms, logic variables, unification — of standard effects: variables
 `fresh` (`Fresh`), the bindings a `State`, the alternatives `Choose`. A relation runs either way. And a fair search,
 breadth-first, for searches with ways that never end.
 

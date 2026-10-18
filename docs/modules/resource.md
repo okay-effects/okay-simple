@@ -1,6 +1,6 @@
 # resource — scopes and finalizers
 
-`okay-effects-resource`, `okay.effects.resource`. A scope runs its finalizers when it ends, the last deferred first.
+`okay-effects-resource`, `okay.effects.resource` — `import okay.effects.resource.*`, the module on the machine. A scope runs its finalizers when it ends, the last deferred first.
 
 | | |
 |---|---|

@@ -1,6 +1,6 @@
 # parsing — parsers of two standard effects
 
-`okay-effects-parsing`, `okay.effects.parsing`. A parser is a program of two standard effects: the input left, a
+`okay-effects-parsing`, `okay.effects.parsing` — `import okay.effects.parsing.*`, the module on the machine. A parser is a program of two standard effects: the input left, a
 `State[String]`, and the alternatives, `Choose`. `parse(input)(p)` runs it with the state inside the choice — each
 alternative tried from the input of its time — and gives the first way that parses all of the input.
 

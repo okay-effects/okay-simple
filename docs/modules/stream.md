@@ -1,6 +1,6 @@
 # stream — lazy streams
 
-`okay-effects-stream`, `okay.effects.stream`. A `Stream[O, R]` gives elements `O` one at a time, each PULL a program
+`okay-effects-stream`, `okay.effects.stream` — `import okay.effects.stream.*`, the module on the machine. A `Stream[O, R]` gives elements `O` one at a time, each PULL a program
 of the row `R` — so its elements may be made by effects, and it is lazy: nothing is pulled until a sink asks, and an
 endless stream is taken as far as it is asked. A stream is a value: pulled twice, it runs twice.
 

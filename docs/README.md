@@ -17,6 +17,7 @@ runs.
 
 | Page | |
 |---|---|
+| [Imports and defaults](guide/imports.md) | `import okay.effects.*`, `.std.*`, `.delimited.*`, each module's package: the machine by default; another implementation |
 | [Programs and rows](guide/programs-and-rows.md) | `A ! R`, effects as GADTs, rows `R + E`, the evidence `In`, `Split`, `Sub`; `Effects` and `Runner` |
 | [Handlers](guide/handlers.md) | the five shapes — general, in place, aborting, stateful, stateful general — deep handlers, `k` |
 | [The standard effects](guide/standard-effects.md) | `State`, `Reader`, `Writer`, `Error`, `Abort`, `Choose`, `Yield`, `Fresh`, `Random`, `Store`, `Lift` |

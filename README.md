@@ -78,8 +78,8 @@ type Row[X] = ((Reader % String) + (Writer % String) + (State % Int))#L[X]    //
 run(reader("Ann")(state(10)(writer[String](greet[Row]))))
 ```
 
-Code over any implementation takes it as a value, `class Greeting(implicit val fx: Effects) { import fx._, fx.std._
-... }`, and runs on whichever it is given: `Machine`, `Free`, okay-core's `Core`, `OnKernel.on(...)`. `Effects` are
+Code over any implementation — not the default — takes it as a value, `class Greeting(implicit val fx: Effects) {
+import fx._, fx.std._ ... }`, and runs on whichever it is given: `Machine`, `Free`, okay-core's `Core`, `OnKernel.on(...)`. `Effects` are
 the words that MAKE programs; RUNNING one is a `Runner`'s (`Runner extends Effects`: `run`, and `lower`) — every
 implementation is one; code that runs programs takes a `Runner`. So words of no implementation, `Tagless`, are an
 `Effects` too.
@@ -217,7 +217,8 @@ observer (`Seen.at`, an operation's place), tagless on the implementation given.
 ## More effects
 
 Modules over the interface, in `modules/`, one source for both compilers, each checked on the machine, on `Free` and on tagless; each a class
-over the implementation in the implicit context, `Concurrent()`, `Io()`, ... (`class Concurrent[F <: Effects](implicit val fx: F)`):
+on the machine as its package — `import okay.effects.concurrent._` — and on any other implementation as a class,
+`given Runner = Free; val c = Concurrent()` (`class Concurrent[F <: Effects](implicit implementation: F)`):
 
 | Module | What it gives |
 |---|---|
@@ -229,7 +230,7 @@ over the implementation in the implicit context, `Concurrent()`, `Io()`, ... (`c
 | `logic` | terms, logic variables (`Fresh`), `unify` (bindings a `State`), `either`; `solutions(p)` every answer — a relation runs either way; `fair(n)(p)` a breadth-first search, so a way that never ends does not hide the others |
 | `transaction` | `read`, `write` and `atomically(p)` on the standard `Store` outside: a log written at the end; an error handled outside drops it — rolled back |
 | `resilience` | `retry[E](n)(p)`, `retryIf[E](n)(worth)(p)`, `fallback[E](p)(q)` |
-| `async` | asynchrony with no runtime of its own: `async(register)` waits on a callback; `toFuture(p)` drives a program to a `Future` — a loop, a callback called at once taken in place, a later one resuming on the execution context; `fromFuture`, `sleep` (the platform's timer: a scheduler on the JVM, `setTimeout` on Scala.js), `both`, `parTraverse`, `race`, `timeout`; `AsyncStreams().mergeAsync(streams)`: streams of `Async` merged as their elements come — each one's next pulled at once, the first ready given out |
+| `async` | asynchrony with no runtime of its own: `async(register)` waits on a callback; `toFuture(p)` drives a program to a `Future` — a loop, a callback called at once taken in place, a later one resuming on the execution context; `fromFuture`, `sleep` (the platform's timer: a scheduler on the JVM, `setTimeout` on Scala.js), `both`, `parTraverse`, `race`, `timeout`; `mergeAsync(streams)`: streams of `Async` merged as their elements come — each one's next pulled at once, the first ready given out |
 | `stream` | `Stream[O, R]`: elements pulled one at a time, each pull a program of `R` — lazy, endless if need be; sources `emits`, `range`, `iterate`, `unfold`, `eval`, `repeatEval`; `map`, `evalMap`, `filter`, `take`, `drop`, `takeWhile`, `scan`, `zip`, `interleave`, `++`, `flatMap`, `merge(streams)` (one element of each in turn, an ended one left out — no channel, no buffer); sinks `toList`, `fold`, `foreach`, `drain`; with the standard generators, `fromGenerator(p)` and `s.emitAll` |
 
 A timeout is `async`'s; one of ZIO's or cats-effect's runtime, through interop.
@@ -332,13 +333,13 @@ Over any implementation, both compilers; another monad's programs inside a progr
 
 | Module | What it gives |
 |---|---|
-| `interop/cats` | `Cats().monad[R]`, cats' `Monad` of the programs (stack safe); a `Lowering` of any cats monad — `IO` of cats-effect 3, `Either`, `Option` |
-| `interop/zio` | `ZioEffects()`: `fromZIO(task)`, `toZIO(p)` — a ZIO task a `Lift[Task, *]`, a program a `Task` |
-| `interop/java-stream` | `JavaStreams()`: Java's `Stream`s and `Iterator`s to and from the stream module's streams, both ways lazy (the JVM's) |
-| `interop/zio-stream` | `ZioStreams()`: a stream of ZIO's tasks a `ZStream` (`toZStream`), a `ZStream` a stream (`fromZStream`) |
-| `interop/fs2` | `Fs2Streams()`: a stream of `F`'s programs (cats-effect's `IO`, any cats monad) an `fs2.Stream` (`toFs2`), an fs2 stream a stream (`fromFs2`) |
-| `interop/monix` | `Monix()`: monix's `Task` an effect; its `Observable` a stream (`fromObservable`) and back (`toObservable`) — monix 3 is of cats-effect 2 |
-| `interop/tofu` | `Tofu(Cats())`: `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row named |
+| `interop/cats` | `import okay.effects.catsinterop._`: `monad[R]`, cats' `Monad` of the programs (stack safe); a `Lowering` of any cats monad — `IO` of cats-effect 3, `Either`, `Option` |
+| `interop/zio` | `import okay.effects.ziointerop._`: `fromZIO(task)`, `toZIO(p)` — a ZIO task a `Lift[Task, *]`, a program a `Task` |
+| `interop/java-stream` | `import okay.effects.jstream._`: Java's `Stream`s and `Iterator`s to and from the stream module's streams, both ways lazy (the JVM's) |
+| `interop/zio-stream` | `import okay.effects.zstream._`: a stream of ZIO's tasks a `ZStream` (`toZStream`), a `ZStream` a stream (`fromZStream`) |
+| `interop/fs2` | `import okay.effects.fs2interop._`: a stream of `F`'s programs (cats-effect's `IO`, any cats monad) an `fs2.Stream` (`toFs2`), an fs2 stream a stream (`fromFs2`) |
+| `interop/monix` | `import okay.effects.monixinterop._`: monix's `Task` an effect; its `Observable` a stream (`fromObservable`) and back (`toObservable`) — monix 3 is of cats-effect 2 |
+| `interop/tofu` | `import okay.effects.tofuinterop._`: `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row named |
 
 ## Examples
 

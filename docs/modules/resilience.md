@@ -1,6 +1,6 @@
 # resilience — retries and fallbacks
 
-`okay-effects-resilience`, `okay.effects.resilience`. A program that may raise `E` run again.
+`okay-effects-resilience`, `okay.effects.resilience` — `import okay.effects.resilience.*`, the module on the machine. A program that may raise `E` run again.
 
 | | |
 |---|---|

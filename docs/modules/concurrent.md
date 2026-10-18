@@ -1,6 +1,6 @@
 # concurrent — cooperative threads
 
-`okay-effects-concurrent`, `okay.effects.concurrent`. Threads — each a program — run in turns by a scheduler; a
+`okay-effects-concurrent`, `okay.effects.concurrent` — `import okay.effects.concurrent.*`, the module on the machine. Threads — each a program — run in turns by a scheduler; a
 thread runs until it passes the turn, sends or receives on a channel. No threads of the JVM, no runtime: a
 scheduler is a handler.
 

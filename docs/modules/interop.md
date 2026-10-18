@@ -7,11 +7,11 @@ a `G[A]` is a `Runner`'s `lower(p)`, given a `Lowering[G]`. The interop modules 
 |---|---|---|
 | `okay-effects-cats` | JVM, Scala.js | `monad[R]` (`import okay.effects.catsinterop.*`): cats' `Monad` of the programs, stack safe; `lowering[G]`: a `Lowering` of any cats `Monad` — cats-effect's `IO`, `Either`, `Option` |
 | `okay-effects-zio` | JVM, Scala.js | `fromZIO(task)`, `toZIO(p)` — a task a `Lift[Task, *]`, a program a `Task` |
-| `okay-effects-java-stream` | JVM | `JavaStreams()`: Java's `Stream`s and `Iterator`s to and from the stream module's streams |
-| `okay-effects-zio-stream` | JVM, Scala.js | `ZioStreams()`: a stream of ZIO's tasks a `ZStream`, and a `ZStream` a stream |
-| `okay-effects-fs2` | JVM, Scala.js | `Fs2Streams()`: a stream of `F`'s programs (cats-effect's `IO`, any cats monad) an `fs2.Stream`, and back |
-| `okay-effects-monix` | JVM, Scala.js | `Monix()`: monix's `Task` an effect; its `Observable` a stream, and back — monix 3 is of cats-effect 2 |
-| `okay-effects-tofu` | JVM | `Tofu(Cats())`: tofu's `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row |
+| `okay-effects-java-stream` | JVM | `import okay.effects.jstream.*`: Java's `Stream`s and `Iterator`s to and from the stream module's streams |
+| `okay-effects-zio-stream` | JVM, Scala.js | `import okay.effects.zstream.*`: a stream of ZIO's tasks a `ZStream`, and a `ZStream` a stream |
+| `okay-effects-fs2` | JVM, Scala.js | `import okay.effects.fs2interop.*`: a stream of `F`'s programs (cats-effect's `IO`, any cats monad) an `fs2.Stream`, and back |
+| `okay-effects-monix` | JVM, Scala.js | `import okay.effects.monixinterop.*`: monix's `Task` an effect; its `Observable` a stream, and back — monix 3 is of cats-effect 2 |
+| `okay-effects-tofu` | JVM | `import okay.effects.tofuinterop.*`: tofu's `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row |
 
 ## cats
 
@@ -136,7 +136,7 @@ assert(WithFs2.evens == List(0, 6, 12))
 
 ## monix
 
-`Monix()` makes monix's `Task` an effect (`fromTask`, `toTask`, the standard `Lift`) and its `Observable` a stream:
+`import okay.effects.monixinterop.*` makes monix's `Task` an effect (`fromTask`, `toTask`, the standard `Lift`) and its `Observable` a stream:
 `toObservable(s)` each pull a task, `toObservablePure(s)` of no effect, `fromObservable(obs)` an `Observable` a stream
 pulled as far as asked — through monix's `Iterant`, its back-pressure ours, subscribed at the first pull and released
 at its end or its failure. Monix 3 is of cats-effect 2: it cannot be in one application with cats-effect 3 (fs2, the
@@ -167,6 +167,6 @@ assert(Await.result(withMonix.evens, 5.seconds) == List(0, 6, 12))
 
 ## tofu
 
-`Tofu(Cats())` gives `withLocal[R, Rest, C]`, tofu's `WithLocal[Program[R]#L, C]` of a `Reader % C` in `R`, and
+`import okay.effects.tofuinterop.*` gives `withLocal[R, Rest, C]`, tofu's `WithLocal[Program[R]#L, C]` of a `Reader % C` in `R`, and
 `errors[R, Rest, E]`, tofu's `Errors` (`raise`, `tryHandleWith`, `restore`) of an `Error % E` in `R` — so code
 written to tofu's typeclasses runs on the effects. The JVM's only: tofu has no Scala.js build.

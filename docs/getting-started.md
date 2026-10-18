@@ -122,6 +122,7 @@ The interface is the same one; see [Scala 2 and Scala 3](guide/scala-2-and-3.md)
 
 ## Where next
 
+- [Imports and defaults](guide/imports.md): what each import gives, and another implementation.
 - [The tour](tour.md): effects of your own, handlers of each shape, resuming twice, generators, errors, interception.
 - [The guide](README.md#the-guide): programs and rows, handlers, the standard effects, the implementations.
 - [The modules](README.md#the-modules): streams, asynchrony, concurrency, resources, parsing, logic, and more.

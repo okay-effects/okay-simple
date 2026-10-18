@@ -1,6 +1,6 @@
 # probability — random choices
 
-`okay-effects-probability`, `okay.effects.probability`. A program of random choices is a model; its handlers say
+`okay-effects-probability`, `okay.effects.probability` — `import okay.effects.probability.*`, the module on the machine. A program of random choices is a model; its handlers say
 what to make of it: the exact distribution of its outcomes, or one outcome sampled.
 
 | | |
