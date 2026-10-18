@@ -91,6 +91,21 @@ class Streams[F <: Effects](implicit implementation: F) {
     case Some((s, rest)) => s.pull().flatMap(_.fold(mergeQueue[O, R](rest).pull())((o, r) => emitted(o, mergeQueue[O, R](rest.enqueue(r)))))
   })
 
+  /** A SCALA ITERATOR as a stream of any row: made at the first pull, its elements pulled one at a time, as far as
+   * asked; each step remembered, so pulled twice, the same elements */
+  def fromIterator[O, R[_]](it: => Iterator[O]): Stream[O, R] = new Stream[O, R](() => delay(stepping[O, R](it).pull()))
+  /** an iterable, a `List`, a `Vector`, a `Range`: its iterator's */
+  def fromIterable[O, R[_]](xs: Iterable[O]): Stream[O, R] = fromIterator[O, R](xs.iterator)
+  /** a lazy list, endless or not: its elements as it makes them */
+  def fromLazyList[O, R[_]](ll: LazyList[O]): Stream[O, R] = new Stream[O, R](() => delay(
+    if (ll.isEmpty) ended[O, R] else emitted[O, R](ll.head, fromLazyList[O, R](ll.tail))))
+  /** a step of the iterator, taken once, when first pulled */
+  private def stepping[O, R[_]](it: Iterator[O]): Stream[O, R] = new Stream[O, R]({
+    lazy val step: Pull[O, R] =
+      if (it.hasNext) { val o = it.next(); val rest = stepping[O, R](it); new Emit[O, R](o, rest) } else new End[O, R]
+    () => pure[Pull[O, R], R](step)
+  })
+
   /** a generator — a program `emit`ting `O` — as a stream of the row outside its `Yield`: pulled as far as asked, the
    * generator run that far, its rest the stream's */
   def fromGenerator[O]: FromGenerator[O] = new FromGenerator[O]

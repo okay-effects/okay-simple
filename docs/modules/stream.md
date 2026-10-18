@@ -6,10 +6,10 @@ endless stream is taken as far as it is asked. A stream is a value: pulled twice
 
 | | |
 |---|---|
-| sources | `emits(xs)`, `range(a, b)`, `iterate(x)(f)`, `unfold(s)(f)`, `eval(p)`, `repeatEval(p)`, `empty` |
+| sources | `emits(xs)`, `range(a, b)`, `iterate(x)(f)`, `unfold(s)(f)`, `eval(p)`, `repeatEval(p)`, `empty`; Scala's `fromIterator(it)`, `fromIterable(xs)`, `fromLazyList(ll)` |
 | transformations | `map`, `evalMap(f)`, `filter`, `take`, `drop`, `takeWhile`, `dropWhile`, `scan`, `zip`, `zipWithIndex`, `interleave`, `++`, `flatMap` |
 | merging | `merge(a, b, ...)` or `merge(list)`: one element of each in turn |
-| sinks | `toList`, `fold(z)(f)`, `foreach(f)`, `drain`, `headOption` |
+| sinks | `toList`, `fold(z)(f)`, `foreach(f)`, `drain`, `headOption` — programs; and, a stream of no effect run lazily, Scala's `toLazyList(s)`, `toIterator(s)` (`StreamsRun`) |
 | generators | `fromGenerator(p)`: a program that `emit`s as a stream; `s.emitAll`: a stream as a program that `emit`s |
 
 ```scala
@@ -22,6 +22,19 @@ assert(run(range[P](0, 10).map(_ * 3).filter(_ % 2 == 0).drop(1).take(3).toList)
 assert(run(iterate[Int, P](1)(_ * 2).take(5).toList) == List(1, 2, 4, 8, 16))
 assert(run(range[P](1, 5).scan(0)(_ + _).toList) == List(0, 1, 3, 6, 10))
 assert(run(emits[String, P](List("a", "b")).zip(iterate[Int, P](1)(_ + 1)).toList) == List(("a", 1), ("b", 2)))
+```
+
+## Scala's collections
+
+An iterator, an iterable, a lazy list as a stream — lazily, as far as asked; an iterator's stream remembers its steps,
+so it can be pulled twice. And back: a stream of no effect as a lazy list or an iterator, each element pulled by the run
+when asked — Java's are [interop's](interop.md#javas-streams).
+
+```scala
+assert(run(fromIterator[Int, P](Iterator.from(1)).map(_ * 2).take(3).toList) == List(2, 4, 6))
+assert(run(fromLazyList[Int, P](LazyList.iterate(1)(_ * 3)).take(4).toList) == List(1, 3, 9, 27))
+assert(toLazyList(iterate[Int, P](1)(_ + 1).map(n => n * n)).take(4).toList == List(1, 4, 9, 16))
+assert(toIterator(fromIterable[String, P](Vector("x", "y"))).toList == List("x", "y"))
 ```
 
 ## Merge, in turn

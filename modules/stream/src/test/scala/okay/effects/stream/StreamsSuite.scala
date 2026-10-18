@@ -33,6 +33,14 @@ abstract class StreamsChecks(val fx0: Runner) extends munit.FunSuite {
     assertEquals(list(unfold[Int, Int, P](10)(n => if (n == 0) None else Some((n, n / 2)))), List(10, 5, 2, 1))
   }
 
+  test("Scala's iterators, iterables, lazy lists as streams; as far as asked; an iterator's stream pulled twice, the same") {
+    assertEquals(list(fromIterator[Int, P](Iterator.from(1)).map(_ * 2).take(3)), List(2, 4, 6))
+    assertEquals(list(fromIterable[String, P](Vector("a", "b"))), List("a", "b"))
+    assertEquals(list(fromLazyList[Int, P](LazyList.iterate(1)(_ * 3)).take(4)), List(1, 3, 9, 27))
+    val once = fromIterator[Int, P](Iterator(1, 2, 3))
+    assertEquals(list(once), List(1, 2, 3))
+    assertEquals(list(once), List(1, 2, 3))
+  }
   test("merge: one of each in turn, an ended one left out") {
     assertEquals(list(merge[String, P](List(emits[String, P](List("a1", "a2", "a3")), emits[String, P](List("b1")),
       emits[String, P](List("c1", "c2"))))), List("a1", "b1", "c1", "a2", "c2", "a3"))

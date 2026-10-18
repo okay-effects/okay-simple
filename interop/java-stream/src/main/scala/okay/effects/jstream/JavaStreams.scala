@@ -12,8 +12,8 @@ import okay.effects.stream.Streams
  *  - `fromJava(js)`: a Java stream as a stream of any row — made at the first pull, its elements pulled one at a time,
  *    as far as asked. A Java stream is used once; this one is not: each step remembered, so pulled twice, the same
  *    elements, and the Java stream made anew at each first pull of the whole.
- *  - `fromIterator(it)`, `fromIterable(xs)`: the same of an iterator (each step remembered), of an iterable.
- *  - `toJava(s)`, `toIterator(s)`: a stream of no effect as a Java stream, an iterator — lazy, each element pulled
+ *  - `fromJavaIterator(it)`, `fromJavaIterable(xs)`: the same of an iterator (each step remembered), of an iterable.
+ *  - `toJava(s)`, `toJavaIterator(s)`: a stream of no effect as a Java stream, an iterator — lazy, each element pulled
  *    by `fx`'s run when Java asks for it: endless streams too, `limit`ed on Java's side.
  */
 class JavaStreams[I <: Runner, S <: Streams[I]](val streams: S) {
@@ -22,18 +22,18 @@ class JavaStreams[I <: Runner, S <: Streams[I]](val streams: S) {
   import fx._
   import streams.{Emit, End, Pull, Stream}
 
-  def fromJava[O, R[_]](js: => JStream[O]): Stream[O, R] = new Stream[O, R](() => delay(fromIterator[O, R](js.iterator()).pull()))
-  def fromIterable[O, R[_]](xs: java.lang.Iterable[O]): Stream[O, R] = new Stream[O, R](() => delay(fromIterator[O, R](xs.iterator()).pull()))
+  def fromJava[O, R[_]](js: => JStream[O]): Stream[O, R] = new Stream[O, R](() => delay(fromJavaIterator[O, R](js.iterator()).pull()))
+  def fromJavaIterable[O, R[_]](xs: java.lang.Iterable[O]): Stream[O, R] = new Stream[O, R](() => delay(fromJavaIterator[O, R](xs.iterator()).pull()))
 
   /** a step of the iterator, taken once, when first pulled: the stream from it repeatable */
-  def fromIterator[O, R[_]](it: JIterator[O]): Stream[O, R] = new Stream[O, R]({
+  def fromJavaIterator[O, R[_]](it: JIterator[O]): Stream[O, R] = new Stream[O, R]({
     lazy val step: Pull[O, R] =
-      if (it.hasNext) { val o = it.next(); val rest = fromIterator[O, R](it); new Emit[O, R](o, rest) } else new End[O, R]
+      if (it.hasNext) { val o = it.next(); val rest = fromJavaIterator[O, R](it); new Emit[O, R](o, rest) } else new End[O, R]
     () => delay(pure[Pull[O, R], R](step))
   })
 
   /** the elements of `s`, pulled when the iterator is asked for the next */
-  def toIterator[O](s: Stream[O, Pure]): JIterator[O] = new JIterator[O] {
+  def toJavaIterator[O](s: Stream[O, Pure]): JIterator[O] = new JIterator[O] {
     private var current: Stream[O, Pure] = s
     private var ahead: Option[Option[O]] = None
     private def look(): Option[O] = ahead match {
@@ -52,7 +52,7 @@ class JavaStreams[I <: Runner, S <: Streams[I]](val streams: S) {
 
   /** `s` as a Java stream, sequential and ordered */
   def toJava[O](s: Stream[O, Pure]): JStream[O] =
-    StreamSupport.stream(Spliterators.spliteratorUnknownSize(toIterator(s), Spliterator.ORDERED), false)
+    StreamSupport.stream(Spliterators.spliteratorUnknownSize(toJavaIterator(s), Spliterator.ORDERED), false)
 }
 
 object JavaStreams {

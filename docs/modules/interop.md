@@ -56,7 +56,7 @@ On Scala.js, ZIO's runtime needs `java.time`: add `"io.github.cquiroz" %%% "scal
 
 `fromJava(js)` makes a Java stream a stream of any row — made at the first pull, its elements pulled one at a time,
 as far as asked. A Java stream is used once; this one is not: each step remembered, so pulled twice, the same
-elements. `toJava(s)` and `toIterator(s)` go the other way, for a stream of no effect — lazily, each element pulled
+elements. `toJava(s)` and `toJavaIterator(s)` go the other way (`fromJavaIterator`, `fromJavaIterable` the same of an iterator, an iterable), for a stream of no effect — lazily, each element pulled
 when Java asks, so an endless stream is `limit`ed on Java's side.
 
 ```scala

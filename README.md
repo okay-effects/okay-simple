@@ -231,7 +231,7 @@ on the machine as its package — `import okay.effects.concurrent._` — and on 
 | `transaction` | `read`, `write` and `atomically(p)` on the standard `Store` outside: a log written at the end; an error handled outside drops it — rolled back |
 | `resilience` | `retry[E](n)(p)`, `retryIf[E](n)(worth)(p)`, `fallback[E](p)(q)` |
 | `async` | asynchrony with no runtime of its own: `async(register)` waits on a callback; `toFuture(p)` drives a program to a `Future` — a loop, a callback called at once taken in place, a later one resuming on the execution context; `fromFuture`, `sleep` (the platform's timer: a scheduler on the JVM, `setTimeout` on Scala.js), `both`, `parTraverse`, `race`, `timeout`; `mergeAsync(a, b, ...)` (or of a list): streams of `Async` merged as their elements come — each one's next pulled at once, the first ready given out |
-| `stream` | `Stream[O, R]`: elements pulled one at a time, each pull a program of `R` — lazy, endless if need be; sources `emits`, `range`, `iterate`, `unfold`, `eval`, `repeatEval`; `map`, `evalMap`, `filter`, `take`, `drop`, `takeWhile`, `scan`, `zip`, `interleave`, `++`, `flatMap`, `merge(a, b, ...)` (or of a list: one element of each in turn, an ended one left out — no channel, no buffer); sinks `toList`, `fold`, `foreach`, `drain`; with the standard generators, `fromGenerator(p)` and `s.emitAll` |
+| `stream` | `Stream[O, R]`: elements pulled one at a time, each pull a program of `R` — lazy, endless if need be; sources `emits`, `range`, `iterate`, `unfold`, `eval`, `repeatEval`, Scala's iterators, iterables, lazy lists; `map`, `evalMap`, `filter`, `take`, `drop`, `takeWhile`, `scan`, `zip`, `interleave`, `++`, `flatMap`, `merge(a, b, ...)` (or of a list: one element of each in turn, an ended one left out — no channel, no buffer); sinks `toList`, `fold`, `foreach`, `drain`, and a stream of no effect as a lazy list or an iterator; with the standard generators, `fromGenerator(p)` and `s.emitAll` |
 
 A timeout is `async`'s; one of ZIO's or cats-effect's runtime, through interop.
 
@@ -335,10 +335,11 @@ Over any implementation, both compilers; another monad's programs inside a progr
 |---|---|
 | `interop/cats` | `import okay.effects.catsinterop._`: `monad[R]`, cats' `Monad` of the programs (stack safe); a `Lowering` of any cats monad — `IO` of cats-effect 3, `Either`, `Option` |
 | `interop/zio` | `import okay.effects.ziointerop._`: `fromZIO(task)`, `toZIO(p)` — a ZIO task a `Lift[Task, *]`, a program a `Task` |
-| `interop/java-stream` | `import okay.effects.jstream._`: Java's `Stream`s and `Iterator`s to and from the stream module's streams, both ways lazy (the JVM's) |
+| `interop/java-stream` | `import okay.effects.jstream._`: Java's `Stream`s, `Iterator`s, `Iterable`s to and from the stream module's streams, both ways lazy (`fromJava`, `fromJavaIterator`, `toJava`, `toJavaIterator`; the JVM's) |
 | `interop/zio-stream` | `import okay.effects.zstream._`: a stream of ZIO's tasks a `ZStream` (`toZStream`), a `ZStream` a stream (`fromZStream`) |
 | `interop/fs2` | `import okay.effects.fs2interop._`: a stream of `F`'s programs (cats-effect's `IO`, any cats monad) an `fs2.Stream` (`toFs2`), an fs2 stream a stream (`fromFs2`) |
 | `interop/monix` | `import okay.effects.monixinterop._`: monix's `Task` an effect; its `Observable` a stream (`fromObservable`) and back (`toObservable`) — monix 3 is of cats-effect 2 |
+| `interop/kyo` | `import okay.effects.kyointerop._`: a kyo computation `A < S` a standard `Lift` (`fromKyo`), a program of them a kyo computation (`toKyo`), streams to kyo's and back (Scala 3's) |
 | `interop/tofu` | `import okay.effects.tofuinterop._`: `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row named |
 
 ## Examples

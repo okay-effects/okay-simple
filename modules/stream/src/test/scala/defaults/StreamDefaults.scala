@@ -17,4 +17,9 @@ class StreamDefaults extends munit.FunSuite {
     assertEquals(run(merge[Int, Pure](List(emits[Int, Pure](List(1, 3)), emits[Int, Pure](List(2, 4)))).toList), List(1, 2, 3, 4))
     assertEquals(run(merge(emits[Int, Pure](List(1, 3)), emits[Int, Pure](List(2, 4)), emits[Int, Pure](List(9))).toList), List(1, 2, 9, 3, 4))
   }
+  test("a stream as a Scala lazy list and iterator, lazily: an endless one taken as far as asked") {
+    assertEquals(toLazyList(iterate[Int, Pure](1)(_ + 1).map(n => n * n)).take(4).toList, List(1, 4, 9, 16))
+    val it = toIterator(fromIterable[String, Pure](List("x", "y")))
+    assertEquals((it.hasNext, it.next(), it.next(), it.hasNext), (true, "x", "y", false))
+  }
 }

@@ -23,7 +23,7 @@ abstract class JavaStreamsChecks(val fx0: Runner) extends munit.FunSuite {
     val s = fromJava[String, Pure](JStream.of("a", "b", "c"))
     assertEquals(run(s.toList), List("a", "b", "c"))
     assertEquals(run(s.toList), List("a", "b", "c"))
-    val it = fromIterator[Int, Pure](java.util.Arrays.asList(1, 2, 3).iterator())
+    val it = fromJavaIterator[Int, Pure](java.util.Arrays.asList(1, 2, 3).iterator())
     assertEquals(run(it.toList), run(it.toList))
   }
   type St[X] = State[Int, X]
@@ -34,7 +34,7 @@ abstract class JavaStreamsChecks(val fx0: Runner) extends munit.FunSuite {
   test("a stream as a Java stream: lazy, an endless one limited on Java's side, collected") {
     val js = toJava(iterate[Int, Pure](1)(_ + 1).map(n => n * n))
     assertEquals(js.limit(5).collect(Collectors.toList[Int]()).toString, "[1, 4, 9, 16, 25]")
-    val it = toIterator(emits[String, Pure](List("x", "y")))
+    val it = toJavaIterator(emits[String, Pure](List("x", "y")))
     assertEquals((it.hasNext, it.next(), it.next(), it.hasNext), (true, "x", "y", false))
   }
 }
