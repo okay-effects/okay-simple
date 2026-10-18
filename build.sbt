@@ -129,6 +129,12 @@ lazy val interopMonix = crossBoth("interopMonix", "interop/monix", can = Set("js
   .settings(name := "okay-effects-monix", libraryDependencies ++= Seq("io.monix" %%% "monix-reactive" % "3.5.2",
     "io.monix" %%% "monix-tail" % "3.5.2"))
 
+/** INTEROP WITH KYO: a kyo computation a standard `Lift`, a program of them a kyo computation; streams to kyo's. Scala 3's:
+ * kyo is Scala 3's */
+lazy val interopKyo = crossBoth("interopKyo", "interop/kyo")
+  .dependsOn(effects, stream, machine, free % Test, tagless % Test)
+  .settings(name := "okay-effects-kyo", crossScalaVersions := Seq(scala3), libraryDependencies += "io.getkyo" %%% "kyo-prelude" % "1.0.0-RC7")
+
 /** INTEROP WITH TOFU: `WithLocal` of a `Reader`, `Errors` of an `Error`, over cats' monad of the programs */
 lazy val interopTofu = (project in file("interop/tofu")).dependsOn(interopCats.jvm, machine.jvm, free.jvm % Test)
   // the JVM's only: tofu is not built for Scala.js
@@ -238,7 +244,7 @@ lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
 /** every cross-built module, on each platform built */
-lazy val crossBuiltModules: Seq[CrossProject] = Seq(effects, tck, machine, suite, free, suiteFree, tagless, concurrent, resource, io, probability, parsing, logic, transaction, resilience, stream, async, interopCats, interopZio, interopZioStream, interopFs2, interopMonix)
+lazy val crossBuiltModules: Seq[CrossProject] = Seq(interopKyo, effects, tck, machine, suite, free, suiteFree, tagless, concurrent, resource, io, probability, parsing, logic, transaction, resilience, stream, async, interopCats, interopZio, interopZioStream, interopFs2, interopMonix)
 lazy val root = (project in file(".")).aggregate((Seq[ProjectReference](docsCheck, docsCheck2, docsCheckMonix, interopTofu, interopJavaStream, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2) ++ crossBuiltModules.flatMap(_.projects.values.map(p => p: ProjectReference))): _*)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
@@ -249,4 +255,4 @@ addCommandAlias("testJS", if (platformsAsked("js")) "; ++3.9.0 suiteJS/test ; su
 addCommandAlias("testNative", if (platformsAsked("native")) "; ++3.9.0 suiteNative/test ; suiteFreeNative/test ; taglessNative/test ; concurrentNative/test ; resourceNative/test ; ioNative/test ; probabilityNative/test ; parsingNative/test ; logicNative/test ; transactionNative/test ; resilienceNative/test ; streamNative/test ; asyncNative/test ; interopCatsNative/test ; interopZioNative/test ; interopZioStreamNative/test ; interopFs2Native/test ; ++2.13.18 suiteNative/test ; suiteFreeNative/test ; taglessNative/test ; concurrentNative/test ; resourceNative/test ; ioNative/test ; probabilityNative/test ; parsingNative/test ; logicNative/test ; transactionNative/test ; resilienceNative/test ; streamNative/test ; asyncNative/test ; interopCatsNative/test ; interopZioNative/test ; interopZioStreamNative/test ; interopFs2Native/test ; ++3.9.0" else "; show platformsHelp")
 lazy val platformsHelp = taskKey[String]("how to build for Scala.js and Scala Native")
 ThisBuild / platformsHelp := "Scala.js and Scala Native are built when asked: sbt -Dplatforms=jvm,js,native (or OKAY_PLATFORMS=js,native)"
-addCommandAlias("testAll", "; ++3.9.0 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; interopJavaStream/test ; interopZioStream/test ; interopFs2/test ; interopMonix/test ; ++2.13.18 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; interopJavaStream/test ; interopZioStream/test ; interopFs2/test ; interopMonix/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test ; docsCheck/test ; docsCheckMonix/test ; ++2.13.18 docsCheck2/test ; ++3.9.0")
+addCommandAlias("testAll", "; ++3.9.0 interopKyo/test ; suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; interopJavaStream/test ; interopZioStream/test ; interopFs2/test ; interopMonix/test ; ++2.13.18 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; interopJavaStream/test ; interopZioStream/test ; interopFs2/test ; interopMonix/test ; ++3.9.0 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test ; docsCheck/test ; docsCheckMonix/test ; ++2.13.18 docsCheck2/test ; ++3.9.0")
