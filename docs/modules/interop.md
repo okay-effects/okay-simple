@@ -11,6 +11,7 @@ a `G[A]` is a `Runner`'s `lower(p)`, given a `Lowering[G]`. The interop modules 
 | `okay-effects-zio-stream` | JVM, Scala.js | `import okay.effects.zstream.*`: a stream of ZIO's tasks a `ZStream`, and a `ZStream` a stream |
 | `okay-effects-fs2` | JVM, Scala.js | `import okay.effects.fs2interop.*`: a stream of `F`'s programs (cats-effect's `IO`, any cats monad) an `fs2.Stream`, and back |
 | `okay-effects-monix` | JVM, Scala.js | `import okay.effects.monixinterop.*`: monix's `Task` an effect; its `Observable` a stream, and back — monix 3 is of cats-effect 2 |
+| `okay-effects-kyo` | JVM, Scala.js, Scala Native (Scala 3) | `import okay.effects.kyointerop.*`: a kyo computation a standard `Lift`, a program of them a kyo computation; streams to kyo's and back |
 | `okay-effects-tofu` | JVM | `import okay.effects.tofuinterop.*`: tofu's `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row |
 
 ## cats
@@ -50,7 +51,42 @@ object WithZio:
 assert(WithZio.value == 42)
 ```
 
-On Scala.js, ZIO's runtime needs `java.time`: add `"io.github.cquiroz" %%% "scala-java-time"`.
+On Scala.js and Scala Native, ZIO's runtime needs `java.time`: add `"io.github.cquiroz" %%% "scala-java-time"`.
+
+### ZIO typed: its environment, error and run our effects
+
+`Lift[Task, *]` takes a ZIO of no environment and no typed error. `fromZIOTyped` takes any `ZIO[Env, Err, A]`, each of
+its channels one of the effects, in a row `ZioRow[Env, Err]` — `Async + Error % Err + Reader % ZEnvironment[Env]`:
+its environment is asked of the `Reader`, its typed error raised as the `Error`, its run the async module's `Async`
+(forked on ZIO's runtime; a defect the run's failure). `toZIOTyped` goes back: the `Reader` ZIO's environment, a raise
+ZIO's failure, a throw a defect. The row accumulates as ZIO's types do — ZIO is contravariant in its environment and
+covariant in its error, so two ZIOs of their own environments and errors are one row of both:
+
+```scala
+object ZioTyped:
+  import zio.ZEnvironment
+  import okay.effects.*
+  import okay.effects.ziointerop.*
+
+  trait Db { def load(id: Int): String }
+  trait Log { def info(s: String): Unit }
+  type Row = ZioRow[Db & Log, String | Int]#L
+
+  val load: ZIO[Db, String, String] = ZIO.serviceWith[Db](_.load(7))
+  def info(s: String): ZIO[Log, Int, Unit] = ZIO.serviceWith[Log](_.info(s))
+
+  val program: Int ! Row =
+    for
+      row <- fromZIOTyped[Db & Log, String | Int, String, Row](load)
+      _   <- fromZIOTyped[Db & Log, String | Int, Unit, Row](info(row))
+    yield row.length
+
+  var logged = List.empty[String]
+  val env = ZEnvironment[Db, Log](id => s"row $id", s => logged = s :: logged)
+  val result = Unsafe.unsafe { implicit u => Runtime.default.unsafe.run(toZIOTyped(program).provideEnvironment(env).either).getOrThrow() }
+
+assert(ZioTyped.result == Right(5) && ZioTyped.logged == List("row 7"))
+```
 
 ## Java's streams
 
@@ -163,6 +199,27 @@ class WithMonix:
 val withMonix = WithMonix()
 assert(Await.result(withMonix.collected, 5.seconds) == List(10, 20, 30))
 assert(Await.result(withMonix.evens, 5.seconds) == List(0, 6, 12))
+```
+
+## kyo
+
+Kyo is Scala 3's; `import okay.effects.kyointerop.*`. A kyo computation `A < S` — of kyo's pending effects `S` — is a
+standard `Lift`: `fromKyo(v)` performs it inside a program, `toKyo(p)` makes a program of `Kyos[S]#L` an `A < S` bound
+by kyo's `map`, and kyo's handlers (`Var.run`, `Abort.run`, ...) run it. Streams: `toKyoStream(s)` a kyo `Stream`
+lazily, each pull a computation; `fromKyoStream(ks)` a kyo stream here, run to its end at the first pull (kyo has no
+public pull of one chunk).
+
+```scala
+object WithKyo:
+  import kyo.{Var, Abort}
+  import okay.effects.*
+  import okay.effects.kyointerop.*
+
+  type V = Kyos[Var[Int]]#L
+  val p: Int ! V = fromKyo[Int, Var[Int], V](Var.update[Int](_ + 1)).flatMap(a => fromKyo[Int, Var[Int], V](Var.update[Int](_ * 10)).map(_ + a))
+  val result: Int = Var.run(1)(toKyo(p)).eval
+
+assert(WithKyo.result == 22)
 ```
 
 ## tofu

@@ -1,0 +1,53 @@
+package okay.effects.ziointerop.checks
+
+import scala.concurrent.{ExecutionContext, Future}
+import okay.effects.Runner
+import okay.effects.machine.Machine
+import okay.effects.free.Free
+import okay.effects.ziointerop.ZioEffects
+import zio.{Runtime, Unsafe, ZEnvironment, ZIO}
+
+trait Greeting { def greet(name: String): String }
+
+/** ZIO typed: its environment our Reader, its error our Error, its run our Async */
+abstract class ZioTypedChecks(val fx0: Runner) extends munit.FunSuite {
+  private implicit val ec: ExecutionContext = munitExecutionContext
+  implicit val runner: Runner = fx0
+  val z = ZioEffects()
+  import z._
+  import z.fx._
+  import z.fx.std._
+  import z.asynchrony.toFuture
+
+  type Row[X] = ZioRow[Greeting, String]#L[X]
+  val hello: Greeting = new Greeting { def greet(name: String) = s"hello, $name" }
+  def unsafeRun[A](task: zio.Task[A]): Future[A] = Unsafe.unsafe { implicit u => Runtime.default.unsafe.runToFuture(task) }
+
+  /** run here: the reader given, the error attempted, the async driven to a future */
+  def here[A](p: A ! Row): Future[Either[String, A]] = toFuture(attempt[String](reader[ZEnvironment[Greeting]](ZEnvironment(hello))(p)))
+
+  test("the environment our Reader") {
+    val p = fromZIOTyped[Greeting, String, String, Row](ZIO.serviceWith[Greeting](_.greet("Ann")))
+    here(p).map(v => assertEquals(v, Right("hello, Ann")))
+  }
+  test("a typed failure our Error; a defect the run's failure") {
+    here(fromZIOTyped[Greeting, String, Int, Row](ZIO.fail("bad"))).map(v => assertEquals(v, Left("bad")))
+      .flatMap(_ => here(fromZIOTyped[Greeting, String, Int, Row](ZIO.die(new RuntimeException("defect")))).failed)
+      .map(e => assertEquals(e.getMessage, "defect"))
+  }
+  test("toZIOTyped: the Reader ZIO's environment, a raise ZIO's failure") {
+    val p: String ! Row = ask[ZEnvironment[Greeting], Row].map(_.get[Greeting].greet("Bo"))
+    val q: Int ! Row = raise[String, Row, Int]("no")
+    unsafeRun(toZIOTyped(p).provideEnvironment(ZEnvironment(hello)).either).map(v => assertEquals(v, Right("hello, Bo")))
+      .flatMap(_ => unsafeRun(toZIOTyped(q).provideEnvironment(ZEnvironment(hello)).either))
+      .map(v => assertEquals(v, Left("no")))
+  }
+  test("there and back: a ZIO, a program, a ZIO") {
+    val zio0: ZIO[Greeting, String, Int] = ZIO.serviceWith[Greeting](_.greet("x").length)
+    unsafeRun(toZIOTyped(fromZIOTyped[Greeting, String, Int, Row](zio0)).provideEnvironment(ZEnvironment(hello)).either)
+      .map(v => assertEquals(v, Right(8)))
+  }
+}
+
+class ZioTypedOnMachine extends ZioTypedChecks(Machine)
+class ZioTypedOnFree extends ZioTypedChecks(Free)

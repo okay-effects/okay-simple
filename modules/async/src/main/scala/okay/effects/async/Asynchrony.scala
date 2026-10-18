@@ -104,6 +104,10 @@ class Asynchrony[F <: Runner](implicit implementation: F, ec: ExecutionContext) 
 }
 
 object Asynchrony {
+  /** the platform's default execution context: the global one on the JVM and Scala Native, the microtask queue on
+   * Scala.js */
+  def defaultContext: ExecutionContext = Timers.executionContext
+
   def apply()(implicit fx: Runner, ec: ExecutionContext): Asynchrony[fx.type] = {
     implicit val exact: fx.type = fx
     new Asynchrony[fx.type]

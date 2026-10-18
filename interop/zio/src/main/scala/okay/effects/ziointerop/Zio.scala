@@ -1,7 +1,8 @@
 package okay.effects.ziointerop
 
-import okay.effects.{Runner, Std}
-import zio.{Task, ZIO}
+import okay.effects.{Runner, Std, Sum}
+import okay.effects.async.{Async, Asynchrony}
+import zio.{Exit, Runtime, Task, Unsafe, ZEnvironment, ZIO}
 
 /**
  * ZIO OVER THE EFFECTS, on any implementation `fx` (one source for both compilers): a task is a standard `Lift` —
@@ -10,7 +11,17 @@ import zio.{Task, ZIO}
  *  - `toZIO(p)`: a program whose one effect is `Lift[Task, *]` as a `Task[A]`, `lower` by ZIO's bind — the rest
  *    suspended in it, so a throw in it is the task's failure.
  *
- * `implicit val fx: Runner = Machine; val z = ZioEffects(); import z._`
+ * TYPED, each of ZIO's channels one of the effects: a `ZIO[Env, Err, A]` in a row `ZioRow[Env, Err]` —
+ *
+ *  - its environment `Env` the standard `Reader % ZEnvironment[Env]`, asked when it runs;
+ *  - its typed error `Err` the standard `Error % Err`, raised;
+ *  - its run the async module's `Async`: forked on ZIO's runtime, its value or its defect the callback's.
+ *
+ * `fromZIOTyped(z)` and `toZIOTyped(p)` (the reader ZIO's environment, a raise ZIO's failure, a throw a defect). The
+ * row accumulates as ZIO's types do: ZIO is contravariant in `Env`, covariant in `Err`, so a `ZIO[Db, DbErr, A]` is a
+ * `ZIO[Db & Log, AppErr, A]` — one row `ZioRow[Db & Log, AppErr]` for every ZIO of a program.
+ *
+ * `import okay.effects.ziointerop._`, the machine's; on another implementation `ZioEffects()`.
  */
 class ZioEffects[F <: Runner](implicit implementation: F) {
   /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
@@ -27,6 +38,39 @@ class ZioEffects[F <: Runner](implicit implementation: F) {
 
   def fromZIO[X, R[_]](task: Task[X])(implicit in: In[Tasks, R]): X ! R = std.lift[Task, X, R](task)
   def toZIO[A](p: A ! Tasks): Task[A] = fx.lower[Task, A](p)
+
+  private implicit val exact: fx.type = fx
+  private implicit val context: scala.concurrent.ExecutionContext = Asynchrony.defaultContext
+  /** asynchrony on this implementation: what runs a `ZioRow`'s `Async` */
+  val asynchrony: Asynchrony[fx.type] = new Asynchrony[fx.type]
+
+  /** the row of a ZIO of environment `Env` and error `Err`: `Async + Error % Err + Reader % ZEnvironment[Env]` */
+  type ZioRow[Env, Err] = { type L[X] = Sum[({ type M[Y] = Sum[Async, ({ type E[Z] = Std.Error[Err, Z] })#E, Y] })#M,
+    ({ type N[Y] = Std.Reader[ZEnvironment[Env], Y] })#N, X] }
+
+  /** a ZIO run on `runtime` as an `Async`: its exit the callback's — its value, or a failure or defect as a throwable */
+  def fromTaskAsync[A, R[_]](z: ZIO[Any, Nothing, A], runtime: Runtime[Any] = Runtime.default)(implicit as: In[Async, R]): A ! R =
+    asynchrony.async[A, R](cb => Unsafe.unsafe { implicit u =>
+      runtime.unsafe.fork(z).unsafe.addObserver {
+        case Exit.Success(a) => cb(Right(a))
+        case Exit.Failure(cause) => cb(Left(cause.squashTrace))
+      }
+    })
+
+  /** a ZIO in the effects: its environment asked, its typed error raised, its run an `Async` */
+  def fromZIOTyped[Env, Err, A, R[_]](z: ZIO[Env, Err, A], runtime: Runtime[Any] = Runtime.default)(
+      implicit env: In[({ type N[Y] = Std.Reader[ZEnvironment[Env], Y] })#N, R], err: In[({ type E[Z] = Std.Error[Err, Z] })#E, R],
+      as: In[Async, R]): A ! R =
+    std.ask[ZEnvironment[Env], R].flatMap(e => fromTaskAsync[Either[Err, A], R](z.provideEnvironment(e).either, runtime)).flatMap {
+      case Right(a) => pure[A, R](a)
+      case Left(e) => std.raise[Err, R, A](e)
+    }
+
+  /** the program as a ZIO: its reader ZIO's environment, its raise ZIO's failure, a throw out of it a defect */
+  def toZIOTyped[Env, Err, A](p: A ! ZioRow[Env, Err]#L): ZIO[Env, Err, A] =
+    ZIO.environmentWithZIO[Env] { (env: ZEnvironment[Env]) =>
+      ZIO.fromFuture(_ => asynchrony.toFuture(std.attempt[Err](std.reader[ZEnvironment[Env]](env)(p)))).orDie.flatMap(ZIO.fromEither(_))
+    }
 }
 
 object ZioEffects {
