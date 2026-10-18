@@ -11,7 +11,9 @@ This page explains:
 - why a handler is an exception handler that can go back;
 - how both work, by delimited continuations.
 
-It ends with a reading list. Every `scala` block below is compiled and run, on the machine.
+It ends with a reading list; the foundation of what is implemented here is Kammar, Lindley and Oury's
+[*Handlers in Action*](https://denotational.co.uk/publications/kammar-lindley-oury-handlers-in-action.pdf) (ICFP 2013).
+Every `scala` block below is compiled and run, on the machine.
 
 ```scala
 import okay.effects.*
@@ -231,7 +233,8 @@ Algebraic effects and their handlers.
 
 Effects in languages and libraries.
 
-- Ohad Kammar, Sam Lindley, Nicolas Oury. *Handlers in action.* ICFP 2013.
+- Ohad Kammar, Sam Lindley, Nicolas Oury. [*Handlers in action.*](https://denotational.co.uk/publications/kammar-lindley-oury-handlers-in-action.pdf) ICFP 2013: handlers as
+  implemented here, deep and shallow, in several languages — the foundation of this library.
 - Oleg Kiselyov, Amr Sabry, Cameron Swords. *Extensible effects: an alternative to monad transformers.* Haskell
   Symposium 2013.
 - Oleg Kiselyov, Hiromi Ishii. *Freer monads, more extensible effects.* Haskell Symposium 2015.
