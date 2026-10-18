@@ -6,9 +6,9 @@
 | | |
 |---|---|
 | effect | `Async`: `Suspend(register)`, waiting until `register`'s callback is called with a value or a failure |
-| operations | `async(register)`, `fromFuture(f)`, `sleep(ms)` |
+| operations | `async(register)`, `cancellable(register)`, `fromFuture(f)`, `sleep(ms)` |
 | combinators | `both(p, q)`, `parTraverse(xs)(f)`, `race(p, q)`, `timeout(ms)(p)` |
-| run | `toFuture(p)`: a `Future` of the value, failed if a callback gave a failure or the program threw |
+| run | `toFuture(p)`: a `Future` of the value, failed if a callback gave a failure or the program threw; `start(p)`: a `Running`, its `future` and `cancel()` |
 | streams | `mergeAsync(a, b, ...)` or `mergeAsync(list)`: streams of the default `okay.effects.stream` merged as they come |
 
 ```scala
@@ -51,6 +51,29 @@ assert(Await.result(atOnce.bothOf, 5.seconds) == (7, "x"))
 assert(Await.result(atOnce.raced, 5.seconds) == Right(7))
 assert(Await.result(atOnce.timedOut, 5.seconds) == None)
 assert(Await.result(atOnce.squares, 5.seconds) == List(1, 4, 9, 16))
+```
+
+## Cancellation
+
+`cancellable(register)` is a wait that can be stopped: `register` gives back how to stop it — a timer cleared, a
+request aborted, a fiber interrupted. `start(p)` runs a program as `toFuture` does and gives a `Running`: its
+`future`, and `cancel()` — the wait the program is in stopped, the rest never run, the future failed with
+`Cancelled`. `sleep` is cancellable (its timer cleared); `race` and `timeout` cancel the loser, `both` and
+`parTraverse` cancel the others when one fails.
+
+```scala
+class Cancelling:
+  given ExecutionContext = ExecutionContext.global
+
+  @volatile var stopped = false
+  val never: Int ! Async = cancellable[Int, Async](_ => () => stopped = true)
+  @volatile var after = false
+  val running = start(never.map { n => after = true; n })
+  running.cancel()
+
+val cancelling = Cancelling()
+assert(Await.ready(cancelling.running.future, 5.seconds).value.exists(_.failed.toOption.exists(_.isInstanceOf[Cancelled])))
+assert(cancelling.stopped && !cancelling.after)
 ```
 
 ## How `toFuture` drives

@@ -88,6 +88,71 @@ object ZioTyped:
 assert(ZioTyped.result == Right(5) && ZioTyped.logged == List("row 7"))
 ```
 
+Cancellation goes both ways: a program waiting on a ZIO and cancelled interrupts the ZIO's fiber; a `toZIOTyped(p)`
+interrupted cancels the program, and so the ZIOs it waits on.
+
+### ZIO's layers
+
+`provideLayer(layer)(p)` builds the program's environment by a `ZLayer` for its run and releases it after: the
+program's `Reader % ZEnvironment[Env]` answered, its row asking the layer's input instead. `layer(p)` goes the other
+way, a program making a service a `ZLayer` of its row's environment.
+
+```scala
+object ZioLayers:
+  import zio.{ZLayer, ZEnvironment}
+  import okay.effects.*
+  import okay.effects.ziointerop.*
+
+  trait Config { def size: Int }
+  trait Repo { def count: Int }
+  type Needs = ZioRow[Repo, String]#L
+  type Gives = ZioRow[Config, String]#L
+
+  val counted: Int ! Needs = fromZIOTyped[Repo, String, Int, Needs](ZIO.serviceWith[Repo](_.count))
+  val repo: ZLayer[Config, String, Repo] =
+    layer[Config, String, Repo](fromZIOTyped[Config, String, Config, Gives](ZIO.service[Config]).map(c => new Repo { def count = c.size * 2 }))
+  val program: Int ! Gives = provideLayer[Config, String, Repo, Int, Gives](repo)(counted)
+
+  val config = ZEnvironment[Config](new Config { def size = 21 })
+  val result = Unsafe.unsafe { implicit u => Runtime.default.unsafe.run(toZIOTyped(program).provideEnvironment(config).either).getOrThrow() }
+
+assert(ZioLayers.result == Right(42))
+```
+
+### ZIO's own types as effects
+
+As okay has it (Scala 3): each `ZIO[Env, Err, *]` an effect of its own, `ZioStep[Env, Err]`, a ZIO kept as one
+operation and run when the program is run — so a program holds ZIOs of different environments and errors, one member
+each. `z.step` performs a ZIO; `p.toZIOSteps` makes the program ONE ZIO, of the type ZIO's own `for` gives: the members'
+environments met (`Db & Log`), their errors joined (`DbErr | LogErr`), read off the row. `p.provideSteps(env)` and
+`p.mapErrorSteps(f)` are ZIO's `provideEnvironment` and `mapError`. The row holds ZIO members only — to mix ZIO with
+the other effects, `ZioRow`, above.
+
+```scala
+object ZioOwnTypes:
+  import zio.ZEnvironment
+  import okay.effects.*
+  import okay.effects.ziointerop.*
+
+  trait Db { def n: Int }
+  trait Log { def tag: String }
+  final case class DbErr(m: String)
+  final case class LogErr(m: String)
+  type Row = ZioStep[Db, DbErr] + ZioStep[Log, LogErr]
+
+  val program: Int ! Row =
+    for
+      a <- ZIO.serviceWith[Db](_.n).step[Row]
+      b <- ZIO.serviceWith[Log](_.tag.length).step[Row]
+    yield a + b
+
+  val asZio: ZIO[Db & Log, DbErr | LogErr, Int] = program.toZIOSteps
+  val env = ZEnvironment[Db, Log](new Db { def n = 2 }, new Log { def tag = "abc" })
+  val result = Unsafe.unsafe { implicit u => Runtime.default.unsafe.run(asZio.provideEnvironment(env).either).getOrThrow() }
+
+assert(ZioOwnTypes.result == Right(5))
+```
+
 ## Java's streams
 
 `fromJava(js)` makes a Java stream a stream of any row — made at the first pull, its elements pulled one at a time,
