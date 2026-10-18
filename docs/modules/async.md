@@ -9,7 +9,7 @@
 | operations | `async(register)`, `fromFuture(f)`, `sleep(ms)` |
 | combinators | `both(p, q)`, `parTraverse(xs)(f)`, `race(p, q)`, `timeout(ms)(p)` |
 | run | `toFuture(p)`: a `Future` of the value, failed if a callback gave a failure or the program threw |
-| streams | `mergeAsync(streams)`: streams of the default `okay.effects.stream` merged as they come |
+| streams | `mergeAsync(a, b, ...)` or `mergeAsync(list)`: streams of the default `okay.effects.stream` merged as they come |
 
 ```scala
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -74,7 +74,11 @@ class Merging:
   def ticks(name: String, ms: Long, n: Int): Stream[String, Async] =
     range[Async](1, n + 1).evalMap(i => sleep[Async](ms).as(s"$name$i"))
 
-  def merged: Future[List[String]] = toFuture(mergeAsync(List(ticks("a", 50, 3), ticks("b", 20, 3))).toList)
+  def merged: Future[List[String]] = toFuture(mergeAsync(ticks("a", 200, 2), ticks("b", 20, 3)).toList)
+  /** the same of a list */
+  def mergedList: Future[List[String]] = toFuture(mergeAsync(List(ticks("a", 200, 2), ticks("b", 20, 3))).toList)
 
-assert(Await.result(Merging().merged, 5.seconds) == List("b1", "b2", "a1", "b3", "a2", "a3"))
+val merging = Merging()
+assert(Await.result(merging.merged, 5.seconds) == List("b1", "b2", "b3", "a1", "a2"))
+assert(Await.result(merging.mergedList, 5.seconds) == List("b1", "b2", "b3", "a1", "a2"))
 ```

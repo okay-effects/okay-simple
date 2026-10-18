@@ -15,4 +15,8 @@ class AsyncDefaults extends munit.FunSuite {
     def ticks(name: String, ms: Long, n: Int): Stream[String, Async] = range[Async](1, n + 1).evalMap(i => sleep[Async](ms).map(_ => s"$name$i"))
     toFuture(mergeAsync(List(ticks("a", 150, 2), ticks("b", 20, 2))).toList).map(xs => assertEquals(xs, List("b1", "b2", "a1", "a2")))
   }
+  test("mergeAsync, the streams one by one") {
+    def ticks(name: String, ms: Long, n: Int): Stream[String, Async] = range[Async](1, n + 1).evalMap(i => sleep[Async](ms).map(_ => s"$name$i"))
+    toFuture(mergeAsync(ticks("a", 150, 2), ticks("b", 20, 2)).toList).map(xs => assertEquals(xs, List("b1", "b2", "a1", "a2")))
+  }
 }

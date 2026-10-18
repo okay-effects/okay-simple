@@ -7,3 +7,5 @@ private lazy val merging = new AsyncStreams[okay.effects.machine.Machine.type, o
   okay.effects.async.Timers.executionContext)
 /** streams of `Async` merged as their elements come: `AsyncStreams`'s, on the default streams */
 def mergeAsync[O](ss: List[okay.effects.stream.Stream[O, Async]]): okay.effects.stream.Stream[O, Async] = merging.mergeAsync[O](ss)
+def mergeAsync[O](first: okay.effects.stream.Stream[O, Async], rest: okay.effects.stream.Stream[O, Async]*): okay.effects.stream.Stream[O, Async] =
+  merging.mergeAsync[O](first :: rest.toList)

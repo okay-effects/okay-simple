@@ -8,7 +8,7 @@ endless stream is taken as far as it is asked. A stream is a value: pulled twice
 |---|---|
 | sources | `emits(xs)`, `range(a, b)`, `iterate(x)(f)`, `unfold(s)(f)`, `eval(p)`, `repeatEval(p)`, `empty` |
 | transformations | `map`, `evalMap(f)`, `filter`, `take`, `drop`, `takeWhile`, `dropWhile`, `scan`, `zip`, `zipWithIndex`, `interleave`, `++`, `flatMap` |
-| merging | `merge(streams)`: one element of each in turn |
+| merging | `merge(a, b, ...)` or `merge(list)`: one element of each in turn |
 | sinks | `toList`, `fold(z)(f)`, `foreach(f)`, `drain`, `headOption` |
 | generators | `fromGenerator(p)`: a program that `emit`s as a stream; `s.emitAll`: a stream as a program that `emit`s |
 
@@ -30,8 +30,9 @@ One element of each stream in turn; a stream that ends leaves the turn. No chann
 next stream's own:
 
 ```scala
-val merged = merge[String, P](List(emits(List("a1", "a2", "a3")), emits(List("b1")), emits(List("c1", "c2"))))
+val merged = merge[String, P](emits(List("a1", "a2", "a3")), emits(List("b1")), emits(List("c1", "c2")))
 assert(run(merged.toList) == List("a1", "b1", "c1", "a2", "c2", "a3"))
+assert(run(merge[String, P](List(emits(List("x")), emits(List("y")))).toList) == List("x", "y"))      // or of a list
 ```
 
 For streams that wait, merged as their elements come, see [async](async.md#streams-merged-as-they-come).

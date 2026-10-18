@@ -23,6 +23,9 @@ class AsyncStreams[I <: Runner, S <: Streams[I]](val streams: S)(implicit ec: Ex
   def mergeAsync[O](ss: List[Stream[O, Async]]): Stream[O, Async] =
     new Stream[O, Async](() => racing[O](ss.zipWithIndex.map { case (s, i) => (i, asynchrony.toFuture(s.pull())) }).pull())
 
+  /** the same, the streams given one by one: `mergeAsync(a, b, c)` */
+  def mergeAsync[O](first: Stream[O, Async], rest: Stream[O, Async]*): Stream[O, Async] = mergeAsync[O](first :: rest.toList)
+
   /** the pulls on their way, each with its stream's number: the first to come given out, its stream's next pulled */
   private def racing[O](pending: List[(Int, Future[Pull[O, Async]])]): Stream[O, Async] = new Stream[O, Async](() =>
     if (pending.isEmpty) streams.empty[O, Async].pull()

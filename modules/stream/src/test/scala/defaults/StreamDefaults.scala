@@ -15,5 +15,6 @@ class StreamDefaults extends munit.FunSuite {
     def naturals(n: Int): Unit ! Y = emit[Int, Y](n).flatMap(_ => naturals(n + 1))
     assertEquals(run(fromGenerator[Int](naturals(0)).take(3).toList), List(0, 1, 2))
     assertEquals(run(merge[Int, Pure](List(emits[Int, Pure](List(1, 3)), emits[Int, Pure](List(2, 4)))).toList), List(1, 2, 3, 4))
+    assertEquals(run(merge(emits[Int, Pure](List(1, 3)), emits[Int, Pure](List(2, 4)), emits[Int, Pure](List(9))).toList), List(1, 2, 9, 3, 4))
   }
 }

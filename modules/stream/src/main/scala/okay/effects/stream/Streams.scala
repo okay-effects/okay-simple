@@ -84,6 +84,8 @@ class Streams[F <: Effects](implicit implementation: F) {
   /** THE STREAMS MERGED, IN TURN: one element of each in turn, a stream that has ended left out — no channel, no
    * buffer: each pull the next stream's own */
   def merge[O, R[_]](ss: List[Stream[O, R]]): Stream[O, R] = mergeQueue[O, R](Queue.empty[Stream[O, R]] ++ ss)
+  /** the same, the streams given one by one: `merge(a, b, c)` */
+  def merge[O, R[_]](first: Stream[O, R], rest: Stream[O, R]*): Stream[O, R] = merge[O, R](first :: rest.toList)
   private def mergeQueue[O, R[_]](q: Queue[Stream[O, R]]): Stream[O, R] = new Stream[O, R](() => q.dequeueOption match {
     case None => ended
     case Some((s, rest)) => s.pull().flatMap(_.fold(mergeQueue[O, R](rest).pull())((o, r) => emitted(o, mergeQueue[O, R](rest.enqueue(r)))))
