@@ -15,6 +15,7 @@ by the same decoder as everything else. `JsonSchema.of` is the JSON Schema (draf
 | a field | `field(name, shape)`, `.labelled`, `.documented`, `.asSecret`, `.withDefault` |
 | decoding | `shape.decode(json)`: `Either[Problems, P]`, a `Problem(path, message)` per fault; `shape.encode(p)`; a missing field is its default, else `None` for an `Optional`, else `required`; unknown fields are ignored |
 | erased | `shape.erased: Schema`; `Schema.loose(schema, defs): Shape[Json]`; `Schema.shape: Shape[Schema]`, `Schema.defs` |
+| derived | `Shape.derived[A]`: a case class a record of its fields, a sealed trait a sum of its cases named `Shape.caseName` (`KindDefined` → `kind-defined`), a case object a record of no fields; a field's shape found implicitly (`Shape.of`, the primitives, `Option`, `List`, `Vector`, an application's own) or derived within; Scala 3 by `Mirror`, 2.13 by a macro, the same value `record`/`sum` build by hand |
 | JSON Schema | `JsonSchema.of(schema, defs)`: `title`, `description`, `default`, `enum`, `oneOf` with a `type` tag for a sum, `$ref` into `$defs`, `"x-secret": true` |
 
 ```scala
@@ -85,3 +86,35 @@ Whatever produces a shape — written by hand, derived from a type by the compil
 (a user-defined kind of record) — the rest is interpreters of the same data: the decoder, the form, the JSON Schema,
 a terminal's prompts. Reading the fields a shape names is itself an effect, the source of the fields a handler's — a
 JSON value, another encoding, a command line, a person asked field by field: `read`, above.
+
+## Derived
+
+`Shape.derived[A]` writes the `record` or the `sum` for you, at compile time, on every platform: Scala 3 by `Mirror`,
+Scala 2.13 by a blackbox macro, the same `Shape` value either way, so what is derived compares and composes with
+what is written. A field's shape is found implicitly — `Shape.of[T]`: the primitives, `Day`, `Json`, `Option`, `List`
+and `Vector` of a shape, and whatever shapes the application gives as implicits — or derived within when the type is
+a case class or a sealed trait; a type with neither is a compile error naming it. Labels, docs, secrets, constraints
+and defaults are not in a type: say them after, or write the record by hand where they matter — a form for a person
+is more than its fields' types.
+
+```scala
+import okay.effects.json.Json
+import okay.effects.shape.*
+
+final case class Address(city: String, lines: List[String])
+final case class Contact(name: String, born: Option[Day], address: Option[Address])
+sealed trait Pet
+final case class Dog(name: String) extends Pet
+case object Fish extends Pet
+
+val contact: Shape[Contact] = Shape.derived[Contact]
+val pet: Shape[Pet] = Shape.derived[Pet]
+val anna = Contact("Ann", Some(Day(1990, 5, 6)), Some(Address("Kyiv", List("Main 1"))))
+assert(contact.decode(contact.encode(anna)) == Right(anna))
+assert(pet.encode(Fish) == Json.obj("type" -> Json.Str("fish")))
+assert(pet.decode(pet.encode(Dog("Rex"))) == Right(Dog("Rex")))
+assert(contact.decode(Json.obj("born" -> Json.Null)).left.map(_.map(_.render)) == Left(List("name: required")))
+```
+
+On 2.13 the cases of a sealed trait must be where the compiler sees them when `derived` is written: in the same
+file, above it. A recursive type is written with `deferred` and given implicitly; derivation refuses the cycle.

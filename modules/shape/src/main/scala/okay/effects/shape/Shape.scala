@@ -32,7 +32,35 @@ sealed trait Shape[P] {
   def many(min: Int = 0, max: Option[Int] = None): Shape[List[P]] = Shape.Many(this, min, max)
 }
 
-object Shape extends RecordWords {
+object Shape extends RecordWords with ShapeDerivation {
+  /** THE SHAPE OF A TYPE, implicitly: the primitives, `Option` and `List` of a shape, `Json` itself — what a derived
+   * record's fields are summoned from; an application gives its own types' shapes as implicits beside them */
+  implicit val ofString: Shape[String] = Text()
+  implicit val ofBigInt: Shape[BigInt] = Integer()
+  implicit val ofInt: Shape[Int] = int
+  implicit val ofLong: Shape[Long] = long
+  implicit val ofBigDecimal: Shape[BigDecimal] = Number()
+  implicit val ofDouble: Shape[Double] = Number().map(_.toDouble)(BigDecimal(_))
+  implicit val ofBoolean: Shape[Boolean] = Bool
+  implicit val ofDay: Shape[Day] = Date
+  implicit val ofJson: Shape[Json] = AnyValue
+  implicit val ofUnit: Shape[Unit] = unit
+  implicit def ofOption[A](implicit a: Shape[A]): Shape[Option[A]] = Optional(a)
+  implicit def ofList[A](implicit a: Shape[A]): Shape[List[A]] = Many(a)
+  implicit def ofVector[A](implicit a: Shape[A]): Shape[Vector[A]] = Many(a).map(_.toVector)(_.toList)
+  /** the shape of `A`, found */
+  def of[A](implicit a: Shape[A]): Shape[A] = a
+
+  /** A RECORD OF FIELDS GIVEN AS A LIST, its value made from and taken apart into the list of its fields' values — what
+   * `derived` builds; `record(f1, ..., fn)(make)(unmake)` is the same by hand, typed */
+  def fields[P](fs: List[Field[_]])(make: List[Any] => P)(unmake: P => List[Any]): Shape[P] = {
+    val free: FreeAp[Field, List[Any]] = fs.foldLeft(FreeAp.pure[Field, List[Any]](Nil)) { (acc, f) =>
+      FreeAp.Ap[Field, Any, List[Any]](acc.map(vs => (v: Any) => vs :+ v), f.asInstanceOf[Field[Any]].free)
+    }
+    Record[P](free.map(make), (p: P) => fs.iterator.zip(unmake(p).iterator).map { case (f, v) => f.name -> f.asInstanceOf[Field[Any]].shape.encode(v) }.toVector)
+  }
+  /** a sum's case named from its type: `KindDefined` is `kind-defined`, `Dog` is `dog` */
+  def caseName(simpleName: String): String = simpleName.replaceAll("([a-z0-9])([A-Z])", "$1-$2").toLowerCase.stripSuffix("$")
   private[shape] def problem[A](path: List[String], message: String): Either[Problems, A] = Left(List(Problem(path.reverse, message)))
   private[shape] def expected[A](what: String, v: Json, path: List[String]): Either[Problems, A] =
     problem(path, s"expected $what, got ${Json.kind(v)}")

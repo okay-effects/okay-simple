@@ -222,6 +222,8 @@ lazy val algebra = effectModule("algebra", "okay-effects-algebra")
 lazy val json = effectModule("json", "okay-effects-json").dependsOn(parsing, stream)
 /** a typed schema — a form, a tool's input schema, the decoder — and its erasure to a value; JSON Schema of it */
 lazy val shape = effectModule("shape", "okay-effects-shape").dependsOn(json, algebra)
+  // `Shape.derived` on 2.13 is a blackbox macro: scala-reflect to compile it, not to run it
+  .settings(libraryDependencies ++= (if (scalaVersion.value.startsWith("2")) Seq("org.scala-lang" % "scala-reflect" % scalaVersion.value % Provided) else Nil))
 /** an effect as a service: its operations described by shapes, served by name, performed from afar */
 lazy val describe = effectModule("describe", "okay-effects-describe").dependsOn(shape)
 /** `sbt records`: rewrites shape's RecordWords.scala, the record words for arities 1 to 12 (project/Records.scala) */
