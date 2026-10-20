@@ -1,7 +1,7 @@
 package okay.effects.shape
 
 import scala.language.experimental.macros
-import scala.reflect.macros.blackbox
+import scala.reflect.macros.{blackbox, whitebox}
 
 /** THE SHAPE OF A CASE CLASS OR A SEALED TRAIT, DERIVED — Scala 2.13, by a blackbox macro, at compile time, on every
  * platform, the same value Scala 3 derives by `Mirror`: a case class a record of its fields, each field's shape found
@@ -10,9 +10,25 @@ import scala.reflect.macros.blackbox
  * compiler sees them) */
 trait ShapeDerivation {
   def derived[A]: Shape[A] = macro ShapeMacros.derived[A]
+  /** `shape.at("name")`: a field by a literal name, checked against the case class `P` at compile time, typed as the field */
+  implicit class AtWords[P](val shape: Shape[P]) {
+    def at(name: String): Shape.At[P, _] = macro ShapeMacros.at[P]
+  }
 }
 
 object ShapeMacros {
+  def at[P: c.WeakTypeTag](c: whitebox.Context)(name: c.Tree): c.Tree = {
+    import c.universe._
+    val P = weakTypeOf[P]
+    val n = name match { case Literal(Constant(s: String)) => s; case _ => c.abort(name.pos, "a field's name here is a literal, so the compiler can check it") }
+    val sym = P.typeSymbol
+    if (!sym.isClass || !sym.asClass.isCaseClass) c.abort(c.enclosingPosition, s"at(\"$n\") checks a field against a case class; $P is not one — use field(\"$n\")")
+    val fields = P.decls.collect { case m: MethodSymbol if m.isCaseAccessor => m }.toList
+    fields.find(_.name.decodedName.toString == n) match {
+      case Some(f) => val t = f.returnType.asSeenFrom(P, sym.asClass); q"new _root_.okay.effects.shape.Shape.At[$P, $t](${c.prefix.tree}.shape, $n)"
+      case None => c.abort(name.pos, s"no field '$n' in $P: ${fields.map(_.name.decodedName.toString).mkString(", ")}")
+    }
+  }
   def derived[A: c.WeakTypeTag](c: blackbox.Context): c.Expr[Shape[A]] = {
     import c.universe._
     val shapeOf = typeOf[Shape[_]].typeConstructor

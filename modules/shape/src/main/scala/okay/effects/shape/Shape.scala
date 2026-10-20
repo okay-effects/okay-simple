@@ -79,6 +79,21 @@ object Shape extends RecordWords with ShapeDerivation {
     }
     Record[P](free.map(make), (p: P) => fs.iterator.zip(unmake(p).iterator).map { case (f, v) => f.name -> f.asInstanceOf[Field[Any]].shape.encode(v) }.toVector)
   }
+  /** A FIELD BY NAME, CHECKED BY THE COMPILER: `shape.at("tags")` on a shape of a case class names a field the compiler
+   * finds in the type, or refuses, and its type `T` is the field's — so `.check`, `.default`, `.shape` are typed and
+   * nothing is said twice. Scala 3 by `Mirror`, 2.13 by a macro; `field(name)` is the same for any shape, checked at once
+   * when the shape is made */
+  final class At[P, T](shape: Shape[P], name: String) {
+    def apply(change: Field[T] => Field[T]): Shape[P] = shape.fieldOf[T](name)(change)
+    def labelled(label: String): Shape[P] = apply(_.labelled(label))
+    def documented(doc: String): Shape[P] = apply(_.documented(doc))
+    def secret: Shape[P] = apply(_.asSecret)
+    def default(t: T): Shape[P] = apply(_.withDefault(t))
+    def check(message: String)(ok: T => Boolean): Shape[P] = apply(f => f.copy(shape = f.shape.check(message)(ok)))
+    /** the field's shape replaced, of the same type: constraints, a described one */
+    def shape(of: Shape[T]): Shape[P] = apply(_.copy(shape = of))
+  }
+
   private[shape] def defaultOf(f: Field[_], value: Json): Field[_] = {
     def typed[A](fa: Field[A]): Field[A] = fa.shape.decode(value) match {
       case Right(a) => fa.copy(default = Some(a))

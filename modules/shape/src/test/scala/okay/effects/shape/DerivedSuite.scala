@@ -65,4 +65,17 @@ class DerivedSuite extends munit.FunSuite {
     intercept[IllegalArgumentException](derivedPerson.defaulted("score", Json.Str("x")))
     assertEquals(derivedPerson.described("Who").secret("id").erased match { case Schema.Described(Schema.Record(xs), _, _) => xs.find(_.name == "id").map(_.secret); case _ => None }, Some(true))
   }
+  test("at(name): a field checked by the compiler and typed: words, a secret, a typed default, a typed check; a wrong name does not compile") {
+    val form = derivedPerson.at("name").labelled("Name").at("name").documented("as printed").at("id").secret.at("score").default(Some(1))
+      .at("tags").check("at least one tag")(_.nonEmpty).at("born").shape(Shape.date.optional.described("Born"))
+    val Schema.Record(fs) = form.erased: @unchecked
+    assertEquals(fs.find(_.name == "name").map(f => (f.label, f.doc)), Some((Some("Name"), Some("as printed"))))
+    assertEquals(fs.find(_.name == "id").map(_.secret), Some(true)); assertEquals(fs.find(_.name == "score").flatMap(_.default), Some(Json.num(1)))
+    assertEquals(form.decode(Json.obj("id" -> Json.Str("x"), "name" -> Json.Str("X"), "vip" -> Json.Bool(false), "tags" -> Json.arr())).left.map(_.map(_.render)), Left(List("tags: at least one tag")))
+    assertEquals(form.decode(person.encode(ann)), Right(ann)); assertEquals(form.encode(ann), person.encode(ann))
+    val wrong = compileErrors("""derivedPerson.at("nope").secret""")
+    assert(wrong.contains("no field 'nope'"), wrong)
+    val mistyped = compileErrors("""derivedPerson.at("score").default("x")""")
+    assert(mistyped.nonEmpty, "a default of another type than the field's does not compile")
+  }
 }

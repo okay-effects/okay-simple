@@ -1,6 +1,6 @@
 package okay.effects.shape
 
-import scala.compiletime.{constValueTuple, erasedValue, summonFrom}
+import scala.compiletime.{constValueTuple, erasedValue, error, summonFrom}
 import scala.deriving.Mirror
 
 /** THE SHAPE OF A CASE CLASS OR A SEALED TRAIT, DERIVED — Scala 3, by `Mirror`, at compile time, on every platform.
@@ -21,7 +21,22 @@ trait ShapeDerivation:
       Shape.OneOf[A](names.zip(shapes).zipWithIndex.map { case ((n, sh), i) =>
         Shape.Case[A, Any](n, sh.asInstanceOf[Shape[Any]])(b => b.asInstanceOf[A])(a => if s.ordinal(a) == i then Some(a) else None) })
 
+  extension [P](shape: Shape[P])
+    /** a field by name, checked against the case class `P` and typed as the field: `shape.at("tags").check("one at least")(_.nonEmpty)` */
+    inline def at[N <: String & Singleton](name: N)(using m: Mirror.ProductOf[P]): Shape.At[P, ShapeDerivation.TypeOf[N, m.MirroredElemLabels, m.MirroredElemTypes]] =
+      inline if ShapeDerivation.has[N, m.MirroredElemLabels] then new Shape.At(shape, name)
+      else error("no field '" + scala.compiletime.constValue[N] + "' in the type")
+
 object ShapeDerivation:
+  /** the type of the field named `N` among labels `Ls` and types `Ts` */
+  type TypeOf[N, Ls <: Tuple, Ts <: Tuple] = (Ls, Ts) match
+    case (N *: _, t *: _) => t
+    case (_ *: ls, _ *: ts) => TypeOf[N, ls, ts]
+    case (EmptyTuple, EmptyTuple) => Nothing   // no such field: `at` says so, by name, before this is ever used
+  inline def has[N, Ls <: Tuple]: Boolean = inline erasedValue[Ls] match
+    case _: EmptyTuple => false
+    case _: (N *: _) => true
+    case _: (_ *: ls) => has[N, ls]
   inline def shapesOf[T <: Tuple]: List[Shape[?]] = inline erasedValue[T] match
     case _: EmptyTuple => Nil
     case _: (h *: t) => shapeOf[h] :: shapesOf[t]
