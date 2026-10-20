@@ -116,5 +116,7 @@ assert(pet.decode(pet.encode(Dog("Rex"))) == Right(Dog("Rex")))
 assert(contact.decode(Json.obj("born" -> Json.Null)).left.map(_.map(_.render)) == Left(List("name: required")))
 ```
 
-On 2.13 the cases of a sealed trait must be where the compiler sees them when `derived` is written: in the same
-file, above it. A recursive type is written with `deferred` and given implicitly; derivation refuses the cycle.
+On Scala 3 a type may say it: `final case class Coord(lat: Double, lon: Double) derives Shape`, and an `enum` the
+same — the companion then holds the shape, `summon[Shape[Coord]]` and `Shape.of[Coord]` find it, and a type derived
+so is a field of another, found as given. On 2.13 the cases of a sealed trait must be where the compiler sees them
+when `derived` is written: in the same file, above it. A recursive type is written with `deferred` and given implicitly; derivation refuses the cycle.
