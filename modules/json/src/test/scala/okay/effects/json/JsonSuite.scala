@@ -1,6 +1,6 @@
 package okay.effects.json.checks
 
-import okay.effects.json.{Descent, Json, JsonParser, JsonPrinter, Jsons}
+import okay.effects.json.{Descent, Format, Json, JsonParser, JsonWriter, Jsons}
 import okay.effects.json.Json._
 import okay.effects.parsing.ParseError
 import okay.effects.stream.Streams
@@ -88,12 +88,21 @@ abstract class JsonChecks(val fx0: Runner) extends munit.FunSuite {
     assertEquals(Json.print(j), """{"a":[1,"é\"x"],"b":{},"c":[]}""")
     assertEquals(Json.print(j, ascii = true), "{\"a\":[1,\"\\u00e9\\\"x\"],\"b\":{},\"c\":[]}")   // not a triple-quoted literal: Scala 2 would read the \u in it
     assertEquals(Json.pretty(j), "{\n  \"a\": [\n    1,\n    \"é\\\"x\"\n  ],\n  \"b\": {},\n  \"c\": []\n}")
-    type R[X] = okay.effects.Sum[Void, JsonPrinter, X]
+    // the writer: WHERE is the handler's — a string, a sink of the row, a stream
+    type R[X] = okay.effects.Sum[Void, JsonWriter, X]
     import js.streams.fx._
-    val program: String ! R = js.printJson[R](j)
-    assertEquals(fx0.run(js.compact()(program)), Json.print(j))
-    assertEquals(fx0.run(js.indented(4)(program)), Json.pretty(j, 4))
-    assertEquals(fx0.run(js.compact(ascii = true)(program)), Json.print(j, ascii = true))
+    import js.streams.fx.std._
+    val program: Int ! R = js.writeJson[R](j).flatMap(_ => js.writeJson[R](num(7))).map(_ => 42)
+    assertEquals(fx0.run(js.collected()(program)), (Json.print(j) + "\n7", 42))
+    assertEquals(fx0.run(js.collected(Format.Indented(4), separator = "\n---\n")(program)), (Json.pretty(j, 4) + "\n---\n7", 42))
+    assertEquals(fx0.run(js.collected(Format.Compact(ascii = true))(program))._1, Json.print(j, ascii = true) + "\n7")
+    // to a sink of the row outside: here a Writer's `tell`; a console's line or a socket's send are the same shape
+    type W[X] = okay.effects.Sum[Void, ({ type L[Z] = Writer[String, Z] })#L, X]
+    type RW[X] = okay.effects.Sum[W, JsonWriter, X]
+    val told: Int ! RW = js.writeJson[RW](j).flatMap(_ => js.writeJson[RW](num(7))).map(_ => 42)
+    assertEquals(fx0.run(writer[String](js.writing[W]((s: String) => tell[String, W](s))(told))), (List(Json.print(j), "7"), 42))
+    // as a stream, pulled as the program writes
+    assertEquals(fx0.run(js.streamed[Void]()(program).toList), List(Json.print(j), "7"))
   }
   test("printing is iterative: a hundred thousand deep, both ways") {
     val n = 100000

@@ -18,7 +18,7 @@ under either, and a third handler — another encoding, a cache, a test's table 
 |---|---|
 | the value | `Json`: `Null`, `Bool(b)`, `Num(n)`, `Str(s)`, `Arr(items)`, `Obj(fields)`; `Json.obj(...)`, `arr(...)`, `num(...)`, `str(...)` |
 | text of a value | `Json.print(j, ascii = false)`, `Json.pretty(j, indent = 2, ascii = false)` — iterative, any depth |
-| the way out, an effect | `printJson(j)`: `String ! R`, `JsonPrinter` in `R`; `compact(ascii)` and `indented(indent, ascii)` its handlers |
+| the way out, an effect | `writeJson(j)`: `Unit ! R`, `JsonWriter` in `R`; WHERE is the handler's: `collected(format, separator)` into a string, `writing(sink, format)` to any program taking the text — a console, a socket — `streamed(format)` as a stream; HOW is the `Format`: `Compact(ascii)`, `Indented(indent, ascii)` |
 | a stream written | `chunks(j)`: a `Stream[String, R]` of the value's pieces as it is walked, the dual of `values`; `lines(values)`: JSON lines, a value a line |
 | the effect | `parseJson(text, maxDepth = 1000)`: `Either[ParseError, Json] ! R`, `JsonParser` in `R`; `descent(p)` and `grammar(p)` its handlers |
 | at once | `parse(text, maxDepth)`: `Either[ParseError, Json]`, by descent; `parser(text)` the grammar as a program; `value` the grammar, for a parser of one's own |
@@ -49,20 +49,26 @@ whitespace a space, a tab, a line feed, a carriage return. Numbers are `BigDecim
 
 ## The way out
 
-Printing is the effect `JsonPrinter`, as parsing is `JsonParser`: a program says `printJson(j)`, and whether the text
-is compact for a wire, indented for a person, or ASCII-only for a channel that wants it, is the handler's. The
-printer is ITERATIVE — an explicit stack of what is still to write — so the value nested a hundred thousand deep that
-the grammar parsed on the heap prints on the heap too. `chunks(j)` writes a value as a stream of its pieces, walked as
-the stream is pulled; `lines(values)` writes JSON lines.
+Writing is the effect `JsonWriter`, as parsing is `JsonParser`: a program says `writeJson(j)` and no more. WHERE the
+text goes is the handler's — `collected` into one string (JSON lines by default), `writing(sink)` to any program of the
+row that takes a string, a console's line, a socket's send, a file's append, `streamed` as a stream pulled as the
+program writes — and HOW is the `Format` the handler is given, compact for a wire, indented for a person, ASCII-only
+for a channel that wants it. The printer underneath is ITERATIVE, an explicit stack of what is still to write, so the
+value nested a hundred thousand deep that the grammar parsed on the heap prints on the heap too. `chunks(j)` writes
+one value as a stream of its pieces; `lines(values)` writes JSON lines.
 
 ```scala
+import okay.effects.std.*
 import okay.effects.stream.*
 
-type W = JsonPrinter
-val out: String ! W = printJson[W](obj("a" -> arr(num(1), Str("é"))))
-assert(run(compact()(out)) == """{"a":[1,"é"]}""")
-assert(run(compact(ascii = true)(out)) == """{"a":[1,"\u00e9"]}""")
-assert(run(indented()(out)) == "{\n  \"a\": [\n    1,\n    \"é\"\n  ]\n}")
+type W = JsonWriter
+val out: Unit ! W = writeJson[W](obj("a" -> arr(num(1), Str("é")))).flatMap(_ => writeJson[W](num(7)))
+assert(run(collected()(out)) == ("""{"a":[1,"é"]}""" + "\n7", ()))
+assert(run(collected(Format.Compact(ascii = true))(out))._1 == """{"a":[1,"\u00e9"]}""" + "\n7")
+assert(run(collected(Format.Indented())(out))._1 == "{\n  \"a\": [\n    1,\n    \"é\"\n  ]\n}\n7")
+assert(run(streamed[Pure]()(out).toList) == List("""{"a":[1,"é"]}""", "7"))
+type WT = Writer % String + JsonWriter
+assert(run(writer[String](writing[Writer % String](s => tell[String, Writer % String](s))(out.into[WT])))._1 == List("""{"a":[1,"é"]}""", "7"))
 assert(run(chunks[Pure](obj("a" -> arr(num(1)))).toList).mkString == """{"a":[1]}""")
 assert(run(lines[Pure](emits[Json, Pure](List(num(1), Null))).toList) == List("1\n", "null\n"))
 ```

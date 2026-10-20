@@ -11,11 +11,19 @@ object JsonParser {
   final case class Parse[X](text: String, maxDepth: Int, answer: Either[ParseError, Json] => X) extends JsonParser[X]
 }
 
-/** THE EFFECT THE OTHER WAY: a `Json` to its text. How — compact for a wire, pretty for a person, ASCII-only for a
- * channel that wants it — is the handler's choice: `compact`, `indented` */
-sealed trait JsonPrinter[X]
-object JsonPrinter {
-  final case class Print[X](json: Json, answer: String => X) extends JsonPrinter[X]
+/** THE EFFECT THE OTHER WAY: a `Json` WRITTEN — and where to, is the handler's: into a string (`collected`), to any
+ * sink the row has, a console or a socket (`writing`), as a stream of pieces (`streamed`); and how, compact or
+ * indented, ASCII-only or not, is the `Format` the handler is given */
+sealed trait JsonWriter[X]
+object JsonWriter {
+  final case class Write[X](json: Json, answer: Unit => X) extends JsonWriter[X]
+}
+
+/** how a value is written: one line for a wire, indented for a person; `ascii` escapes every character beyond ASCII */
+sealed trait Format { def render(j: Json): String }
+object Format {
+  final case class Compact(ascii: Boolean = false) extends Format { def render(j: Json): String = Json.print(j, ascii) }
+  final case class Indented(indent: Int = 2, ascii: Boolean = false) extends Format { def render(j: Json): String = Json.pretty(j, indent, ascii) }
 }
 
 /**
@@ -142,19 +150,54 @@ class Jsons[I <: okay.effects.Effects, S <: Streams[I]](val streams: S) {
   }
 
   // ---- the way out
-  /** a value printed, by whichever handler is outside */
-  def printJson[R[_]](j: Json)(implicit in: In[JsonPrinter, R]): String ! R =
-    perform[JsonPrinter].apply[R, String](JsonPrinter.Print[String](j, s => s))
-  /** one line, no spaces; `ascii` escapes every character beyond ASCII */
-  def compact(ascii: Boolean = false): PrintHandler = new PrintHandler(j => Json.print(j, ascii))
-  /** indented, a field a line (`Json.pretty`) */
-  def indented(indent: Int = 2, ascii: Boolean = false): PrintHandler = new PrintHandler(j => Json.pretty(j, indent, ascii))
-  final class PrintHandler(render: Json => String) {
-    def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[JsonPrinter, R, Rest]): A ! Rest =
-      handle[JsonPrinter, R, Rest, A, A](p, new TailHandler[JsonPrinter, Rest, A, A] {
+  /** a value written, wherever the handler outside writes to */
+  def writeJson[R[_]](j: Json)(implicit in: In[JsonWriter, R]): Unit ! R =
+    perform[JsonWriter].apply[R, Unit](JsonWriter.Write[Unit](j, u => u))
+
+  /** into a string: the values written, each in the format, a `separator` between them — JSON lines by default */
+  def collected(format: Format = Format.Compact(), separator: String = "\n"): Collected = new Collected(format, separator)
+  final class Collected(format: Format, separator: String) {
+    def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[JsonWriter, R, Rest]): (String, A) ! Rest =
+      handle[JsonWriter, java.lang.StringBuilder, R, Rest, A, (String, A)](p, new java.lang.StringBuilder,
+        new StatefulTailHandler[JsonWriter, java.lang.StringBuilder, Rest, A, (String, A)] {
+          def ret(b: java.lang.StringBuilder, a: A) = pure((b.toString, a))
+          def answer[X](cell: Cell[java.lang.StringBuilder], op: JsonWriter[X]): X = op match {
+            case JsonWriter.Write(j, answer) =>
+              val b = cell.get; if (b.length > 0) b.append(separator); b.append(format.render(j)); answer(())
+          }
+        })
+  }
+
+  /** to a SINK of the row outside — a console's line, a socket's send, a file's append, any program taking the text:
+   * each write's text goes to it, then the program goes on */
+  def writing[Rest[_]](sink: String => Unit ! Rest, format: Format = Format.Compact()): Writing[Rest] = new Writing[Rest](sink, format)
+  final class Writing[Rest[_]](sink: String => Unit ! Rest, format: Format) {
+    def apply[R[_], A](p: A ! R)(implicit sp: Split[JsonWriter, R, Rest]): A ! Rest =
+      handle[JsonWriter, R, Rest, A, A](p, new Handler[JsonWriter, Rest, A, A] {
         def ret(a: A) = pure(a)
-        def answer[X](op: JsonPrinter[X]): X = op match { case JsonPrinter.Print(j, answer) => answer(render(j)) }
+        def op[X](op: JsonWriter[X], k: X => A ! Rest) = op match {
+          case JsonWriter.Write(j, answer) => sink(format.render(j)).flatMap(_ => k(answer(())))
+        }
       })
+  }
+
+  /** as a stream of the texts written, each value one element, pulled as the program writes. The program is lifted
+   * into its row with `Yield` added, so that the handler can emit; both witnesses are found for a concrete row */
+  def streamed[Rest[_]](format: Format = Format.Compact()): Streamed[Rest] = new Streamed[Rest](format)
+  final class Streamed[Rest[_]](format: Format) {
+    type Y[Z] = Yield[String, Z]
+    type RY[X] = okay.effects.Sum[Rest, Y, X]
+    def apply[R[_], A](p: A ! R)(implicit sub: Sub[R, ({ type L[X] = okay.effects.Sum[R, Y, X] })#L],
+        sp: Split[JsonWriter, ({ type L[X] = okay.effects.Sum[R, Y, X] })#L, RY]): streams.Stream[String, Rest] = {
+      type RL[X] = okay.effects.Sum[R, Y, X]
+      val emitting: A ! RY = handle[JsonWriter, RL, RY, A, A](p.into[RL], new Handler[JsonWriter, RY, A, A] {
+        def ret(a: A) = pure(a)
+        def op[X](op: JsonWriter[X], k: X => A ! RY) = op match {
+          case JsonWriter.Write(j, answer) => emit[String, RY](format.render(j)).flatMap(_ => k(answer(())))
+        }
+      })
+      streams.fromGenerator[String].apply[RY, Rest, A](emitting)
+    }
   }
 
   /** a value as a stream of its pieces, compact, as they are written — the dual of `values`: a value too big for one
