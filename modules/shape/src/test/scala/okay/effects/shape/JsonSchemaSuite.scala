@@ -34,7 +34,7 @@ class JsonSchemaSuite extends munit.FunSuite {
     assertEquals(Json.print(JsonSchema.node(Schema.Any)), "{}")
   }
   test("a sum is oneOf with a type tag") {
-    val s = Schema.Sum(Vector("dog" -> Schema.Record(Vector(Schema.Field("name", Schema.Text(Nil), None, None, false, None))), "n" -> Schema.Integer(Nil)))
+    val s = Schema.OneOf(Vector("dog" -> Schema.Record(Vector(Schema.Field("name", Schema.Text(Nil), None, None, false, None))), "n" -> Schema.Integer(Nil)))
     assertEquals(Json.print(JsonSchema.node(s)),
       """{"oneOf":[{"type":"object","properties":{"type":{"type":"string","enum":["dog"]},"name":{"type":"string"}},"required":["type","name"]},""" +
         """{"type":"object","properties":{"type":{"const":"n"},"value":{"type":"integer"}},"required":["type","value"]}]}""")

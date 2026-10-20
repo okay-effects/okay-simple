@@ -146,7 +146,7 @@ class Reading[F <: Effects](implicit implementation: F) {
       }).map(_.toEither)
     }
 
-    def sum[A](self: Shape.Sum[A]): Rd[R, A] = (path, shown) => {
+    def sum[A](self: Shape.OneOf[A]): Rd[R, A] = (path, shown) => {
       val names = self.cases.map(_.name)
       has(path, shown).flatMap {
         case Fields.Presence.Absent => pure[Either[Problems, A], R](problem(path, "required"))
@@ -176,7 +176,7 @@ class Reading[F <: Effects](implicit implementation: F) {
     }
     /** of the kind the shape asks: an object for a record or a sum, an array for a list; anything for the rest */
     private def compatible(shape: Schema, v: Json): Boolean = shape match {
-      case Schema.Record(_) | Schema.Sum(_) => v.isInstanceOf[Json.Obj]
+      case Schema.Record(_) | Schema.OneOf(_) => v.isInstanceOf[Json.Obj]
       case Schema.Many(_, _, _) => v.isInstanceOf[Json.Arr]
       case Schema.Described(of, _, _) => compatible(of, v)
       case _ => true

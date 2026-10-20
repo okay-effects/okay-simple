@@ -19,7 +19,7 @@ object Schema {
   final case class Record(fields: Vector[Field]) extends Schema
   /** a tagged union: `{"type": <case name>, ...the case's fields}` when the case is a record, else
    * `{"type": <case name>, "value": <the case's value>}` */
-  final case class Sum(cases: Vector[(String, Schema)]) extends Schema
+  final case class OneOf(cases: Vector[(String, Schema)]) extends Schema
   final case class Described(of: Schema, label: String, doc: Option[String]) extends Schema
   /** a named schema, defined elsewhere (`defs`): how a recursive schema is written */
   final case class Ref(name: String) extends Schema
@@ -66,7 +66,7 @@ object Schema {
           case o: Json.Obj => fields.flatMap(f => o.get(f.name).map(f.name -> _))
           case _ => Vector.empty
         })
-      case Sum(cases) => Shape.Sum[Json](cases.toList.map { case (name, cs) =>
+      case OneOf(cases) => Shape.OneOf[Json](cases.toList.map { case (name, cs) =>
         val flat = isRecord(cs)
         Shape.Case[Json, Json](name, go(cs))(
           b => if (flat) b match { case o: Json.Obj => ("type" -> Json.Str(name)) +: o; case other => other } else Json.Obj.of("type" -> Json.Str(name), "value" -> b))(
@@ -126,8 +126,8 @@ object Schema {
         Many(_, _, _))(m => (m.of, m.min, m.max))) { case s: Many => Some(s); case _ => None },
       sub[Schema, Record]("record", record(field("fields", fieldShape.many()))(fs => Record(fs.toVector))(_.fields.toList)) {
         case s: Record => Some(s); case _ => None },
-      sub[Schema, Sum]("sum", record(field("cases", caseShape.many()))(cs => Sum(cs.toVector))(_.cases.toList)) {
-        case s: Sum => Some(s); case _ => None },
+      sub[Schema, OneOf]("sum", record(field("cases", caseShape.many()))(cs => OneOf(cs.toVector))(_.cases.toList)) {
+        case s: OneOf => Some(s); case _ => None },
       sub[Schema, Described]("described", record(field("of", ref), field("label", text), field("doc", text.optional))(
         Described(_, _, _))(d => (d.of, d.label, d.doc))) { case s: Described => Some(s); case _ => None },
       sub[Schema, Ref]("ref", record(field("name", text))(Ref(_))(_.name)) { case s: Ref => Some(s); case _ => None },

@@ -27,7 +27,7 @@ object JsonSchema {
     case Schema.Many(of, min, max) => add(Obj.of("type" -> Str("array"), "items" -> node(of)),
       (if (min > 0) List("minItems" -> Json.num(min)) else Nil) ++ max.map(m => "maxItems" -> Json.num(m)).toList: _*)
     case Schema.Record(fields) => record(fields, Vector.empty)
-    case Schema.Sum(cases) => Obj.of("oneOf" -> Arr(cases.map { case (name, cs) =>
+    case Schema.OneOf(cases) => Obj.of("oneOf" -> Arr(cases.map { case (name, cs) =>
       val tag = Schema.Field("type", Schema.Choice(List(name)), None, None, secret = false, None)
       stripDescribed(cs) match {
         case Schema.Record(fields) => record(fields, Vector(tag), described(cs))

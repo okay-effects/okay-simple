@@ -10,7 +10,7 @@ by the same decoder as everything else. `JsonSchema.of` is the JSON Schema (draf
 | | |
 |---|---|
 | primitives | `text`, `integer`, `int`, `long`, `number`, `bool`, `date` (`Day`), `any`, `choice(name -> a, ...)`, each with `Constraint`s as data |
-| compound | `record(fields...)(make)(unmake)` for 1 to 12 fields; `sum(cases...)` with `sub` and `Case`; `.optional`, `.many(min, max)`; `deferred(name)(shape)` for recursion |
+| compound | `record(fields...)(make)(unmake)` for 1 to 12 fields; `sum(cases...)` with `sub` and `Case` (a `OneOf`; `Sum` is the row's name under `import okay.effects.*`); `.optional`, `.many(min, max)`; `deferred(name)(shape)` for recursion |
 | refined | `.map(to)(from)`, `.refine(to)(from)`, `.check(message)(ok)`, `.described(label, doc)` |
 | a field | `field(name, shape)`, `.labelled`, `.documented`, `.asSecret`, `.withDefault` |
 | decoding | `shape.decode(json)`: `Either[Problems, P]`, a `Problem(path, message)` per fault; `shape.encode(p)`; a missing field is its default, else `None` for an `Optional`, else `required`; unknown fields are ignored |
@@ -40,12 +40,12 @@ assert(Json.print(JsonSchema.of(person.erased)).startsWith("""{"type":"object","
 assert(Schema.shape.decode(Schema.shape.encode(person.erased)) == Right(person.erased))   // a schema is a value too
 ```
 
-A `Sum` is a tagged union, `{"type": name, ...the case's fields}` for a record case and `{"type": name, "value": v}`
+A `OneOf` (the word `sum(cases...)`) is a tagged union, `{"type": name, ...the case's fields}` for a record case and `{"type": name, "value": v}`
 otherwise. `Day(y, m, d)` is a calendar date of its own, ISO on the wire, so that Scala.js and Native need no java.time.
 
 ## An algebra of types
 
-A `Shape` is the universe of sums of products: `Record` a product, `Sum` a coproduct, `Optional` and `Many` the type
+A `Shape` is the universe of sums of products: `Record` a product, `OneOf` a coproduct, `Optional` and `Many` the type
 constructors over a shape, `Mapped` an isomorphism or a refinement, `Deferred` with `Ref` the fixed point — recursion.
 That is the universe a compiler's `Mirror` describes too, so derivation from a type (BACKLOG.md) is a translation
 between the two. Every interpreter — the erasure, the JSON Schema, the validation, a form — is a fold over this

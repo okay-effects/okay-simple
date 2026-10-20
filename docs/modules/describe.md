@@ -20,11 +20,10 @@ match, on both compilers. A description is a value, not a type class: one effect
 owner, a subset for a stranger.
 
 ```scala
-import okay.effects.{Sum, Void}
+import okay.effects.*
 import okay.effects.json.Json
 import okay.effects.machine.Machine
-import okay.effects.machine.Machine.*
-import okay.effects.shape.Shape.{field, int, record, unit}
+import okay.effects.shape.Shape.*
 import okay.effects.describe.*
 
 sealed trait Counter[X]

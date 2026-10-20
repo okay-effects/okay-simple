@@ -142,7 +142,7 @@ object Shape extends RecordWords {
     override def isLeaf: Boolean = false
   }
   /** a tagged union of cases: `{"type": name, ...}` — the case's own fields when it is a record, `"value"` otherwise */
-  final case class Sum[A](cases: List[Case[A]]) extends Shape[A] {
+  final case class OneOf[A](cases: List[Case[A]]) extends Shape[A] {
     private def names = cases.map(_.name).mkString(", ")
     def decodeAt(v: Json, path: List[String]): Either[Problems, A] = v match {
       case o: Obj => o.get("type") match {
@@ -168,7 +168,7 @@ object Shape extends RecordWords {
         }
       case None => Null
     }
-    def erased: Schema = Schema.Sum(cases.iterator.map(c => c.name -> c.shape.erased).toVector)
+    def erased: Schema = Schema.OneOf(cases.iterator.map(c => c.name -> c.shape.erased).toVector)
     def fold[G[_]](alg: ShapeAlgebra[G]): G[A] = alg.sum(this)
     override def isLeaf: Boolean = false
     def flat(c: Case[A]): Boolean = Schema.isRecord(c.shape.erased)
@@ -279,7 +279,7 @@ object Shape extends RecordWords {
   def choice[A](options: (String, A)*): Shape[A] = Choice(options.toList)
   def field[A](name: String, shape: Shape[A]): Field[A] = Field(name, shape)
   val unit: Shape[Unit] = Record[Unit](FreeAp.pure[Field, Unit](()), _ => Vector.empty)
-  def sum[A](cases: Case[A]*): Shape[A] = Sum(cases.toList)
+  def sum[A](cases: Case[A]*): Shape[A] = OneOf(cases.toList)
   /** a case of a sum whose value IS a subtype: injected as it is */
   def sub[A, B <: A](name: String, shape: Shape[B])(project: A => Option[B]): Case[A] = Case[A, B](name, shape)(b => b)(project)
   def deferred[A](name: String)(of: => Shape[A]): Shape[A] = Deferred(name, () => of)

@@ -89,7 +89,7 @@ abstract class ReadingChecks(val fx0: Runner) extends munit.FunSuite {
       def optional[A](self: Shape.Optional[A], of: Paths[A]) = p => of(p).map(_ + "?")
       def many[A](self: Shape.Many[A], of: Paths[A]) = p => of(p :+ "*")
       def record[P](self: Shape.Record[P]) = p => self.erased match { case Schema.Record(fs) => fs.toList.flatMap(f => field(self.fields.analyze(new okay.effects.algebra.Const[Shape.Field, List[Shape.Field[_]]] { def apply[A](x: Shape.Field[A]) = List(x) })(okay.effects.algebra.Monoid.list).find(_.name == f.name).get)(p :+ f.name)); case _ => Nil }
-      def sum[A](self: Shape.Sum[A]) = p => self.cases.flatMap(c => c.shape.fold(this)(if (self.flat(c)) p :+ c.name else p :+ c.name :+ "value"))
+      def sum[A](self: Shape.OneOf[A]) = p => self.cases.flatMap(c => c.shape.fold(this)(if (self.flat(c)) p :+ c.name else p :+ c.name :+ "value"))
       def mapped[A, B](self: Shape.Mapped[A, B], of: Paths[A]) = of
       def described[A](self: Shape.Described[A], of: Paths[A]) = of
       def deferred[A](name: String, of: () => Paths[A]) = p => List((p :+ name).mkString("."))

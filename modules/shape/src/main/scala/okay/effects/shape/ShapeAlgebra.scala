@@ -21,7 +21,7 @@ trait ShapeAlgebra[G[_]] {
   def many[A](self: Shape.Many[A], of: G[A]): G[List[A]]
   /** a record: its fields, each a `Field` with a shape to `fold` with this algebra as needed */
   def record[P](self: Shape.Record[P]): G[P]
-  def sum[A](self: Shape.Sum[A]): G[A]
+  def sum[A](self: Shape.OneOf[A]): G[A]
   def mapped[A, B](self: Shape.Mapped[A, B], of: G[A]): G[B]
   def described[A](self: Shape.Described[A], of: G[A]): G[A]
   def loose(schema: Schema, defs: Map[String, Schema]): G[Json]
