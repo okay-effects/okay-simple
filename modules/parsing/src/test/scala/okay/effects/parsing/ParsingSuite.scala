@@ -1,7 +1,7 @@
 package okay.effects.parsing.checks
 
-import okay.effects.parsing.{Parsing}
-
+import okay.effects.parsing.{Expect, Input, ParseError, Parsing, StreamInput}
+import okay.effects.stream.Streams
 import okay.effects.{Runner, Std, Sum, Void}
 import okay.effects.machine.Machine
 import okay.effects.free.Free
@@ -11,74 +11,60 @@ abstract class ParsingChecks(val fx0: Runner) extends munit.FunSuite {
   val ps = Parsing()
   import ps._
   import ps.fx._
+  val streams = new Streams[ps.fx.type]()(ps.fx)
+  val fromStreams = new StreamInput[streams.type](streams)
 
-  type P[X] = Sum[({ type L[x] = Sum[Void, Std.Choose, x] })#L, Input, X]
+  type P[X] = Sum[({ type L[x] = Sum[({ type M[y] = Sum[Void, Std.Choose, y] })#M, Expect, x] })#L, Input, X]
 
-  def number: Int ! P = many1[Char, P](satisfy[P](_.isDigit)).map(_.mkString.toInt)
+  def number: Int ! P = takeWhile1[P](_.isDigit, "a digit").map(_.toInt)
   def factor: Int ! P = orElse[Int, P](number, char[P]('(').flatMap(_ => expr).flatMap(e => char[P](')').as(e)))
   def term: Int ! P = factor.flatMap(f => many[Int, P](char[P]('*').flatMap(_ => factor)).map(fs => (f :: fs).product))
   def expr: Int ! P = term.flatMap(t => many[Int, P](char[P]('+').flatMap(_ => term)).map(ts => (t :: ts).sum))
 
-  // ---- JSON: the grammar of docs/modules/parsing.md, in the shared syntax, on both implementations
-  sealed trait Json
-  case object JNull extends Json
-  final case class JBool(b: Boolean) extends Json
-  final case class JNum(n: BigDecimal) extends Json
-  final case class JStr(s: String) extends Json
-  final case class JArr(items: List[Json]) extends Json
-  final case class JObj(fields: List[(String, Json)]) extends Json
-
-  def ws: Unit ! P = many[Char, P](satisfy[P](_.isWhitespace)).as(())
-  def token(c: Char): Unit ! P = ws.flatMap(_ => char[P](c)).flatMap(_ => ws)
-  def sepBy[A](p: A ! P, sep: Char): List[A] ! P =
-    orElse[List[A], P](p.flatMap(a => many[A, P](token(sep).flatMap(_ => p)).map(a :: _)), pure[List[A], P](Nil))
-  def digits: String ! P = many1[Char, P](satisfy[P](_.isDigit)).map(_.mkString)
-  def optional(p: String ! P): String ! P = orElse[String, P](p, pure[String, P](""))
-  def jnumber: Json ! P =
-    optional(char[P]('-').as("-")).flatMap(sign => digits.flatMap(int => optional(char[P]('.').flatMap(_ => digits).map("." + _)).flatMap(frac =>
-      optional(satisfy[P](c => c == 'e' || c == 'E').flatMap(_ => optional(satisfy[P](c => c == '+' || c == '-').map(_.toString))).flatMap(s => digits.map("e" + s + _)))
-        .map(exp => JNum(BigDecimal(sign + int + frac + exp))))))
-  def hex: Char ! P = satisfy[P](c => c.isDigit || ('a' to 'f').contains(c.toLower))
-  def escape: Char ! P = char[P]('\\').flatMap(_ => item[P]).flatMap {
-    case 'n' => pure[Char, P]('\n')
-    case 't' => pure[Char, P]('\t')
-    case 'r' => pure[Char, P]('\r')
-    case 'b' => pure[Char, P]('\b')
-    case 'f' => pure[Char, P]('\f')
-    case 'u' => hex.flatMap(a => hex.flatMap(b => hex.flatMap(c => hex.map(d => Integer.parseInt(s"$a$b$c$d", 16).toChar))))
-    case c => pure[Char, P](c)
-  }
-  def text: String ! P =
-    char[P]('"').flatMap(_ => many[Char, P](orElse[Char, P](satisfy[P](c => c != '"' && c != '\\'), escape))).flatMap(cs => char[P]('"').as(cs.mkString))
-  def literal(word: String, j: Json): Json ! P = string[P](word).as(j)
-  def value: Json ! P = ws.flatMap(_ => orElse[Json, P](literal("null", JNull), orElse[Json, P](literal("true", JBool(true)),
-    orElse[Json, P](literal("false", JBool(false)), orElse[Json, P](jnumber, orElse[Json, P](text.map(JStr(_)),
-    orElse[Json, P](array, obj))))))).flatMap(j => ws.as(j))
-  def array: Json ! P = char[P]('[').flatMap(_ => sepBy(value, ',')).flatMap(items => token(']').as(JArr(items)))
-  def obj: Json ! P =
-    char[P]('{').flatMap(_ => sepBy(ws.flatMap(_ => text).flatMap(k => token(':').flatMap(_ => value).map(k -> _)), ',')).flatMap(fs => token('}').as(JObj(fs)))
-
-  test("JSON: a grammar on the module") {
-    assertEquals(ps.fx.run(parse("""{"a": [1, -2.5e2, true], "b": {"c": null, "d": "x\"y\u00e9"}, "e": []}""")(value)),
-      Some(JObj(List("a" -> JArr(List(JNum(1), JNum(-250), JBool(true))), "b" -> JObj(List("c" -> JNull, "d" -> JStr("x\"yé"))), "e" -> JArr(Nil)))))
-    assertEquals(ps.fx.run(parse(" [ ] ")(value)), Some(JArr(Nil)))
-    assertEquals(ps.fx.run(parse("[1, 2")(value)), None)
-    assertEquals(ps.fx.run(parse("""{"a": }""")(value)), None)
-  }
+  def run[A](p: Either[ParseError, A] ! Void): Either[ParseError, A] = ps.fx.run(p)
 
   test("an arithmetic expression") {
-    assertEquals(ps.fx.run(parse("2+3*(4+1)")(expr)), Some(17))
-    assertEquals(ps.fx.run(parse("12*12")(expr)), Some(144))
+    assertEquals(run(parse("2+3*(4+1)")(expr)), Right(17))
+    assertEquals(run(parse("12*12")(expr)), Right(144))
   }
-  test("all of the input, or nothing") {
-    assertEquals(ps.fx.run(parse("2+")(expr)), None)
-    assertEquals(ps.fx.run(parse("(1")(expr)), None)
+  test("all of the input, or an error at the furthest point, saying what was expected there") {
+    assertEquals(run(parse("2+")(expr)).left.map(e => (e.offset, e.expected, e.found)), Left((2L, List("a digit", "'('"), Some("end of input"))))
+    assertEquals(run(parse("(1")(expr)).left.map(e => (e.offset, e.expected)), Left((2L, List("'*'", "'+'", "')'"))))
+    assertEquals(run(parse("2+3)")(expr)).left.map(_.message), Left("at line 1, column 4: expected '*' or '+' or end of input, found ')'"))
   }
   test("a word among others: backtracking") {
-    assertEquals(ps.fx.run(parse("letter")(orElse[String, P](string[P]("let"), string[P]("letter")))), Some("letter"))
+    assertEquals(run(parse("letter")(orElse[String, P](string[P]("let"), string[P]("letter")))), Right("letter"))
+    assertEquals(run(parse("let")(orElse[String, P](string[P]("letter"), string[P]("let")))), Right("let"))
+  }
+  test("lines and columns") {
+    assertEquals(ParseError.at("ab\ncd\nef", 7, List("x")), ParseError(7, 3, 2, List("x"), Some("'f'")))
+    assertEquals(ParseError.at("ab\ncd", 5, Nil), ParseError(5, 2, 3, Nil, Some("end of input")))
+    assertEquals(ParseError.at("ab", 9, Nil).message, "at line 1, column 3: no parse, found end of input")
+  }
+  test("decided by the next character: no choice point") {
+    def word: String ! P = byNext[String, P]("a word") {
+      case 'a' => Some(string[P]("apple"))
+      case 'b' => Some(string[P]("banana"))
+      case _ => None
+    }
+    def words: List[String] ! P = whileNext[String, P](c => c == 'a' || c == 'b')(word.flatMap(w => skipWhile[P](_ == ' ').as(w)))
+    assertEquals(run(parse("apple banana apple")(words)), Right(List("apple", "banana", "apple")))
+    assertEquals(run(parse("apple cherry")(words)).left.map(e => (e.offset, e.expected)), Left((6L, List("end of input"))))
+    assertEquals(run(parse("apricot")(words)).left.map(e => (e.offset, e.expected, e.found)), Left((0L, List("'apple'"), Some("'a'"))))
+  }
+  test("deep nesting is the heap's, not the stack's") {
+    val n = 100000
+    assertEquals(run(parse("(" * n + "1" + ")" * n)(expr)), Right(1))
+  }
+  test("the input from a stream of chunks, pulled as needed") {
+    val chunks = streams.fromIterator[String, Void](Iterator("2+3*", "(4", "+1)"))
+    assertEquals(ps.fx.run(fromStreams.parseStream[Void](chunks)(expr)), Right(17))
+    val cut = streams.fromIterator[String, Void](Iterator("2+3*", "(4"))
+    assertEquals(ps.fx.run(fromStreams.parseStream[Void](cut)(expr)).left.map(e => (e.offset, e.expected)), Left((6L, List("'*'", "'+'", "')'"))))
+    assertEquals(ps.fx.run(fromStreams.parseStream[Void](streams.fromIterator[String, Void](Iterator("let", "ter")))(
+      orElse[String, P](string[P]("let"), string[P]("letter")))), Right("letter"))
   }
 }
 
 class ParsingOnMachine extends ParsingChecks(Machine)
 class ParsingOnFree extends ParsingChecks(Free)
-class ParsingOnTagless extends ParsingChecks(okay.effects.tagless.Tagless.on(Machine))

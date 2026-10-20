@@ -1,92 +1,81 @@
-# parsing — parsers of two standard effects
+# parsing — parsers of three effects
 
-`okay-effects-parsing`, `okay.effects.parsing` — `import okay.effects.parsing.*`, the module on the machine. A parser is a program of two standard effects: the input left, a
-`State[String]`, and the alternatives, `Choose`. `parse(input)(p)` runs it with the state inside the choice — each
-alternative tried from the input of its time — and gives the first way that parses all of the input.
+`okay-effects-parsing`, `okay.effects.parsing` — `import okay.effects.parsing.*`, the module on the machine. A parser is
+a program of three effects: the `Input`, a cursor over characters; the `Expect`ations, what a parser wanted where it
+failed; and the alternatives, `Choose`. `parse(text)(p)` runs it: the input handler INSIDE the choice, so each
+alternative goes on from the input of its time; the expectations OUTSIDE it, so the furthest failure survives
+backtracking and is the error reported, with its line and column and what was expected there.
+
+A parser that decides by the next character — `byNext`, `whileNext`, `takeWhile` — makes no choice point: it runs as a
+straight line of operations answered in place, on the heap, so a text nested a hundred thousand deep is parsed, not a
+stack overflow. `orElse` and `many` backtrack by the choice, where a grammar needs it.
 
 | | |
 |---|---|
-| parsers | `item`, `satisfy(f)`, `char(c)`, `string(s)`, `eof` |
-| combinators | `orElse(p, q)`, `many(p)`, `many1(p)`; and any program's `map`, `flatMap`, `for` |
-| run | `parse(input)(p)`: `Option[A]` |
+| the input | `peek`, `take`, `takeWhile(ok)`, `takeIf(s)`, `offset`, `skipWhile(ok)`, `spaces` — one operation per token |
+| parsers | `item`, `satisfy(ok, what)`, `char(c)`, `string(s)`, `takeWhile1(ok, what)`, `eof`; `fail(what)` |
+| by the next character | `byNext(what)(cases)`, `whileNext(ok)(p)` — no choice point |
+| alternatives | `orElse(p, q)`, `many(p)`, `many1(p)`, `optional(p)`, `sepBy(p, sep)`, `sepBy1(p, sep)` — backtracking |
+| run | `parse(text)(p)`: `Either[ParseError, A]`; `parseStream(chunks)(p)` from a stream of chunks ([json](json.md) parses as values come) |
+| handlers | `input(text)`, `inputFrom(chunks)`, `expectations` — to compose a run of one's own |
 
 ```scala
 import okay.effects.*
 import okay.effects.std.*
 import okay.effects.parsing.*
 
-type P = Choose + Input
+type P = Choose + Expect + Input
 
-def number: Int ! P = many1[Char, P](satisfy[P](_.isDigit)).map(_.mkString.toInt)
+def number: Int ! P = takeWhile1[P](_.isDigit, "a digit").map(_.toInt)
 def factor: Int ! P = orElse[Int, P](number, char[P]('(').andThen(expr).flatMap(e => char[P](')').as(e)))
 def term: Int ! P = factor.flatMap(f => many[Int, P](char[P]('*').andThen(factor)).map(fs => (f :: fs).product))
 def expr: Int ! P = term.flatMap(t => many[Int, P](char[P]('+').andThen(term)).map(ts => (t :: ts).sum))
 
-assert(run(parse("2+3*(4+1)")(expr)) == Some(17))
-assert(run(parse("2+")(expr)) == None)
-assert(run(parse("letter")(orElse[String, P](string[P]("let"), string[P]("letter")))) == Some("letter"))
+assert(run(parse("2+3*(4+1)")(expr)) == Right(17))
+assert(run(parse("2+3)")(expr)).left.map(_.message) == Left("at line 1, column 4: expected '*' or '+' or end of input, found ')'"))
+assert(run(parse("letter")(orElse[String, P](string[P]("let"), string[P]("letter")))) == Right("letter"))
+assert(run(parse("(" * 100000 + "1" + ")" * 100000)(expr)) == Right(1))
 ```
 
-Backtracking is the choice's: `orElse` tries `p`, and if the whole parse fails that way, `q` from the same input. A
-parser that loops on no input (`many` of a parser that succeeds consuming nothing) does not end.
+Backtracking is the choice's: `orElse` tries `p`, and if the whole parse fails that way, `q` from the same input.
+`satisfy` takes nothing when it fails, so a choice decided by one character leaves the input where it was. A parser
+that loops on no input (`many` of a parser that succeeds consuming nothing) does not end.
 
-## JSON, a grammar of its own on the module
+## Decided by the next character
 
-A grammar that decides by the next character, written with `orElse` and `many`; the choice backtracks where the
-grammar does not need it, and a failed parse is `None` with no position — see BACKLOG.md, "parsing: errors with a
-position" and "parsing: a committed choice". okay-face's `Json.parse` is hand-written for those two reasons and for
-speed; its tests check that this grammar agrees with it.
+`byNext(what)(cases)` gives the parser for the next character and fails saying `what` for any other; `whileNext(ok)(p)`
+repeats `p` while the next character is `ok`. No choice point is made: the operations are answered in place, and the
+error is where the grammar says, not the furthest of alternatives tried.
 
 ```scala
-import okay.effects.*
-import okay.effects.std.*
-import okay.effects.parsing.*
-
-sealed trait Json
-case object JNull extends Json
-final case class JBool(b: Boolean) extends Json
-final case class JNum(n: BigDecimal) extends Json
-final case class JStr(s: String) extends Json
-final case class JArr(items: List[Json]) extends Json
-final case class JObj(fields: List[(String, Json)]) extends Json
-
-type J = Choose + Input
-
-def ws: Unit ! J = many[Char, J](satisfy[J](_.isWhitespace)).as(())
-def token(c: Char): Unit ! J = ws.andThen(char[J](c)).andThen(ws)
-def sepBy[A](p: A ! J, sep: Char): List[A] ! J =
-  orElse[List[A], J](p.flatMap(a => many[A, J](token(sep).andThen(p)).map(a :: _)), pure[List[A], J](Nil))
-def digits: String ! J = many1[Char, J](satisfy[J](_.isDigit)).map(_.mkString)
-def optional(p: String ! J): String ! J = orElse[String, J](p, pure[String, J](""))
-def jnumber: Json ! J =
-  for
-    sign <- optional(char[J]('-').as("-"))
-    int  <- digits
-    frac <- optional(char[J]('.').andThen(digits).map("." + _))
-    exp  <- optional(satisfy[J](c => c == 'e' || c == 'E').andThen(optional(satisfy[J](c => c == '+' || c == '-').map(_.toString))).flatMap(s => digits.map("e" + s + _)))
-  yield JNum(BigDecimal(sign + int + frac + exp))
-def hex: Char ! J = satisfy[J](c => c.isDigit || ('a' to 'f').contains(c.toLower))
-def escape: Char ! J = char[J]('\\').andThen(item[J]).flatMap {
-  case 'n' => pure[Char, J]('\n')
-  case 't' => pure[Char, J]('\t')
-  case 'r' => pure[Char, J]('\r')
-  case 'b' => pure[Char, J]('\b')
-  case 'f' => pure[Char, J]('\f')
-  case 'u' => hex.flatMap(a => hex.flatMap(b => hex.flatMap(c => hex.map(d => Integer.parseInt(s"$a$b$c$d", 16).toChar))))
-  case c => pure[Char, J](c)
+def word: String ! P = byNext[String, P]("a fruit") {
+  case 'a' => Some(string[P]("apple"))
+  case 'b' => Some(string[P]("banana"))
+  case _ => None
 }
-def text: String ! J =
-  char[J]('"').andThen(many[Char, J](orElse[Char, J](satisfy[J](c => c != '"' && c != '\\'), escape))).flatMap(cs => char[J]('"').as(cs.mkString))
-def literal(word: String, j: Json): Json ! J = string[J](word).as(j)
-def value: Json ! J = ws.andThen(orElse[Json, J](literal("null", JNull), orElse[Json, J](literal("true", JBool(true)),
-  orElse[Json, J](literal("false", JBool(false)), orElse[Json, J](jnumber, orElse[Json, J](text.map(JStr(_)),
-  orElse[Json, J](array, obj))))))).flatMap(j => ws.as(j))
-def array: Json ! J = char[J]('[').andThen(sepBy(value, ',')).flatMap(items => token(']').as(JArr(items)))
-def obj: Json ! J =
-  char[J]('{').andThen(sepBy(ws.andThen(text).flatMap(k => token(':').andThen(value).map(k -> _)), ',')).flatMap(fs => token('}').as(JObj(fs)))
+def words: List[String] ! P = whileNext[String, P](c => c == 'a' || c == 'b')(word.flatMap(w => skipWhile[P](_ == ' ').as(w)))
 
-assert(run(parse("""{"a": [1, -2.5e2, true], "b": {"c": null, "d": "x\"yé"}, "e": []}""")(value)) ==
-  Some(JObj(List("a" -> JArr(List(JNum(1), JNum(-250), JBool(true))), "b" -> JObj(List("c" -> JNull, "d" -> JStr("x\"yé"))), "e" -> JArr(Nil)))))
-assert(run(parse("[1, 2")(value)) == None)
-assert(run(parse("""{"a": }""")(value)) == None)
+assert(run(parse("apple banana apple")(words)) == Right(List("apple", "banana", "apple")))
+assert(run(parse("apricot")(words)).left.map(e => (e.offset, e.expected)) == Left((0L, List("'apple'"))))
 ```
+
+## From a stream
+
+`parseStream(chunks)(p)`: the input pulled from a stream of chunks as the parser needs it, so a text need not be in
+memory. The chunks are a stream of the row outside the parser's three effects. The error says the offset; no line and
+column, the text is not kept. A rolled-back alternative pulls a chunk again, so the source must remember what it gave
+(`fromIterator` does); a parser decided by the next character never rolls back.
+
+```scala
+import okay.effects.stream.*
+
+val chunks = fromIterator[String, Pure](Iterator("2+3*", "(4", "+1)"))
+assert(run(parseStream(chunks)(expr)) == Right(17))
+```
+
+## The input in place
+
+`input(text)` is a stateful handler answered in place: an index into the text, no copy of it. `takeWhile` and `takeIf`
+are operations of the input, so a token costs one operation and the loop over its characters is the handler's. That is
+what makes a parser on effects fast enough: measured in [json](json.md).
+
