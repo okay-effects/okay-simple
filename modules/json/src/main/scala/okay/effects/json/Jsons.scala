@@ -3,8 +3,17 @@ package okay.effects.json
 import okay.effects.parsing.{Expect, Input, ParseError, Parsing, StreamInput}
 import okay.effects.stream.Streams
 
+/** THE EFFECT: a text to a `Json`. How is the handler's choice — `descent`, a hand-written recursive descent, fast, the
+ * default; `grammar`, the grammar on the parsing module's effects, on the heap, the one `values` streams with. A program
+ * that parses says only that it parses */
+sealed trait JsonParser[X]
+object JsonParser {
+  final case class Parse[X](text: String, maxDepth: Int, answer: Either[ParseError, Json] => X) extends JsonParser[X]
+}
+
 /**
- * JSON PARSED BY EFFECTS: the grammar a program of the parsing module's three effects, decided by the next character —
+ * JSON: the effect `JsonParser` and its two handlers, and the grammar itself. THE GRAMMAR is a program of the parsing
+ * module's three effects, decided by the next character —
  * no choice point, no backtracking, one operation per token — so it runs as a straight line of operations answered in
  * place, on the heap: a text nested a hundred thousand deep is parsed, not a stack overflow (`maxDepth` says where to
  * stop, by choice). From a text in memory (`parse`), or from a stream of chunks as values come (`values`), with an
@@ -100,10 +109,35 @@ class Jsons[I <: okay.effects.Effects, S <: Streams[I]](val streams: S) {
     at(0)
   }
 
+  // ---- the effect and its handlers
+  /** a text parsed, by whichever handler is outside */
+  def parseJson[R[_]](text: String, maxDepth: Int = 1000)(implicit in: In[JsonParser, R]): Either[ParseError, Json] ! R =
+    perform[JsonParser].apply[R, Either[ParseError, Json]](JsonParser.Parse[Either[ParseError, Json]](text, maxDepth, e => e))
+  /** by recursive descent, answered in place: the fast one */
+  def descent: DescentHandler = new DescentHandler
+  final class DescentHandler {
+    def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[JsonParser, R, Rest]): A ! Rest =
+      handle[JsonParser, R, Rest, A, A](p, new TailHandler[JsonParser, Rest, A, A] {
+        def ret(a: A) = pure(a)
+        def answer[X](op: JsonParser[X]): X = op match { case JsonParser.Parse(text, maxDepth, answer) => answer(Descent.parse(text, maxDepth)) }
+      })
+  }
+  /** by the grammar on effects: the clause a program, run where the operation is */
+  def grammar: GrammarHandler = new GrammarHandler
+  final class GrammarHandler {
+    def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[JsonParser, R, Rest]): A ! Rest =
+      handle[JsonParser, R, Rest, A, A](p, new Handler[JsonParser, Rest, A, A] {
+        def ret(a: A) = pure(a)
+        def op[X](op: JsonParser[X], k: X => A ! Rest) = op match {
+          case JsonParser.Parse(text, maxDepth, answer) => parser(text, maxDepth).into[Rest].flatMap(e => k(answer(e)))
+        }
+      })
+  }
+
   /** the row a JSON parser runs in: the three effects and nothing else */
   type P[X] = okay.effects.Sum[({ type L[x] = okay.effects.Sum[({ type M[y] = okay.effects.Sum[okay.effects.Void, Choose, y] })#M, Expect, x] })#L, Input, X]
 
-  /** a text parsed: the value, or where it failed and what was expected */
+  /** a text parsed by the grammar: the value, or where it failed and what was expected */
   def parser(text: String, maxDepth: Int = 1000): Either[ParseError, Json] ! okay.effects.Void = parse(text)(value[P](maxDepth))
 
   /** the values of a stream of chunks, as they come, whitespace between them (JSON lines, or values concatenated):

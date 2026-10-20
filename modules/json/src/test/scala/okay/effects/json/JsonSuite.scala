@@ -1,6 +1,6 @@
 package okay.effects.json.checks
 
-import okay.effects.json.{Json, Jsons}
+import okay.effects.json.{Descent, Json, JsonParser, Jsons}
 import okay.effects.json.Json._
 import okay.effects.parsing.ParseError
 import okay.effects.stream.Streams
@@ -14,7 +14,9 @@ abstract class JsonChecks(val fx0: Runner) extends munit.FunSuite {
   val js = new Jsons[fx0.type, streams.type](streams)
 
   def parse(s: String, maxDepth: Int = 1000): Either[ParseError, Json] = fx0.run(js.parser(s, maxDepth))
-  def failure(s: String): (Long, List[String], Option[String]) = parse(s).left.map(e => (e.offset, e.expected, e.found)).left.getOrElse(fail(s"parsed: $s"))
+  /** the grammar and the descent must agree, value and error alike */
+  def agree(s: String, maxDepth: Int = 1000): Unit = assertEquals(Descent.parse(s, maxDepth), parse(s, maxDepth), s"descent vs grammar on: $s")
+  def failure(s: String): (Long, List[String], Option[String]) = { agree(s); parse(s).left.map(e => (e.offset, e.expected, e.found)).left.getOrElse(fail(s"parsed: $s")) }
 
   val sample: Json = obj("name" -> Str("Ann \"the\" Fast\n"), "age" -> num(41), "tags" -> arr(Str("a"), Str("b")),
     "price" -> Num(BigDecimal("12.50")), "none" -> Null, "ok" -> Bool(true), "nested" -> obj("deep" -> arr()))
@@ -22,10 +24,21 @@ abstract class JsonChecks(val fx0: Runner) extends munit.FunSuite {
   test("print and parse round trip") {
     assertEquals(parse(Json.print(sample)), Right(sample))
     assertEquals(parse(Json.pretty(sample)), Right(sample))
+    agree(Json.print(sample)); agree(Json.pretty(sample))
+  }
+  test("the effect: one program, the handler chosen outside") {
+    type R[X] = okay.effects.Sum[Void, JsonParser, X]
+    import js.streams.fx._
+    val program: Either[ParseError, Json] ! R = js.parseJson[R]("""{"a": [1, 2]}""")
+    assertEquals(fx0.run(js.descent(program)), Right(obj("a" -> arr(num(1), num(2)))))
+    assertEquals(fx0.run(js.grammar(program)), Right(obj("a" -> arr(num(1), num(2)))))
+    val bad: Either[ParseError, Json] ! R = js.parseJson[R]("[1, 2")
+    assertEquals(fx0.run(js.descent(bad)), fx0.run(js.grammar(bad)))
   }
   test("the values") {
     assertEquals(parse(""" {"a": [1, -2.5e2, true], "b": {"c": null, "d": "x\"y\u00e9\n\/"}, "e": [], "f": {}} """),
       Right(obj("a" -> arr(num(1), Num(BigDecimal(-250)), Bool(true)), "b" -> obj("c" -> Null, "d" -> Str("x\"yé\n/")), "e" -> arr(), "f" -> Obj.empty)))
+    List(""" {"a": [1, -2.5e2, true], "b": {"c": null, "d": "x\"y\u00e9\n\/"}, "e": [], "f": {}} """, "-0.5", "1E+3", "0", "\"\"", "[[[]]]", " [ ] ").foreach(agree(_))
     assertEquals(parse("-0.5"), Right(Num(BigDecimal("-0.5"))))
     assertEquals(parse("1E+3"), Right(Num(BigDecimal("1E+3"))))
     assertEquals(parse("0"), Right(num(0)))
@@ -50,6 +63,7 @@ abstract class JsonChecks(val fx0: Runner) extends munit.FunSuite {
   test("nesting: deep on the heap, bounded by choice") {
     val n = 100000
     assertEquals(parse("[" * n + "]" * n, maxDepth = n + 1).map(_ => "parsed"), Right("parsed"))
+    agree("[" * 10 + "]" * 10, maxDepth = 5); agree("[" * 500 + "]" * 500)
     assertEquals(parse("[" * n + "]" * n).left.map(e => (e.offset, e.expected)), Left((1000L, List("nesting of at most 1000"))))
     assertEquals(parse("[" * 10 + "]" * 10, maxDepth = 5).left.map(e => (e.offset, e.expected)), Left((5L, List("nesting of at most 5"))))
   }

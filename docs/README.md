@@ -67,7 +67,7 @@ own type, so the programs it makes run on it: `given Runner = Free; val s = Stre
 | [io](modules/io.md) | the console, the clock, the environment as effects; the world's handlers and pure ones |
 | [probability](modules/probability.md) | random choices: the exact distribution, or sampled |
 | [parsing](modules/parsing.md) | parsers of an input, expectations and a choice: by the next character or backtracking, from a text or a stream, errors that say where |
-| [json](modules/json.md) | JSON parsed by effects: a text, or a stream of chunks as values come; `Json` the value, its text |
+| [json](modules/json.md) | `Json` the value; parsing an effect with two handlers, a recursive descent and the grammar on effects; values from a stream as they come |
 | [shape](modules/shape.md) | a typed schema: at once a form, a tool's input schema and the decoder; erased to a value; JSON Schema of it |
 | [logic](modules/logic.md) | logic variables, unification, relations either way, a fair search |
 | [transaction](modules/transaction.md) | transactions on a store, rolled back on an error |
