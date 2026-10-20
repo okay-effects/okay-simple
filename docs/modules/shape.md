@@ -42,6 +42,15 @@ assert(Schema.shape.decode(Schema.shape.encode(person.erased)) == Right(person.e
 A `Sum` is a tagged union, `{"type": name, ...the case's fields}` for a record case and `{"type": name, "value": v}`
 otherwise. `Day(y, m, d)` is a calendar date of its own, ISO on the wire, so that Scala.js and Native need no java.time.
 
+## An algebra of types
+
+A `Shape` is the universe of sums of products: `Record` a product, `Sum` a coproduct, `Optional` and `Many` the type
+constructors over a shape, `Mapped` an isomorphism or a refinement, `Deferred` with `Ref` the fixed point — recursion.
+That is the universe a compiler's `Mirror` describes too, so derivation from a type (BACKLOG.md) is a translation
+between the two. Every interpreter — the erasure, the JSON Schema, the validation, a form — is a fold over this
+tree; `Fields` is `algebra`'s free applicative, so a record's fields run in any Applicative and are listed without
+running.
+
 ## Why a shape is data
 
 Whatever produces a shape — written by hand, derived from a type by the compiler, read from a file as a `Schema`

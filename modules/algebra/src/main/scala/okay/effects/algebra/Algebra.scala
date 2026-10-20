@@ -132,11 +132,18 @@ trait Words {
     def extract: A = F.extract(a)
     def coflatMap[B](f: F[A] => B): F[B] = F.coflatMap(a)(f)
   }
+  implicit final class ArrowSyntax[P[_, _], A, B](f: P[A, B])(implicit P: Arrow[P]) {
+    def >>>[C](g: P[B, C]): P[A, C] = P.andThen(f, g)
+    def <<<[C](g: P[C, A]): P[C, B] = P.compose(f, g)
+    def ***[C, D](g: P[C, D]): P[(A, C), (B, D)] = P.split(f, g)
+    def &&&[C](g: P[A, C]): P[A, (B, C)] = P.fanout(f, g)
+    def dimap[C, D](l: C => A)(r: B => D): P[C, D] = P.dimap(f)(l)(r)
+  }
   implicit final class SemigroupSyntax[A](x: A)(implicit S: Semigroup[A]) {
     def |+|(y: A): A = S.combine(x, y)
   }
   implicit final class FoldableSyntax[F[_], A](fa: F[A])(implicit F: Foldable[F]) {
-    def foldWith[S](f: Fold[A, S]): S = F.fold(fa)(f)
+    def foldWith[R](f: Fold[A, R]): R = F.fold(fa)(f)
     def foldMap[W: Monoid](f: A => W): W = F.foldMap(fa)(f)
   }
 }

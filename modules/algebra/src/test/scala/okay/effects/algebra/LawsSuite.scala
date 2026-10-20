@@ -1,7 +1,7 @@
 package okay.effects.algebra.checks
 
-import okay.effects.algebra.{Algebra, Comonad, Const, Fold, FoldUntil, Foldable, FreeAp, Id, Monad, MonadPlus, Monoid, ParaMonad, TailRecM, Validated, ~>}
-import okay.effects.algebra.syntax.{loop, replicateA, sequence, traverse, FoldableSyntax, SemigroupSyntax}
+import okay.effects.algebra.{Algebra, Arrow, Comonad, Const, Fold, FoldUntil, Foldable, FreeAp, Id, Monad, MonadPlus, Monoid, ParaMonad, Profunctor, TailRecM, Validated, ~>}
+import okay.effects.algebra.syntax.{loop, replicateA, sequence, traverse, ArrowSyntax, FoldableSyntax, SemigroupSyntax}
 import okay.effects.{Runner, Std, Sum, Void}
 import okay.effects.machine.Machine
 import okay.effects.free.Free
@@ -166,5 +166,34 @@ class StructuresSuite extends munit.FunSuite {
     val empty = new (Field ~> V) { def apply[A](f: Field[A]): V[A] = f match { case Text(n) => Validated.Invalid(List(s"$n missing")); case Number(n) => Validated.Invalid(List(s"$n missing")) } }
     assertEquals(person.foldMap[V](empty), Validated.Invalid(List("name missing", "age missing")))
     assertEquals(person.foldMap[Option](new (Field ~> Option) { def apply[A](f: Field[A]): Option[A] = f match { case Text(_) => Some("x"); case Number(_) => Some(1) } }), Some(Person("x", 1)))
+  }
+  test("Arrow: functions and Kleisli, the laws that matter and the operators") {
+    val f: Int => Int = _ + 1; val g: Int => String = _.toString
+    assertEquals((f >>> g)(1), "2")
+    assertEquals((g <<< f)(1), "2")
+    assertEquals((f *** g)((1, 2)), (2, "2"))
+    assertEquals((f &&& g)(1), (2, "1"))
+    assertEquals(Arrow[Function1].second[Int, Int, String](f)(("x", 1)), ("x", 2))
+    assertEquals(f.dimap[String, String](_.toInt)(_.toString)("41"), "42")
+    val K = Arrow.kleisli[Option]
+    val half = Arrow.Kleisli[Option, Int, Int](n => if (n % 2 == 0) Some(n / 2) else None)
+    assertEquals(K.compose(half, half).run(8), Some(2))
+    assertEquals(K.compose(half, half).run(6), None)
+    assertEquals(K.first[Int, Int, String](half).run((4, "x")), Some((2, "x")))
+    assertEquals((half >>> half >>> K.lift[Int, Int](_ + 1)).run(8), Some(3))
+  }
+  test("Profunctor: a Fold's input and output mapped") {
+    val sum: Fold[Int, Int] = Fold.sum[Int]
+    val lengths: Fold[String, String] = Profunctor[Fold].dimap(sum)((s: String) => s.length)((n: Int) => s"$n chars")
+    assertEquals(Foldable[List].fold(List("ab", "cde"))(lengths), "5 chars")
+    assertEquals(lengths.run(List("a")), "1 chars")
+    assertEquals(lengths.run(List("bb")), "2 chars")   // no state kept between runs
+  }
+  test("Fold: two folds in one pass, an Applicative") {
+    val F = Fold.applicative[Int]
+    val mean: Fold[Int, Double] = F.map2(Fold.sum[Int], Fold.count[Int])((s, n) => s.toDouble / n)
+    assertEquals(mean.run(List(1, 2, 3, 6)), 3.0)
+    assertEquals(Fold.mean.run(List(1.0, 2.0)), 1.5)
+    assertEquals(F.product(Fold.first[Int], Fold.last[Int]).run(List(4, 5, 6)), (Some(4), Some(6)))
   }
 }

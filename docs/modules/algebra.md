@@ -7,7 +7,8 @@ once for both compilers, from okay's okay2 (its Scala 2.13 core), the platform's
 | | |
 |---|---|
 | computations | `Functor`, `Applicative`, `Selective`, `Monad`, `TailRecM`, `Alternative`, `MonadPlus`, `Comonad`; `ParaMonad` (Atkey), `DiagonalMonad` |
-| combination | `Semigroup`, `Monoid`, `Group`; `Fold`, `FoldUntil`, `Foldable` |
+| combination | `Semigroup`, `Monoid`, `Group`; `Fold` (a state of its own, `end`ed to the result; two folds in one pass, an Applicative), `FoldUntil`, `Foldable` |
+| arrows | `Profunctor`, `Category`, `Arrow`; instances for functions, `Kleisli` over any Monad, `Fold` a Profunctor; `>>>`, `<<<`, `***`, `&&&`, `dimap` |
 | free | `FreeAp[F, A]` with `foldMap` into any Applicative and `analyze` without running; `Validated[E, A]` accumulating by a Semigroup; `~>`, `Const` |
 | instances | `Option`, `Either`, `List`, `Vector`, `LazyList`, `Id` in `Functor`'s companion; every collection a `Foldable`; `String`, collections, `Map`, `Option`, numerics as Monoids |
 | programs | `monad[R]`: `Monad` and `TailRecM` of `A ! R`; `monadPlus[R]` with `Choose` in `R`; `paraMonad[R]`: `Delimited`'s `Cps` as a `ParaMonad` |
@@ -65,6 +66,22 @@ assert(person.foldMap[V](nothing) == Validated.Invalid(List("name missing", "age
 `Delimited`'s `Cps[A, B, C, R]` — a program of `A` whose answer `B` is changed to `C` — is Atkey's parameterised monad
 `M[A, S, T]` with `S = B`, `T = C`: `pure` keeps the answer, `flatMap` composes the changes. `paraMonad[R]` is the
 instance; `ParaMonad.diagonal` the ordinary Monad on one answer type.
+
+## Arrows
+
+Functions, effectful functions (`Kleisli` over a Monad, programs' among them) and folds compose as arrows: `>>>`, side
+by side `***`, on one input `&&&`. A `Fold` is a profunctor — what goes in, what comes out — mapped on either side.
+Optics by profunctors are not here: the simple optics fall out of `shape` (a field a lens, a case a prism) and come as
+their own module when an application edits a nested record.
+
+```scala
+import okay.effects.algebra.syntax.ArrowSyntax
+val f: Int => Int = _ + 1
+val g: Int => String = _.toString
+assert((f >>> g)(1) == "2" && (f &&& g)(1) == (2, "1"))
+val half = Arrow.Kleisli[Option, Int, Int](n => if (n % 2 == 0) Some(n / 2) else None)
+assert((half >>> half).run(8) == Some(2) && (half >>> half).run(6) == None)
+```
 
 ## What is not here
 
