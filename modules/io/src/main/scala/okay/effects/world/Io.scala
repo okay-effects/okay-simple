@@ -6,6 +6,8 @@ import okay.effects.Effects
 sealed trait Console[X]
 object Console {
   final case class ReadLine[X](answer: Option[String] => X) extends Console[X]
+  /** a line typed without echo — a password, a secret; a console that cannot hide the typing reads a line */
+  final case class ReadSecret[X](answer: Option[String] => X) extends Console[X]
   final case class PrintLine[X](s: String, answer: Unit => X) extends Console[X]
 }
 /** a clock's: the time now, in milliseconds */
@@ -31,6 +33,7 @@ class Io[F <: Effects](implicit implementation: F) {
   import fx._
 
   def readLine[R[_]](implicit in: In[Console, R]): Option[String] ! R = perform[Console].apply[R, Option[String]](Console.ReadLine(l => l))
+  def readSecret[R[_]](implicit in: In[Console, R]): Option[String] ! R = perform[Console].apply[R, Option[String]](Console.ReadSecret(l => l))
   def printLine[R[_]](s: String)(implicit in: In[Console, R]): Unit ! R = perform[Console].apply[R, Unit](Console.PrintLine(s, u => u))
   def now[R[_]](implicit in: In[Clock, R]): Long ! R = perform[Clock].apply[R, Long](Clock.Now(t => t))
   def getEnv[R[_]](name: String)(implicit in: In[Env, R]): Option[String] ! R = perform[Env].apply[R, Option[String]](Env.Get(name, v => v))
@@ -47,6 +50,10 @@ class Io[F <: Effects](implicit implementation: F) {
               case l :: ls => cell.set((ls, cell.get._2)); answer(Some(l))
               case Nil => answer(None)
             }
+            case Console.ReadSecret(answer) => cell.get._1 match {
+              case l :: ls => cell.set((ls, cell.get._2)); answer(Some(l))
+              case Nil => answer(None)
+            }
             case Console.PrintLine(s, answer) => cell.set((cell.get._1, s :: cell.get._2)); answer(())
           }
         })
@@ -57,6 +64,7 @@ class Io[F <: Effects](implicit implementation: F) {
       def ret(a: A) = pure(a)
       def answer[X](op: Console[X]): X = op match {
         case Console.ReadLine(answer) => answer(Option(scala.io.StdIn.readLine()))
+        case Console.ReadSecret(answer) => answer(Secret.read())
         case Console.PrintLine(s, answer) => println(s); answer(())
       }
     })

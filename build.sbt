@@ -208,6 +208,9 @@ lazy val concurrent = effectModule("concurrent", "okay-effects-concurrent")
 lazy val resource = effectModule("resource", "okay-effects-resource")
 /** the console, the clock, the environment: the world's handlers and pure ones */
 lazy val io = effectModule("io", "okay-effects-io")
+  .jvmSettings(Compile / unmanagedSourceDirectories += baseDirectory.value.getParentFile / "src" / "main" / "scala-jvm")
+  .onJS(_.settings(Compile / unmanagedSourceDirectories += baseDirectory.value.getParentFile / "src" / "main" / "scala-notjvm"))
+  .onNative(_.settings(Compile / unmanagedSourceDirectories += baseDirectory.value.getParentFile / "src" / "main" / "scala-notjvm"))
 /** random choices: the exact distribution, or sampled */
 lazy val probability = effectModule("probability", "okay-effects-probability")
 /** parsers of the input as a state and the alternatives as choices */

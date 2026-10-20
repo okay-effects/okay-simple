@@ -5,7 +5,7 @@ handler says how — the world's, or a pure one for tests. The same program unde
 
 | Effect | Operations | The world's handler | A pure handler |
 |---|---|---|---|
-| `Console` | `readLine` (`Option[String]`), `printLine(s)` | `realConsole` | `console(inputs)`: the lines written, with the value |
+| `Console` | `readLine` (`Option[String]`), `readSecret` (a line typed without echo, where the console can hide it), `printLine(s)` | `realConsole` | `console(inputs)`: the lines written, with the value |
 | `Clock` | `now` (milliseconds) | `systemClock` | `clock(start, step)` |
 | `Env` | `getEnv(name)` | `systemEnv` | `env(vars)` |
 

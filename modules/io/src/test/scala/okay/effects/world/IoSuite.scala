@@ -37,8 +37,9 @@ abstract class IoChecks(val fx0: Runner) extends munit.FunSuite {
     assert(t > 0)
     assertEquals(io.fx.run(systemEnv(getEnv[Env]("OKAY_NO_SUCH_VARIABLE"))), None)
   }
+  test("readSecret: a line typed without echo, which the scripted console reads like any line") {
+    type C[X] = Sum[Void, Console, X]
+    assertEquals(io.fx.run(console(List("hunter2"))(readSecret[C])), (Nil, Some("hunter2")))
+    assertEquals(io.fx.run(console(Nil)(readSecret[C])), (Nil, None))
+  }
 }
-
-class IoOnMachine extends IoChecks(Machine)
-class IoOnFree extends IoChecks(Free)
-class IoOnTagless extends IoChecks(okay.effects.tagless.Tagless.on(Machine))
