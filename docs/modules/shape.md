@@ -18,6 +18,7 @@ by the same decoder as everything else. `JsonSchema.of` is the JSON Schema (draf
 | JSON Schema | `JsonSchema.of(schema, defs)`: `title`, `description`, `default`, `enum`, `oneOf` with a `type` tag for a sum, `$ref` into `$defs`, `"x-secret": true` |
 
 ```scala
+import okay.effects.*
 import okay.effects.json.Json
 import okay.effects.json.Json.*
 import okay.effects.shape.*
@@ -51,10 +52,36 @@ between the two. Every interpreter — the erasure, the JSON Schema, the validat
 tree; `Fields` is `algebra`'s free applicative, so a record's fields run in any Applicative and are listed without
 running.
 
+## Reading a shape is an effect
+
+`read(shape)` is a program over the effect `Fields`: a leaf asked for at its path (`Get`), a record descended into,
+an option asked whether it is there (`Has`), a list how long (`Size`), a sum which case (`Which`), and a value that
+did not decode asked AGAIN (`Retry`) while the handler offers another. Where the fields come from is the handler's:
+`fromJson(j)` answers from a value — and `read` under it IS `decode`, a law the suite states — a command line or
+another encoding would be another handler, and a person at a terminal, asked field by field with the problem shown,
+is okay-face's. `answering(xs)`, a script of answers in order, stands in for the person in a test. Every operation
+carries the path and the erased shape of what is asked, labels and constraints with it, for the handler to show.
+
+```scala
+type R = Fields
+val filled = run(fromJson(person.encode(ann))(read[Person, R](person)))
+assert(filled == Right(ann))
+// a person: name; age, refused and asked again; email present and given; born
+val asked = run(answering(List(Str("Ann"), num(3), num(41), Json.Bool(true), Str("ann@x.io"), Str("1985-03-09")))(read[Person, R](
+  record(field("name", text), field("age", int.check("of age")(_ >= 18)), field("email", text.optional), field("born", date))(Person(_, _, _, _))(p => (p.name, p.age, p.email, p.born)))))
+assert(asked == Right(Person("Ann", 41, Some("ann@x.io"), Day(1985, 3, 9))))
+```
+
+## An interpreter of one's own: `ShapeAlgebra`
+
+Every interpretation of a shape is a fold over its tree, and `shape.fold(alg)` is that fold typed: a method of
+`ShapeAlgebra[G]` per kind of node, given the node's parts with the children already interpreted, no match on nodes
+— so an interpreter is written outside this module as easily as `Reading` is in it: a form, a terminal's prompts, a
+listing of the paths. `alg.field(f)` and `alg.fields(record)` interpret a record's fields with the same algebra.
+
 ## Why a shape is data
 
 Whatever produces a shape — written by hand, derived from a type by the compiler, read from a file as a `Schema`
 (a user-defined kind of record) — the rest is interpreters of the same data: the decoder, the form, the JSON Schema,
 a terminal's prompts. Reading the fields a shape names is itself an effect, the source of the fields a handler's — a
-JSON value, another encoding, a command line, a person asked field by field; that is the next step of this module
-(BACKLOG.md, "shape: reading as an effect").
+JSON value, another encoding, a command line, a person asked field by field: `read`, above.

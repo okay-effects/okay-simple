@@ -19,6 +19,10 @@ sealed trait Shape[P] {
   def erased: Schema
   /** what an ABSENT field of this shape decodes to, if anything: `Optional` says `None`; the rest, nothing (required) */
   def absent: Option[P] = None
+  /** this shape interpreted: the typed fold, a method of `alg` per node */
+  def fold[G[_]](alg: ShapeAlgebra[G]): G[P]
+  /** a leaf: a value in one piece — a primitive, or one refined or described; a record, a sum, a list, an option are not */
+  def isLeaf: Boolean = true
 
   def map[B](to: P => B)(from: B => P): Shape[B] = Shape.Mapped(this, (p: P) => Right(to(p)), from)
   def refine[B](to: P => Either[String, B])(from: B => P): Shape[B] = Shape.Mapped(this, to, from)
@@ -42,6 +46,7 @@ object Shape extends RecordWords {
     }
     def encode(s: String): Json = Str(s)
     def erased: Schema = Schema.Text(constraints)
+    def fold[G[_]](alg: ShapeAlgebra[G]): G[String] = alg.text(constraints)
   }
   final case class Integer(constraints: List[Constraint.OnNumber] = Nil) extends Shape[BigInt] {
     def decodeAt(v: Json, path: List[String]): Either[Problems, BigInt] = v match {
@@ -53,6 +58,7 @@ object Shape extends RecordWords {
     }
     def encode(n: BigInt): Json = Num(BigDecimal(n))
     def erased: Schema = Schema.Integer(constraints)
+    def fold[G[_]](alg: ShapeAlgebra[G]): G[BigInt] = alg.integer(constraints)
   }
   final case class Number(constraints: List[Constraint.OnNumber] = Nil) extends Shape[BigDecimal] {
     def decodeAt(v: Json, path: List[String]): Either[Problems, BigDecimal] = v match {
@@ -63,6 +69,7 @@ object Shape extends RecordWords {
     }
     def encode(n: BigDecimal): Json = Num(n)
     def erased: Schema = Schema.Number(constraints)
+    def fold[G[_]](alg: ShapeAlgebra[G]): G[BigDecimal] = alg.number(constraints)
   }
   case object Bool extends Shape[Boolean] {
     def decodeAt(v: Json, path: List[String]): Either[Problems, Boolean] = v match {
@@ -71,6 +78,7 @@ object Shape extends RecordWords {
     }
     def encode(b: Boolean): Json = Json.Bool(b)
     def erased: Schema = Schema.Bool
+    def fold[G[_]](alg: ShapeAlgebra[G]): G[Boolean] = alg.bool
   }
   case object Date extends Shape[Day] {
     def decodeAt(v: Json, path: List[String]): Either[Problems, Day] = v match {
@@ -79,6 +87,7 @@ object Shape extends RecordWords {
     }
     def encode(d: Day): Json = Str(d.toString)
     def erased: Schema = Schema.Date
+    def fold[G[_]](alg: ShapeAlgebra[G]): G[Day] = alg.date
   }
   /** one of a closed list, by name */
   final case class Choice[A](options: List[(String, A)]) extends Shape[A] {
@@ -89,6 +98,7 @@ object Shape extends RecordWords {
     }
     def encode(a: A): Json = options.collectFirst { case (n, x) if x == a => Str(n) }.getOrElse(Str(a.toString))
     def erased: Schema = Schema.Choice(options.map(_._1))
+    def fold[G[_]](alg: ShapeAlgebra[G]): G[A] = alg.choice(options)
   }
   final case class Optional[A](of: Shape[A]) extends Shape[Option[A]] {
     def decodeAt(v: Json, path: List[String]): Either[Problems, Option[A]] = v match {
@@ -98,6 +108,8 @@ object Shape extends RecordWords {
     def encode(a: Option[A]): Json = a.fold[Json](Null)(of.encode)
     def erased: Schema = Schema.Optional(of.erased)
     override def absent: Option[Option[A]] = Some(None)
+    def fold[G[_]](alg: ShapeAlgebra[G]): G[Option[A]] = alg.optional(this, of.fold(alg))
+    override def isLeaf: Boolean = false
   }
   final case class Many[A](of: Shape[A], min: Int = 0, max: Option[Int] = None) extends Shape[List[A]] {
     def decodeAt(v: Json, path: List[String]): Either[Problems, List[A]] = v match {
@@ -113,6 +125,8 @@ object Shape extends RecordWords {
     }
     def encode(as: List[A]): Json = Arr(as.iterator.map(of.encode).toVector)
     def erased: Schema = Schema.Many(of.erased, min, max)
+    def fold[G[_]](alg: ShapeAlgebra[G]): G[List[A]] = alg.many(this, of.fold(alg))
+    override def isLeaf: Boolean = false
   }
   /** a record: `fields`, the free applicative of its `Field`s, decode it — run in `Validated`, every field's problems
    * kept — and list themselves without decoding (`erased`); `write` takes a value apart (`record(...)(make)(unmake)`
@@ -124,10 +138,11 @@ object Shape extends RecordWords {
     }
     def encode(p: P): Json = Obj(write(p))
     def erased: Schema = Schema.Record(fields.analyze(Field.erasing)(Monoid.vector[Schema.Field]))
+    def fold[G[_]](alg: ShapeAlgebra[G]): G[P] = alg.record(this)
+    override def isLeaf: Boolean = false
   }
   /** a tagged union of cases: `{"type": name, ...}` — the case's own fields when it is a record, `"value"` otherwise */
   final case class Sum[A](cases: List[Case[A]]) extends Shape[A] {
-    private def flat(c: Case[A]): Boolean = Schema.isRecord(c.shape.erased)
     private def names = cases.map(_.name).mkString(", ")
     def decodeAt(v: Json, path: List[String]): Either[Problems, A] = v match {
       case o: Obj => o.get("type") match {
@@ -154,6 +169,9 @@ object Shape extends RecordWords {
       case None => Null
     }
     def erased: Schema = Schema.Sum(cases.iterator.map(c => c.name -> c.shape.erased).toVector)
+    def fold[G[_]](alg: ShapeAlgebra[G]): G[A] = alg.sum(this)
+    override def isLeaf: Boolean = false
+    def flat(c: Case[A]): Boolean = Schema.isRecord(c.shape.erased)
   }
   sealed abstract class Case[A] {
     type B
@@ -179,6 +197,8 @@ object Shape extends RecordWords {
     def encode(b: B): Json = of.encode(from(b))
     def erased: Schema = of.erased
     override def absent: Option[B] = of.absent.flatMap(a => to(a).toOption)
+    def fold[G[_]](alg: ShapeAlgebra[G]): G[B] = alg.mapped(this, of.fold(alg))
+    override def isLeaf: Boolean = of.isLeaf
   }
   /** the same shape with words for a person: a face shows them, the decoder ignores them */
   final case class Described[A](of: Shape[A], label: String, doc: Option[String] = None) extends Shape[A] {
@@ -186,6 +206,8 @@ object Shape extends RecordWords {
     def encode(a: A): Json = of.encode(a)
     def erased: Schema = Schema.Described(of.erased, label, doc)
     override def absent: Option[A] = of.absent
+    def fold[G[_]](alg: ShapeAlgebra[G]): G[A] = alg.described(this, of.fold(alg))
+    override def isLeaf: Boolean = of.isLeaf
   }
   /** a value validated against an erased schema, kept as a value — a user-defined kind of record, read from a file */
   final case class Loose(schema: Schema, defs: Map[String, Schema] = Map.empty) extends Shape[Json] {
@@ -193,11 +215,13 @@ object Shape extends RecordWords {
     def encode(v: Json): Json = v
     def erased: Schema = schema
     override def absent: Option[Json] = if (Schema.isOptional(schema, defs)) Some(Null) else None
+    def fold[G[_]](alg: ShapeAlgebra[G]): G[Json] = alg.loose(schema, defs)
   }
   case object AnyValue extends Shape[Json] {
     def decodeAt(v: Json, path: List[String]): Either[Problems, Json] = Right(v)
     def encode(v: Json): Json = v
     def erased: Schema = Schema.Any
+    def fold[G[_]](alg: ShapeAlgebra[G]): G[Json] = alg.any
   }
   /** a shape named and given later: how a recursive shape is written; erased to `Ref(name)` */
   final case class Deferred[A](name: String, of: () => Shape[A]) extends Shape[A] {
@@ -206,6 +230,8 @@ object Shape extends RecordWords {
     def encode(a: A): Json = inner.encode(a)
     def erased: Schema = Schema.Ref(name)
     override def absent: Option[A] = inner.absent
+    def fold[G[_]](alg: ShapeAlgebra[G]): G[A] = alg.deferred(name, () => inner.fold(alg))
+    override def isLeaf: Boolean = inner.isLeaf
   }
 
   final case class Field[A](name: String, shape: Shape[A], label: Option[String] = None, doc: Option[String] = None,

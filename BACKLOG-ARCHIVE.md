@@ -71,3 +71,16 @@ hand-written parser needs a depth limit to turn a stack overflow into a problem.
 **Shape.** `Input` as a position: `item` reads `text.charAt(i)` and `put(i + 1)`; `parse(text)(p)` closes over the
 text; the module's words change in their bodies only. Then the two items above (errors at the furthest position; a
 committed choice) build on the position. Then the measurement again, in bench, recorded.
+
+## shape: reading as an effect — DONE 2026-10-20 (`Fields`, `Reading`, `ShapeAlgebra`)
+
+Decided 2026-10-20 (okay-face specs/face-core.md, "Reading a shape is an effect"), the module moved here the same day.
+`decode(v: Json)` fixes the fields' source to a JSON value; nothing in a `Shape` says JSON. Reading the fields a shape
+names is a program over an effect — `Fields`: `Read(path, prim)`, `Enter(path)`, `Leave`, `Size(path)` — and the
+source is the handler's: a `Json` (today's decode), another encoding (CBOR), a command line's arguments, a PERSON asked
+field by field at a terminal, with the problem shown and the field asked again — okay-face's terminal face is that
+handler, not code of its own. `read(shape): Either[Problems, P] ! Fields` keeps every problem as `decode` does;
+`decode(v)` stays as `run(fromJson(v)(read(shape)))`. Encoding stays a function to a value. Tests: `fromJson` agrees
+with `decode` on every ShapeSuite case; a scripted "person" handler answers prompts in order and is asked again on a
+problem; the two handlers give the same `P` for the same answers.
+
