@@ -1,6 +1,6 @@
 package okay.effects.json.checks
 
-import okay.effects.json.{Descent, Json, JsonParser, Jsons}
+import okay.effects.json.{Descent, Json, JsonParser, JsonPrinter, Jsons}
 import okay.effects.json.Json._
 import okay.effects.parsing.ParseError
 import okay.effects.stream.Streams
@@ -82,6 +82,38 @@ abstract class JsonChecks(val fx0: Runner) extends munit.FunSuite {
     val chunks = streams.fromIterator[String, Void](Iterator.continually { pulled += 1; "1 " })
     assertEquals(fx0.run(js.values[Void](chunks).take(3).toList), List(Right(num(1)), Right(num(1)), Right(num(1))))
     assert(pulled <= 5, s"pulled $pulled chunks for three values")
+  }
+  test("the way out: compact, pretty, ascii; the printer an effect with the format its handler's") {
+    val j = obj("a" -> arr(num(1), Str("é\"x")), "b" -> Obj.empty, "c" -> arr())
+    assertEquals(Json.print(j), """{"a":[1,"é\"x"],"b":{},"c":[]}""")
+    assertEquals(Json.print(j, ascii = true), "{\"a\":[1,\"\\u00e9\\\"x\"],\"b\":{},\"c\":[]}")   // not a triple-quoted literal: Scala 2 would read the \u in it
+    assertEquals(Json.pretty(j), "{\n  \"a\": [\n    1,\n    \"é\\\"x\"\n  ],\n  \"b\": {},\n  \"c\": []\n}")
+    type R[X] = okay.effects.Sum[Void, JsonPrinter, X]
+    import js.streams.fx._
+    val program: String ! R = js.printJson[R](j)
+    assertEquals(fx0.run(js.compact()(program)), Json.print(j))
+    assertEquals(fx0.run(js.indented(4)(program)), Json.pretty(j, 4))
+    assertEquals(fx0.run(js.compact(ascii = true)(program)), Json.print(j, ascii = true))
+  }
+  test("printing is iterative: a hundred thousand deep, both ways") {
+    val n = 100000
+    val deep = parse("[" * n + "]" * n, maxDepth = n + 1).toOption.get
+    val text = Json.print(deep)
+    assertEquals(text.length, 2 * n)
+    // not `==` on the values: a case class's equals recurses on the stack; the text is the comparison
+    assertEquals(parse(text, maxDepth = n + 1).map(Json.print(_)), Right(text))
+    // `pretty` of it is not asked: its indentation alone is quadratic in the depth
+  }
+  test("chunks: a value as the stream of its pieces; lines: a value a line") {
+    val j = obj("a" -> arr(num(1), num(2)), "b" -> Str("x"), "c" -> Null)
+    val pieces = fx0.run(js.chunks[Void](j).toList)
+    assertEquals(pieces.mkString, Json.print(j))
+    assert(pieces.size > 5)
+    val deep = parse("[" * 100000 + "]" * 100000, maxDepth = 100001).toOption.get
+    assertEquals(fx0.run(js.chunks[Void](deep).fold(0)((n, s) => n + s.length)), 200000)
+    val lines = fx0.run(js.lines[Void](streams.emits[Json, Void](List(num(1), obj("a" -> Null)))).toList)
+    assertEquals(lines, List("1\n", """{"a":null}""" + "\n"))
+    assertEquals(fx0.run(js.values[Void](streams.emits[String, Void](lines)).toList), List(Right(num(1)), Right(obj("a" -> Null))))
   }
 }
 

@@ -11,6 +11,13 @@ object JsonParser {
   final case class Parse[X](text: String, maxDepth: Int, answer: Either[ParseError, Json] => X) extends JsonParser[X]
 }
 
+/** THE EFFECT THE OTHER WAY: a `Json` to its text. How — compact for a wire, pretty for a person, ASCII-only for a
+ * channel that wants it — is the handler's choice: `compact`, `indented` */
+sealed trait JsonPrinter[X]
+object JsonPrinter {
+  final case class Print[X](json: Json, answer: String => X) extends JsonPrinter[X]
+}
+
 /**
  * JSON: the effect `JsonParser` and its two handlers, and the grammar itself. THE GRAMMAR is a program of the parsing
  * module's three effects, decided by the next character —
@@ -133,6 +140,43 @@ class Jsons[I <: okay.effects.Effects, S <: Streams[I]](val streams: S) {
         }
       })
   }
+
+  // ---- the way out
+  /** a value printed, by whichever handler is outside */
+  def printJson[R[_]](j: Json)(implicit in: In[JsonPrinter, R]): String ! R =
+    perform[JsonPrinter].apply[R, String](JsonPrinter.Print[String](j, s => s))
+  /** one line, no spaces; `ascii` escapes every character beyond ASCII */
+  def compact(ascii: Boolean = false): PrintHandler = new PrintHandler(j => Json.print(j, ascii))
+  /** indented, a field a line (`Json.pretty`) */
+  def indented(indent: Int = 2, ascii: Boolean = false): PrintHandler = new PrintHandler(j => Json.pretty(j, indent, ascii))
+  final class PrintHandler(render: Json => String) {
+    def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[JsonPrinter, R, Rest]): A ! Rest =
+      handle[JsonPrinter, R, Rest, A, A](p, new TailHandler[JsonPrinter, Rest, A, A] {
+        def ret(a: A) = pure(a)
+        def answer[X](op: JsonPrinter[X]): X = op match { case JsonPrinter.Print(j, answer) => answer(render(j)) }
+      })
+  }
+
+  /** a value as a stream of its pieces, compact, as they are written — the dual of `values`: a value too big for one
+   * string goes out as it is walked, on the heap, however deep */
+  def chunks[Rest[_]](j: Json, ascii: Boolean = false): streams.Stream[String, Rest] = {
+    type Y[X] = Yield[String, X]
+    type RY[X] = okay.effects.Sum[Rest, Y, X]
+    def out(s: String): Unit ! RY = emit[String, RY](s)
+    def quoted(s: String): String = Json.print(Json.Str(s), ascii)
+    def walk(v: Json): Unit ! RY = v match {
+      case Json.Arr(items) if items.nonEmpty =>
+        items.iterator.zipWithIndex.foldLeft(out("[")) { case (acc, (x, i)) => acc.flatMap(_ => if (i > 0) out(",").flatMap(_ => walk(x)) else walk(x)) }.flatMap(_ => out("]"))
+      case Json.Obj(fields) if fields.nonEmpty =>
+        fields.iterator.zipWithIndex.foldLeft(out("{")) { case (acc, ((k, x), i)) =>
+          acc.flatMap(_ => out((if (i > 0) "," else "") + quoted(k) + ":")).flatMap(_ => walk(x)) }.flatMap(_ => out("}"))
+      case other => out(Json.print(other, ascii))
+    }
+    streams.fromGenerator[String].apply[RY, Rest, Unit](walk(j))
+  }
+  /** JSON lines: a value a line, each printed compact, the newline on */
+  def lines[Rest[_]](values: streams.Stream[Json, Rest], ascii: Boolean = false): streams.Stream[String, Rest] =
+    values.map(j => Json.print(j, ascii) + "\n")
 
   /** the row a JSON parser runs in: the three effects and nothing else */
   type P[X] = okay.effects.Sum[({ type L[x] = okay.effects.Sum[({ type M[y] = okay.effects.Sum[okay.effects.Void, Choose, y] })#M, Expect, x] })#L, Input, X]

@@ -17,7 +17,9 @@ under either, and a third handler — another encoding, a cache, a test's table 
 | | |
 |---|---|
 | the value | `Json`: `Null`, `Bool(b)`, `Num(n)`, `Str(s)`, `Arr(items)`, `Obj(fields)`; `Json.obj(...)`, `arr(...)`, `num(...)`, `str(...)` |
-| text of a value | `Json.print(j)`, `Json.pretty(j, indent = 2)` |
+| text of a value | `Json.print(j, ascii = false)`, `Json.pretty(j, indent = 2, ascii = false)` — iterative, any depth |
+| the way out, an effect | `printJson(j)`: `String ! R`, `JsonPrinter` in `R`; `compact(ascii)` and `indented(indent, ascii)` its handlers |
+| a stream written | `chunks(j)`: a `Stream[String, R]` of the value's pieces as it is walked, the dual of `values`; `lines(values)`: JSON lines, a value a line |
 | the effect | `parseJson(text, maxDepth = 1000)`: `Either[ParseError, Json] ! R`, `JsonParser` in `R`; `descent(p)` and `grammar(p)` its handlers |
 | at once | `parse(text, maxDepth)`: `Either[ParseError, Json]`, by descent; `parser(text)` the grammar as a program; `value` the grammar, for a parser of one's own |
 | a stream parsed | `values(chunks, maxDepth)`: a `Stream[Either[ParseError, Json], R]` of the values as they come, whitespace between them — JSON lines, or values concatenated; a failure is one `Left`, the last element |
@@ -45,13 +47,31 @@ assert(run(grammar(parseJson[R]("[" * 100000 + "]" * 100000, maxDepth = 100001))
 Strict as RFC 8259: no leading zero, no control character in a string, the escapes `\" \\ \/ \b \f \n \r \t \uXXXX`,
 whitespace a space, a tab, a line feed, a carriage return. Numbers are `BigDecimal`, as written.
 
-## Values as they come
+## The way out
+
+Printing is the effect `JsonPrinter`, as parsing is `JsonParser`: a program says `printJson(j)`, and whether the text
+is compact for a wire, indented for a person, or ASCII-only for a channel that wants it, is the handler's. The
+printer is ITERATIVE — an explicit stack of what is still to write — so the value nested a hundred thousand deep that
+the grammar parsed on the heap prints on the heap too. `chunks(j)` writes a value as a stream of its pieces, walked as
+the stream is pulled; `lines(values)` writes JSON lines.
 
 ```scala
 import okay.effects.stream.*
 
-val lines = fromIterator[String, Pure](Iterator("{\"a\": 1}\n{\"b\":", " 2}\n", "3 \"x\""))
-assert(run(values(lines).toList) == List(Right(obj("a" -> num(1))), Right(obj("b" -> num(2))), Right(num(3)), Right(Str("x"))))
+type W = JsonPrinter
+val out: String ! W = printJson[W](obj("a" -> arr(num(1), Str("é"))))
+assert(run(compact()(out)) == """{"a":[1,"é"]}""")
+assert(run(compact(ascii = true)(out)) == """{"a":[1,"\u00e9"]}""")
+assert(run(indented()(out)) == "{\n  \"a\": [\n    1,\n    \"é\"\n  ]\n}")
+assert(run(chunks[Pure](obj("a" -> arr(num(1)))).toList).mkString == """{"a":[1]}""")
+assert(run(lines[Pure](emits[Json, Pure](List(num(1), Null))).toList) == List("1\n", "null\n"))
+```
+
+## Values as they come
+
+```scala
+val input = fromIterator[String, Pure](Iterator("{\"a\": 1}\n{\"b\":", " 2}\n", "3 \"x\""))
+assert(run(values(input).toList) == List(Right(obj("a" -> num(1))), Right(obj("b" -> num(2))), Right(num(3)), Right(Str("x"))))
 assert(run(values(fromIterator[String, Pure](Iterator("1 ", "[2"))).toList).map(_.left.map(_.offset)) == List(Right(num(1)), Left(4L)))
 ```
 
