@@ -209,13 +209,17 @@ object Shape extends RecordWords {
     def fold[G[_]](alg: ShapeAlgebra[G]): G[A] = alg.described(this, of.fold(alg))
     override def isLeaf: Boolean = of.isLeaf
   }
-  /** a value validated against an erased schema, kept as a value — a user-defined kind of record, read from a file */
+  /** a value validated against an erased schema, kept as a value — a user-defined kind of record, read from a file: the
+   * schema's structural shape (`Schema.structural`), so it is read field by field, drawn as a form, validated, like a
+   * shape written in code; `erased` is the schema itself */
   final case class Loose(schema: Schema, defs: Map[String, Schema] = Map.empty) extends Shape[Json] {
-    def decodeAt(v: Json, path: List[String]): Either[Problems, Json] = Validate.decodeAt(schema, defs, v, path)
+    lazy val structural: Shape[Json] = Schema.structural(schema, defs)
+    def decodeAt(v: Json, path: List[String]): Either[Problems, Json] = structural.decodeAt(v, path)
     def encode(v: Json): Json = v
     def erased: Schema = schema
-    override def absent: Option[Json] = if (Schema.isOptional(schema, defs)) Some(Null) else None
-    def fold[G[_]](alg: ShapeAlgebra[G]): G[Json] = alg.loose(schema, defs)
+    override def absent: Option[Json] = structural.absent
+    def fold[G[_]](alg: ShapeAlgebra[G]): G[Json] = structural.fold(alg)
+    override def isLeaf: Boolean = structural.isLeaf
   }
   case object AnyValue extends Shape[Json] {
     def decodeAt(v: Json, path: List[String]): Either[Problems, Json] = Right(v)
@@ -280,78 +284,4 @@ object Shape extends RecordWords {
   def sub[A, B <: A](name: String, shape: Shape[B])(project: A => Option[B]): Case[A] = Case[A, B](name, shape)(b => b)(project)
   def deferred[A](name: String)(of: => Shape[A]): Shape[A] = Deferred(name, () => of)
   def loose(schema: Schema, defs: Map[String, Schema] = Map.empty): Shape[Json] = Loose(schema, defs)
-}
-
-/** a `Json` against an erased `Schema`: the typed nodes' rules, the result normalised as the typed shape would encode
- * it (fields in the schema's order, known fields only, an absent optional as `Null`, a date in ISO) */
-private[shape] object Validate {
-  import Shape.{expected, problem}
-  def decodeAt(s: Schema, defs: Map[String, Schema], v: Json, path: List[String]): Either[Problems, Json] = s match {
-    case Schema.Text(cs) => Shape.Text(cs).decodeAt(v, path).map(Str(_))
-    case Schema.Integer(cs) => Shape.Integer(cs).decodeAt(v, path).map(n => Num(BigDecimal(n)))
-    case Schema.Number(cs) => Shape.Number(cs).decodeAt(v, path).map(Num(_))
-    case Schema.Bool => Shape.Bool.decodeAt(v, path).map(Json.Bool(_))
-    case Schema.Date => Shape.Date.decodeAt(v, path).map(d => Str(d.toString))
-    case Schema.Choice(options) => v match {
-      case Str(x) if options.contains(x) => Right(v)
-      case Str(_) => problem(path, s"one of ${options.mkString(", ")}")
-      case other => expected(s"one of ${options.mkString(", ")}", other, path)
-    }
-    case Schema.Optional(of) => v match {
-      case Null => Right(Null)
-      case other => decodeAt(of, defs, other, path)
-    }
-    case Schema.Many(of, min, max) => v match {
-      case Arr(items) =>
-        val size =
-          if (items.size < min) List(Problem(path.reverse, s"at least $min items"))
-          else if (max.exists(items.size > _)) List(Problem(path.reverse, s"at most ${max.get} items"))
-          else Nil
-        val decoded = items.zipWithIndex.map { case (x, i) => decodeAt(of, defs, x, i.toString :: path) }
-        val problems = size ++ decoded.collect { case Left(ps) => ps }.flatten
-        if (problems.isEmpty) Right(Arr(decoded.collect { case Right(a) => a })) else Left(problems)
-      case other => expected("a list", other, path)
-    }
-    case Schema.Record(fields) => v match {
-      case o: Obj =>
-        val decoded = fields.map { f =>
-          o.get(f.name) match {
-            case Some(x) => decodeAt(f.schema, defs, x, f.name :: path).map(f.name -> _)
-            case None => f.default.orElse(if (Schema.isOptional(f.schema, defs)) Some(Null) else None)
-              .map(f.name -> _).toRight(List(Problem((f.name :: path).reverse, "required")))
-          }
-        }
-        val problems = decoded.collect { case Left(ps) => ps }.flatten.toList
-        if (problems.isEmpty) Right(Obj(decoded.collect { case Right(kv) => kv })) else Left(problems)
-      case other => expected("a record", other, path)
-    }
-    case Schema.Sum(cases) =>
-      val names = cases.map(_._1).mkString(", ")
-      v match {
-        case o: Obj => o.get("type") match {
-          case Some(Str(t)) => cases.find(_._1 == t) match {
-            case Some((_, cs)) =>
-              if (Schema.isRecord(cs)) decodeAt(cs, defs, o.without("type"), path).map {
-                case body: Obj => ("type" -> Str(t)) +: body
-                case other => other
-              }
-              else o.get("value") match {
-                case Some(x) => decodeAt(cs, defs, x, "value" :: path).map(x => Obj.of("type" -> Str(t), "value" -> x))
-                case None if Schema.isOptional(cs, defs) => Right(Obj.of("type" -> Str(t), "value" -> Null))
-                case None => problem("value" :: path, "required")
-              }
-            case None => problem("type" :: path, s"one of $names")
-          }
-          case Some(other) => expected(s"one of $names", other, "type" :: path)
-          case None => problem(path, s"a 'type' field naming one of $names")
-        }
-        case other => expected("a record with a 'type'", other, path)
-      }
-    case Schema.Described(of, _, _) => decodeAt(of, defs, v, path)
-    case Schema.Ref(name) => defs.get(name) match {
-      case Some(d) => decodeAt(d, defs, v, path)
-      case None => problem(path, s"unknown schema '$name'")
-    }
-    case Schema.Any => Right(v)
-  }
 }
