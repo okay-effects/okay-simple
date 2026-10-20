@@ -12,7 +12,7 @@ type lambdas, `Choose + State % Int`; in Scala 2 by names taken as the construct
 
 Three implementations here — a machine, the `Free` monad, and tagless (programs of no implementation) — and two
 bridges in other repositories, to okay-core's machine and to okay-kernel's protocol, all checked by one suite; and
-modules of more effects: streams, asynchrony, concurrency, resources, I/O, probability, parsing, JSON, shapes, logic, transactions,
+modules of more effects: streams, asynchrony, concurrency, resources, I/O, probability, parsing, JSON, shapes, the algebra of programs, logic, transactions,
 retries. On the JVM, Scala.js and Scala Native; built on Scala 3.3 LTS and Scala 2.13, so any Scala 3 from 3.3 on can
 use it ([Scala versions](docs/getting-started.md#scala-versions)).
 
@@ -33,7 +33,7 @@ okay-rust, okay-python, okay-ts: what each is, and how each meets this interface
 | `core/machine/` | `okay-effects-machine` | `okay.effects.machine` | THE MACHINE, one per compiler: `okay.effects.machine.Machine` | [implementations](docs/guide/implementations.md) |
 | `core/free/` | `okay-effects-free` | `okay.effects.free` | THE `Free` MONAD, one per compiler: `okay.effects.free.Free` (through the interface), `OnFree` (as it is) | [implementations](docs/guide/implementations.md) |
 | `core/tagless/` | `okay-effects-tagless` | `okay.effects.tagless` | TAGLESS: `Tagless`, an `Effects` of no implementation — a program a value, run on the `Runner` in the implicit context | [implementations](docs/guide/implementations.md), [tour, step 11](docs/tour.md) |
-| `modules/`: `concurrent`, `resource`, `io`, `probability`, `parsing`, `json`, `shape`, `logic`, `transaction`, `resilience`, `stream`, `async` | `okay-effects-concurrent`, ... | `okay.effects.concurrent`, ... | MORE EFFECTS, each over the interface: see below | [the modules](docs/README.md#the-modules), a page each |
+| `modules/`: `concurrent`, `resource`, `io`, `probability`, `parsing`, `json`, `shape`, `algebra`, `logic`, `transaction`, `resilience`, `stream`, `async` | `okay-effects-concurrent`, ... | `okay.effects.concurrent`, ... | MORE EFFECTS, each over the interface: see below | [the modules](docs/README.md#the-modules), a page each |
 | `tck/` | `okay-effects-tck` | `okay.effects` | the interface's suite, a library: `InterfaceSuite(fx)` for any implementation | [writing an implementation](docs/guide/writing-an-implementation.md) |
 | `interop/*` | `okay-effects-cats`, `-zio`, `-zio-stream`, `-fs2`, `-monix`, `-java-stream`, `-kyo`, `-tofu` | `okay.effects.catsinterop`, `.ziointerop`, `.zstream`, `.fs2interop`, `.monixinterop`, `.jstream`, `.kyointerop`, `.tofuinterop` | interop with cats (and cats-effect 3), ZIO and its streams, fs2, monix, Java's streams, kyo, tofu | [interop](docs/modules/interop.md) |
 | `examples/` | — | `okay.effects.examples` | examples over `Effects` alone, run on the machine and on `Free` | [examples](docs/examples.md) |
@@ -240,6 +240,7 @@ on the machine as its package — `import okay.effects.concurrent._` — and on 
 | [`io`](docs/modules/io.md) | `Console`, `Clock`, `Env` as effects: the world's handlers (`realConsole`, `systemClock`, `systemEnv`) and pure ones for tests (`console(inputs)`, `clock(start, step)`, `env(vars)`) |
 | [`probability`](docs/modules/probability.md) | `flip`, `uniform`, `weighted`; `exact(p)` every outcome with its probability, `sampled(p)` one way by `Random` |
 | [`parsing`](docs/modules/parsing.md) | parsers of `Input`, `Expect` and `Choose`: `peek`, `takeWhile`, `byNext`, `whileNext` with no choice point; `orElse`, `many` backtracking; `parse(text)(p)` an `Either[ParseError, A]` saying where and what was expected; `parseStream(chunks)(p)` |
+| [`algebra`](docs/modules/algebra.md) | the classes: `Functor`, `Applicative`, `Selective`, `Monad`, `TailRecM`, `MonadPlus`, `Comonad`, `ParaMonad`; `Semigroup`, `Monoid`, `Foldable`, `FreeAp`, `Validated`; programs as instances, `monad[R]`, `monadPlus[R]`, `paraMonad[R]`; `traverse`, `loop`, the operators |
 | [`shape`](docs/modules/shape.md) | a typed `Shape[P]`: `record`, `sum`, `choice`, constraints as data; `decode` with every problem and its path, `encode`; `erased` to a `Schema` value, `Schema.loose`, the meta-schema; `JsonSchema.of` |
 | [`json`](docs/modules/json.md) | `Json` the value; parsing an EFFECT, `parseJson(text)`, with two handlers — `descent`, a recursive descent, fast, the default of `parse(text)`; `grammar`, the grammar on `parsing`'s effects, on the heap, streaming `values(chunks)` as they come; errors that say where |
 | [`logic`](docs/modules/logic.md) | terms, logic variables (`Fresh`), `unify` (bindings a `State`), `either`; `solutions(p)` every answer — a relation runs either way; `fair(n)(p)` a breadth-first search, so a way that never ends does not hide the others |

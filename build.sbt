@@ -47,6 +47,7 @@ val moduleDescriptions: Map[String, String] = Map(
   "okay-effects-io" -> "The console, the clock and the environment as effects, with the world's handlers and pure ones",
   "okay-effects-probability" -> "Random choices: the exact distribution, or sampled, over okay-effects",
   "okay-effects-parsing" -> "Parsers over okay-effects: an input, expectations, a choice; decided by the next character or backtracking; from a text or a stream",
+  "okay-effects-algebra" -> "The classes of computations and of combination, over okay-effects: Functor to Monad, ParaMonad, Semigroup, Monoid, Foldable, the free applicative; programs as instances",
   "okay-effects-json" -> "JSON parsed by effects, over okay-effects: a text, or a stream of chunks as values come, with errors that say where",
   "okay-effects-shape" -> "A typed schema of a value, over okay-effects: at once a form, a tool's input schema and the decoder; erased to a value; JSON Schema of it",
   "okay-effects-logic" -> "Logic variables, unification, relations run either way, a fair search, over okay-effects",
@@ -211,6 +212,9 @@ lazy val io = effectModule("io", "okay-effects-io")
 lazy val probability = effectModule("probability", "okay-effects-probability")
 /** parsers of the input as a state and the alternatives as choices */
 lazy val parsing = effectModule("parsing", "okay-effects-parsing").dependsOn(stream)
+/** the classes of computations and of combination — Functor to Monad, ParaMonad, Semigroup, Monoid, Foldable, the free
+ * applicative — and their instances for programs */
+lazy val algebra = effectModule("algebra", "okay-effects-algebra")
 /** JSON parsed by the parsing module's effects: a text, or a stream of chunks as values come */
 lazy val json = effectModule("json", "okay-effects-json").dependsOn(parsing, stream)
 /** a typed schema — a form, a tool's input schema, the decoder — and its erasure to a value; JSON Schema of it */
@@ -260,7 +264,7 @@ def docBlocks(lang: String) = Def.task {
   objects :+ suite
 }
 lazy val docsCheck = (project in file("docs/check/scala-3"))
-  .dependsOn(tck.jvm, machine.jvm, free.jvm, tagless.jvm, concurrent.jvm, resource.jvm, io.jvm, probability.jvm, parsing.jvm, json.jvm, shape.jvm, logic.jvm,
+  .dependsOn(tck.jvm, machine.jvm, free.jvm, tagless.jvm, concurrent.jvm, resource.jvm, io.jvm, probability.jvm, parsing.jvm, json.jvm, shape.jvm, algebra.jvm, logic.jvm,
     transaction.jvm, resilience.jvm, stream.jvm, async.jvm, interopCats.jvm, interopZio.jvm, interopTofu, interopJavaStream,
     interopZioStream.jvm, interopFs2.jvm, interopKyo.jvm, examples)
   .settings(scalaVersion := scala3Next, crossScalaVersions := Seq(scala3Next), publish / skip := true, libraryDependencies += munit,
@@ -307,7 +311,7 @@ lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
 /** every cross-built module, on each platform built */
-lazy val crossBuiltModules: Seq[CrossProject] = Seq(interopKyo, effects, tck, machine, suite, free, suiteFree, tagless, concurrent, resource, io, probability, parsing, logic, transaction, resilience, stream, async, json, shape, interopCats, interopZio, interopZioStream, interopFs2, interopMonix)
+lazy val crossBuiltModules: Seq[CrossProject] = Seq(interopKyo, effects, tck, machine, suite, free, suiteFree, tagless, concurrent, resource, io, probability, parsing, logic, transaction, resilience, stream, async, json, shape, algebra, interopCats, interopZio, interopZioStream, interopFs2, interopMonix)
 lazy val root = (project in file(".")).aggregate((Seq[ProjectReference](docsCheck, docsCheck2, docsCheckMonix, interopTofu, interopJavaStream, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2) ++ crossBuiltModules.flatMap(_.projects.values.map(p => p: ProjectReference))): _*)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
@@ -318,7 +322,7 @@ addCommandAlias("testJS", if (platformsAsked("js")) "; ++3.3.8 suiteJS/test ; su
 addCommandAlias("testNative", if (platformsAsked("native")) "; ++3.3.8 suiteNative/test ; suiteFreeNative/test ; taglessNative/test ; concurrentNative/test ; resourceNative/test ; ioNative/test ; probabilityNative/test ; parsingNative/test ; logicNative/test ; transactionNative/test ; resilienceNative/test ; streamNative/test ; asyncNative/test ; interopCatsNative/test ; interopZioNative/test ; interopZioStreamNative/test ; interopFs2Native/test ; ++3.9.0 interopKyoNative/test ; ++2.13.18 suiteNative/test ; suiteFreeNative/test ; taglessNative/test ; concurrentNative/test ; resourceNative/test ; ioNative/test ; probabilityNative/test ; parsingNative/test ; logicNative/test ; transactionNative/test ; resilienceNative/test ; streamNative/test ; asyncNative/test ; interopCatsNative/test ; interopZioNative/test ; interopZioStreamNative/test ; interopFs2Native/test ; ++3.3.8" else "; show platformsHelp")
 lazy val platformsHelp = taskKey[String]("how to build for Scala.js and Scala Native")
 ThisBuild / platformsHelp := "Scala.js and Scala Native are built when asked: sbt -Dplatforms=jvm,js,native (or OKAY_PLATFORMS=js,native)"
-addCommandAlias("testAll", "; ++3.3.8 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; json/test ; shape/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; interopJavaStream/test ; interopZioStream/test ; interopFs2/test ; interopMonix/test ; ++2.13.18 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; json/test ; shape/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; interopJavaStream/test ; interopZioStream/test ; interopFs2/test ; interopMonix/test ; ++3.3.8 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test ; ++3.9.0 interopKyo/test ; docsCheck/test ; docsCheckMonix/test ; ++3.9.0! suite/test ; suiteFree/test ; tagless/test ; ++2.13.18 docsCheck2/test ; ++3.3.8")
+addCommandAlias("testAll", "; ++3.3.8 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; json/test ; shape/test ; algebra/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; interopJavaStream/test ; interopZioStream/test ; interopFs2/test ; interopMonix/test ; ++2.13.18 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; json/test ; shape/test ; algebra/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; interopJavaStream/test ; interopZioStream/test ; interopFs2/test ; interopMonix/test ; ++3.3.8 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test ; ++3.9.0 interopKyo/test ; docsCheck/test ; docsCheckMonix/test ; ++3.9.0! suite/test ; suiteFree/test ; tagless/test ; ++2.13.18 docsCheck2/test ; ++3.3.8")
 /** a release into `target/pages-maven/`: the libraries on Scala 3.3 and 2.13, kyo's interop on its own Scala 3 —
  * `sbt -Dplatforms=jvm,js,native publishPages` for all three platforms */
 addCommandAlias("publishPages", "; ++3.3.8 publish ; ++2.13.18 publish ; ++3.9.0 interopKyo/publish" +
