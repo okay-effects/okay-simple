@@ -20,3 +20,22 @@ measurements before and after are in docs/modules/json.md ("Measured") and bench
   formats; a grammar needing "try p, else q, but commit once p consumed" has no word yet.
 - A stream parse rolled back over a chunk boundary pulls the chunk again; the source must remember. A buffering
   `StreamInput` that keeps chunks since the earliest live choice point would lift that rule.
+
+## shape: reading as an effect
+
+Decided 2026-10-20 (okay-face specs/face-core.md, "Reading a shape is an effect"), the module moved here the same day.
+`decode(v: Json)` fixes the fields' source to a JSON value; nothing in a `Shape` says JSON. Reading the fields a shape
+names is a program over an effect — `Fields`: `Read(path, prim)`, `Enter(path)`, `Leave`, `Size(path)` — and the
+source is the handler's: a `Json` (today's decode), another encoding (CBOR), a command line's arguments, a PERSON asked
+field by field at a terminal, with the problem shown and the field asked again — okay-face's terminal face is that
+handler, not code of its own. `read(shape): Either[Problems, P] ! Fields` keeps every problem as `decode` does;
+`decode(v)` stays as `run(fromJson(v)(read(shape)))`. Encoding stays a function to a value. Tests: `fromJson` agrees
+with `decode` on every ShapeSuite case; a scripted "person" handler answers prompts in order and is asked again on a
+problem; the two handlers give the same `P` for the same answers.
+
+## shape: derived from a type, Scala 3 first
+
+`Shaped[P]` a type class with `shape: Shape[P]`; `derives Shaped` in `scala-3/` by `Mirror` and `inline`, no
+dependency; Scala 2 by hand until a blackbox macro is worth writing (trigger: the first time writing a record by hand
+hurts). Derivation gives the skeleton — names and types; labels, docs, secrets, constraints and defaults are added on
+the data by field name, `.secret("number")`, `.labelled("issued", "Issued")`, checked by a test that the names exist.

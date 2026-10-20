@@ -68,6 +68,7 @@ own type, so the programs it makes run on it: `given Runner = Free; val s = Stre
 | [probability](modules/probability.md) | random choices: the exact distribution, or sampled |
 | [parsing](modules/parsing.md) | parsers of an input, expectations and a choice: by the next character or backtracking, from a text or a stream, errors that say where |
 | [json](modules/json.md) | JSON parsed by effects: a text, or a stream of chunks as values come; `Json` the value, its text |
+| [shape](modules/shape.md) | a typed schema: at once a form, a tool's input schema and the decoder; erased to a value; JSON Schema of it |
 | [logic](modules/logic.md) | logic variables, unification, relations either way, a fair search |
 | [transaction](modules/transaction.md) | transactions on a store, rolled back on an error |
 | [resilience](modules/resilience.md) | retries and fallbacks |
