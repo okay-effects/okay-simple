@@ -49,3 +49,31 @@ bench: the JSON grammar on the module against a hand-written parser (okay-face's
 
 **Check first.** How a failure past the choice is expressed: an `Abort` or `Error` raised and handled OUTSIDE `first`,
 so the choice sees no alternative to try; whether `first` can be told that from inside.
+
+## parsing: the input as a position, not the text left — measured
+
+Measured 2026-10-20 (okay-face, a scratch suite since removed): the JSON grammar of docs/modules/parsing.md on the
+machine against a hand-written recursive descent, the same `Value`, JVM, warm:
+
+| text | hand | module | ratio |
+|---|---|---|---|
+| 4.8 KB (the meta-schema) | 0.07 ms | 5.9 ms | 80× |
+| 10 KB | 0.07 ms | 14 ms | 190× |
+| 100 KB | 0.46 ms | 1465 ms, and over 1 GB of heap | 3200× |
+
+Ten times the text, a hundred times the time: QUADRATIC. The cause is `Input = State[String]` with `item` doing
+`in.substring(1)` — a copy of the rest of the text per character, O(n) each, so O(n²) in all, and every choice point
+holds its own copy. This is the module's representation, not the machine's or the effects' cost. With the input as
+an index into a fixed text (`State[Int]`, the text in a `Reader` or closed over), the per-character cost is the
+handlers' alone: a `get`, a `put`, a `guard`, and for `many` a choice point with a captured `k` — expected within one
+or two orders of a loop, to be measured again then, not guessed.
+
+Nesting: `[` × n `]` × n, default stack and heap — both parse 20 000 deep; at 100 000 the hand parser dies of
+`StackOverflowError` (recursion on the JVM stack), the module of `OutOfMemoryError` (the quadratic copies). The
+machine is heap-based, so a parser on it is stack-safe by construction; with the index representation it should take
+100 000 deep. That is a real argument FOR the module on untrusted input (an MCP client's message), where a
+hand-written parser needs a depth limit to turn a stack overflow into a problem.
+
+**Shape.** `Input` as a position: `item` reads `text.charAt(i)` and `put(i + 1)`; `parse(text)(p)` closes over the
+text; the module's words change in their bodies only. Then the two items above (errors at the furthest position; a
+committed choice) build on the position. Then the measurement again, in bench, recorded.
