@@ -5,12 +5,12 @@ Work found or asked for, not started. Each item: what it is, why, its shape, its
 
 ## ui: Laminar, Airstream, Waypoint — moved
 
-Moved 2026-10-20 to okay-face (`specs/web.md` there): the web is an application's face, and okay-face owns its web
+Moved 2026-10-20 to okay-faces (`specs/web.md` there): the web is an application's face, and okay-faces owns its web
 story whole. okay-simple stays the interface and the general modules.
 
 ## parsing: errors with a position, a committed choice, the input as a position — DONE 2026-10-20
 
-The three items found writing okay-face's JSON parser, done the same day in one rewrite of the module and a new
+The three items found writing okay-faces' JSON parser, done the same day in one rewrite of the module and a new
 module `json` (commit cd1562f): `Input` an index answered in place with `takeWhile`/`takeIf` as operations, `Expect`
 outside the choice so the furthest failure is the error with its line and column, `byNext`/`whileNext` deciding by the
 next character with no choice point, `StreamInput` pulling chunks as needed; JSON on it, 100 000 deep on the heap. The

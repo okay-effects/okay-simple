@@ -59,7 +59,7 @@ an option asked whether it is there (`Has`), a list how long (`Size`), a sum whi
 did not decode asked AGAIN (`Retry`) while the handler offers another. Where the fields come from is the handler's:
 `fromJson(j)` answers from a value — and `read` under it IS `decode`, a law the suite states — a command line or
 another encoding would be another handler, and a person at a terminal, asked field by field with the problem shown,
-is okay-face's. `answering(xs)`, a script of answers in order, stands in for the person in a test. Every operation
+is okay-faces'. `answering(xs)`, a script of answers in order, stands in for the person in a test. Every operation
 carries the path and the erased shape of what is asked, labels and constraints with it, for the handler to show.
 
 ```scala

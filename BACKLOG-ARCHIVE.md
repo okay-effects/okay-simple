@@ -4,7 +4,7 @@ Items done or dropped, as they were written, for the record.
 
 ## parsing: errors with a position and a message
 
-Found 2026-10-20 writing okay-face's `Json.parse`: the module could not be used for it. `parse(input)(p)` answers
+Found 2026-10-20 writing okay-faces' `Json.parse`: the module could not be used for it. `parse(input)(p)` answers
 `Option[A]`: a failed parse says nothing of where or why, and a person with a damaged file needs "at offset 17:
 expected ',' or '}'". The JSON grammar in docs/modules/parsing.md shows the module parsing; this is what it lacks
 to be USED.
@@ -18,7 +18,7 @@ kept as it is, `parseEither(...).toOption`.
 
 **Tests.** The arithmetic example: `2+` fails at offset 2 expecting a digit or `(`; `(1` at 2 expecting `)`, `*` or
 `+`. JSON: `[1, 2` fails at the end expecting `,` or `]`; `{"a": }` at the `}` expecting a value. Both
-implementations, both compilers. okay-face's agreement test then compares messages too, not only success.
+implementations, both compilers. okay-faces' agreement test then compares messages too, not only success.
 
 **Check first.** Whether the furthest-failure state can sit outside `first` and still be updated by every branch (the
 `Choose` handler's `k` resumed per alternative, the state handled outside it is shared); how `Input` as an index
@@ -38,7 +38,7 @@ the alternative chosen by the next character, no `Choose` at all for it.
 
 **Tests.** The JSON grammar on the committed choice parses the same values as on `orElse`; a failure deep in a nested
 array reports its position; `string("let")` / `string("letter")` still parses `letter` under `attempt`. **Measure**, in
-bench: the JSON grammar on the module against a hand-written parser (okay-face's `Json.parse`, the same `Value`) on a
+bench: the JSON grammar on the module against a hand-written parser (okay-faces' `Json.parse`, the same `Value`) on a
 100 KB text, the ratio recorded; the module's parsers should be within a small factor, not orders.
 
 **Check first.** How a failure past the choice is expressed: an `Abort` or `Error` raised and handled OUTSIDE `first`,
@@ -46,7 +46,7 @@ so the choice sees no alternative to try; whether `first` can be told that from 
 
 ## parsing: the input as a position, not the text left — measured
 
-Measured 2026-10-20 (okay-face, a scratch suite since removed): the JSON grammar of docs/modules/parsing.md on the
+Measured 2026-10-20 (okay-faces, a scratch suite since removed): the JSON grammar of docs/modules/parsing.md on the
 machine against a hand-written recursive descent, the same `Value`, JVM, warm:
 
 | text | hand | module | ratio |
@@ -74,11 +74,11 @@ committed choice) build on the position. Then the measurement again, in bench, r
 
 ## shape: reading as an effect — DONE 2026-10-20 (`Fields`, `Reading`, `ShapeAlgebra`)
 
-Decided 2026-10-20 (okay-face specs/face-core.md, "Reading a shape is an effect"), the module moved here the same day.
+Decided 2026-10-20 (okay-faces specs/face-core.md, "Reading a shape is an effect"), the module moved here the same day.
 `decode(v: Json)` fixes the fields' source to a JSON value; nothing in a `Shape` says JSON. Reading the fields a shape
 names is a program over an effect — `Fields`: `Read(path, prim)`, `Enter(path)`, `Leave`, `Size(path)` — and the
 source is the handler's: a `Json` (today's decode), another encoding (CBOR), a command line's arguments, a PERSON asked
-field by field at a terminal, with the problem shown and the field asked again — okay-face's terminal face is that
+field by field at a terminal, with the problem shown and the field asked again — okay-faces' terminal face is that
 handler, not code of its own. `read(shape): Either[Problems, P] ! Fields` keeps every problem as `decode` does;
 `decode(v)` stays as `run(fromJson(v)(read(shape)))`. Encoding stays a function to a value. Tests: `fromJson` agrees
 with `decode` on every ShapeSuite case; a scripted "person" handler answers prompts in order and is asked again on a
