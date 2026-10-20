@@ -66,8 +66,8 @@ carries the path and the erased shape of what is asked, labels and constraints w
 type R = Fields
 val filled = run(fromJson(person.encode(ann))(read[Person, R](person)))
 assert(filled == Right(ann))
-// a person: name; age, refused and asked again; email present and given; born
-val asked = run(answering(List(Str("Ann"), num(3), num(41), Json.Bool(true), Str("ann@x.io"), Str("1985-03-09")))(read[Person, R](
+// a person: a record is here; name; age, refused and asked again; email present and given; born
+val asked = run(answering(List(Json.Bool(true), Str("Ann"), num(3), num(41), Json.Bool(true), Str("ann@x.io"), Str("1985-03-09")))(read[Person, R](
   record(field("name", text), field("age", int.check("of age")(_ >= 18)), field("email", text.optional), field("born", date))(Person(_, _, _, _))(p => (p.name, p.age, p.email, p.born)))))
 assert(asked == Right(Person("Ann", 41, Some("ann@x.io"), Day(1985, 3, 9))))
 ```
