@@ -26,6 +26,8 @@ trait ShapeDerivation:
     inline def at[N <: String & Singleton](name: N)(using m: Mirror.ProductOf[P]): Shape.At[P, ShapeDerivation.TypeOf[N, m.MirroredElemLabels, m.MirroredElemTypes]] =
       inline if ShapeDerivation.has[N, m.MirroredElemLabels] then new Shape.At(shape, name)
       else error("no field '" + scala.compiletime.constValue[N] + "' in the type")
+    /** the same, the field selected: `shape.at(_.tags).check("one at least")(_.nonEmpty)` — the name read from the lambda, the type its own */
+    transparent inline def at[T](inline sel: P => T): Shape.At[P, ?] = ${ Selectors.shapeAt[P, T]('shape, 'sel) }
 
 object ShapeDerivation:
   /** the type of the field named `N` among labels `Ls` and types `Ts` */

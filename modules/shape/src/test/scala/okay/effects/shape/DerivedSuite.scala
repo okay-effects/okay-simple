@@ -83,4 +83,14 @@ class DerivedSuite extends munit.FunSuite {
     val mistyped = compileErrors("""derivedPerson.at("score").default("x")""")
     assert(mistyped.nonEmpty, "a default of another type than the field's does not compile")
   }
+  test("at(_.field): the field selected by a lambda, its name read at compile time, its type its own") {
+    val form = derivedPerson.at(_.name).labelled("Name").at(_.score).default(Some(1)).at(_.tags).check("at least one tag")(_.nonEmpty).at(_.id).secret
+    val Schema.Record(fs) = form.erased: @unchecked
+    assertEquals(fs.find(_.name == "name").flatMap(_.label), Some("Name")); assertEquals(fs.find(_.name == "id").map(_.secret), Some(true))
+    assertEquals(form.decode(Json.obj("id" -> Json.Str("x"), "name" -> Json.Str("X"), "vip" -> Json.Bool(false), "tags" -> Json.arr())).left.map(_.map(_.render)), Left(List("tags: at least one tag")))
+    assertEquals(form.decode(person.encode(ann)), Right(ann))
+    val notAField = compileErrors("""derivedPerson.at(_.toString).secret""")
+    assert(notAField.contains("a field is selected"), notAField)
+    assert(compileErrors("""derivedPerson.at(_.score).default(1)""").nonEmpty, "a default of another type than the field's does not compile")
+  }
 }

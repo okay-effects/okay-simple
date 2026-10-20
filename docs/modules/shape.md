@@ -16,7 +16,7 @@ by the same decoder as everything else. `JsonSchema.of` is the JSON Schema (draf
 | decoding | `shape.decode(json)`: `Either[Problems, P]`, a `Problem(path, message)` per fault; `shape.encode(p)`; a missing field is its default, else `None` for an `Optional`, else `required`; unknown fields are ignored |
 | erased | `shape.erased: Schema`; `Schema.loose(schema, defs): Shape[Json]`; `Schema.shape: Shape[Schema]`, `Schema.defs` |
 | derived | `Shape.derived[A]`: a case class a record of its fields, a sealed trait a sum of its cases named `Shape.caseName` (`KindDefined` → `kind-defined`), a case object a record of no fields; a field's shape found implicitly (`Shape.of`, the primitives, `Option`, `List`, `Vector`, an application's own) or derived within; Scala 3 by `Mirror`, 2.13 by a macro, the same value `record`/`sum` build by hand |
-| by field name, checked | `shape.at("tags").check("one at least")(_.nonEmpty)`, `.at("name").labelled("Name")`, `.at("id").secret`, `.at("score").default(Some(1))`, `.at("born").shape(date.optional.described("Born"))`: on a shape of a case class, the name checked by the compiler against the type and the field's type known — a wrong name or a value of another type does not compile; Scala 3 by `Mirror`, 2.13 by a macro |
+| by field name, checked | `shape.at("tags").check("one at least")(_.nonEmpty)` or `shape.at(_.tags).check(...)`, `.at("name").labelled("Name")`, `.at("id").secret`, `.at("score").default(Some(1))`, `.at("born").shape(date.optional.described("Born"))`: on a shape of a case class, the name checked by the compiler against the type and the field's type known — a wrong name or a value of another type does not compile; Scala 3 by `Mirror`, 2.13 by a macro |
 | by field name | `shape.field("number")(_.asSecret)`, `.labelled("name", "Name", Some("as printed"))`, `.secret("id")`, `.defaulted("score", Json.num(1))`, `.fieldOf[List[String]]("tags")(f => f.copy(shape = f.shape.check("one at least")(_.nonEmpty)))`: a record's field changed by name — its words, secret, default, constraints — what a type does not say; the name and the type stay, a name no field has is refused at once |
 | JSON Schema | `JsonSchema.of(schema, defs)`: `title`, `description`, `default`, `enum`, `oneOf` with a `type` tag for a sum, `$ref` into `$defs`, `"x-secret": true` |
 
@@ -98,7 +98,8 @@ and `Vector` of a shape, and whatever shapes the application gives as implicits 
 a case class or a sealed trait; a type with neither is a compile error naming it. Labels, docs, secrets, constraints
 and defaults are not in a type: say them after, BY FIELD NAME, and let the compiler check the name against the
 type and know the field's type — `derived.at("number").secret.at("name").labelled("Name").at("score").default(Some(1))
-.at("tags").check("one at least")(_.nonEmpty)` — so a name mistyped, or a default of another type, does not compile. The
+.at("tags").check("one at least")(_.nonEmpty)` — so a name mistyped, or a default of another type, does not compile; `at(_.name)` selects the field by a lambda, the
+name read from it at compile time, the type the field's own. The
 derived shape is then as good as one written by hand; a form for a person is more than its fields' types. `field(name)`,
 `labelled(name, …)`, `secret(name)`, `defaulted(name, json)` are the same words for any shape, a name no field has refused
 when the shape is made.
@@ -120,7 +121,7 @@ assert(contact.decode(contact.encode(anna)) == Right(anna))
 assert(pet.encode(Fish) == Json.obj("type" -> Json.Str("fish")))
 assert(pet.decode(pet.encode(Dog("Rex"))) == Right(Dog("Rex")))
 assert(contact.decode(Json.obj("born" -> Json.Null)).left.map(_.map(_.render)) == Left(List("name: required")))
-val form = contact.at("name").labelled("Name").at("name").documented("as printed").at("name").check("not blank")(_.nonEmpty)
+val form = contact.at(_.name).labelled("Name").at("name").documented("as printed").at(_.name).check("not blank")(_.nonEmpty)
 assert(form.decode(Json.obj("name" -> Json.Str(""))).left.map(_.map(_.render)) == Left(List("name: not blank")))
 assert(form.encode(anna) == contact.encode(anna))
 ```

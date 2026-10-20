@@ -13,10 +13,35 @@ trait ShapeDerivation {
   /** `shape.at("name")`: a field by a literal name, checked against the case class `P` at compile time, typed as the field */
   implicit class AtWords[P](val shape: Shape[P]) {
     def at(name: String): Shape.At[P, _] = macro ShapeMacros.at[P]
+    /** the same, the field selected: `shape.at(_.tags).check("one at least")(_.nonEmpty)` — the name read from the lambda, the type its own */
+    def at[T](sel: P => T): Shape.At[P, T] = macro ShapeMacros.atSel[P, T]
   }
 }
 
 object ShapeMacros {
+  /** A FIELD SELECTED BY A LAMBDA, `_.field` or `_.a.b`, read from the lambda's tree: the names of the case class
+   * fields selected, in order; anything else — a method, an expression — is refused by name */
+  def selectorPath(c: blackbox.Context)(sel: c.Tree): List[String] = {
+    import c.universe._
+    def go(t: Tree, param: Name): Option[List[String]] = t match {
+      case Ident(n) if n == param => Some(Nil)
+      case Select(q, n) if t.symbol != null && t.symbol.isMethod && t.symbol.asMethod.isCaseAccessor => go(q, param).map(_ :+ n.decodedName.toString)
+      case Typed(inner, _) => go(inner, param)
+      case _ => None
+    }
+    sel match {
+      case Function(List(ValDef(_, p, _, _)), body) => go(body, p).filter(_.nonEmpty).getOrElse(c.abort(sel.pos, s"a field is selected as _.field, or _.a.b, of a case class: not ${show(sel)}"))
+      case Block(Nil, inner) => selectorPath(c)(inner)
+      case _ => c.abort(sel.pos, s"a field is selected as _.field, or _.a.b, of a case class: not ${show(sel)}")
+    }
+  }
+  def atSel[P: c.WeakTypeTag, T: c.WeakTypeTag](c: blackbox.Context)(sel: c.Tree): c.Tree = {
+    import c.universe._
+    selectorPath(c)(sel) match {
+      case List(name) => q"new _root_.okay.effects.shape.Shape.At[${weakTypeOf[P]}, ${weakTypeOf[T]}](${c.prefix.tree}.shape, $name)"
+      case names => c.abort(sel.pos, s"a record's own field is adjusted: ${names.mkString(".")} goes within")
+    }
+  }
   def at[P: c.WeakTypeTag](c: whitebox.Context)(name: c.Tree): c.Tree = {
     import c.universe._
     val P = weakTypeOf[P]
