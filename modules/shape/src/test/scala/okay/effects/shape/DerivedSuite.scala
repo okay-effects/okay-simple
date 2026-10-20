@@ -18,7 +18,7 @@ class DerivedSuite extends munit.FunSuite {
   val pet: Shape[Pet] = Shape.sum(Shape.sub[Pet, Dog]("dog", record(field("name", text), field("age", int))(Dog(_, _))(d => (d.name, d.age))) { case d: Dog => Some(d); case _ => None },
     Shape.sub[Pet, Fish.type]("fish", unit.map[Fish.type](_ => Fish)(_ => ())) { case Fish => Some(Fish); case _ => None })
 
-  implicit val derivedPerson: Shape[Person] = Shape.derived[Person]      // Address derived within, as no shape of it is given; the implicit being defined is not found by itself
+  val derivedPerson: Shape[Person] = Shape.derived[Person]      // Address derived within, as no shape of it is given
   val derivedPet: Shape[Pet] = Shape.derived[Pet]
   val ann = Person("ann", "Ann", Some(Day(1990, 5, 6)), vip = true, Some(7), Some(Address("Kyiv", List("Main 1", "flat 2"))), List("x", "y"))
   val bo = Person("bo", "Bo", None, vip = false, None, None, Nil)
@@ -49,6 +49,11 @@ class DerivedSuite extends munit.FunSuite {
     assert(Json.print(Schema.shape.encode(nested.erased)).contains("Where"), "the given shape of Address, described, is the one used")
     assertEquals(Shape.of[Option[List[Int]]].encode(Some(List(1, 2))), Json.arr(Json.num(1), Json.num(2)))
     assertEquals(Shape.of[Double].decode(Json.num(2)), Right(2.0))
+  }
+  test("an implicit shape defined by derivation does not find itself") {
+    implicit val self: Shape[Address] = Shape.derived[Address]
+    assertEquals(self.decode(self.encode(Address("Kyiv", Nil))), Right(Address("Kyiv", Nil)))
+    assertEquals(Shape.of[Option[Address]].encode(None), Json.Null)
   }
   test("a derived shape adjusted by field name: words, a secret, a constraint, a default; a name no field has is refused") {
     val adjusted = derivedPerson.labelled("name", "Name", Some("as printed")).secret("id").defaulted("score", Json.num(1))
