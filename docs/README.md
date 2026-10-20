@@ -70,6 +70,7 @@ own type, so the programs it makes run on it: `given Runner = Free; val s = Stre
 | [json](modules/json.md) | `Json` the value; parsing an effect with two handlers, a recursive descent and the grammar on effects; values from a stream as they come |
 | [algebra](modules/algebra.md) | the classes of computations and of combination: Functor to Monad, ParaMonad, Semigroup, Monoid, Foldable, the free applicative; programs as instances |
 | [shape](modules/shape.md) | a typed schema: at once a form, a tool's input schema and the decoder; erased to a value; JSON Schema of it |
+| [describe](modules/describe.md) | an effect as a service: its operations described by shapes, served by name, performed from afar |
 | [logic](modules/logic.md) | logic variables, unification, relations either way, a fair search |
 | [transaction](modules/transaction.md) | transactions on a store, rolled back on an error |
 | [resilience](modules/resilience.md) | retries and fallbacks |

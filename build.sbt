@@ -222,6 +222,8 @@ lazy val algebra = effectModule("algebra", "okay-effects-algebra")
 lazy val json = effectModule("json", "okay-effects-json").dependsOn(parsing, stream)
 /** a typed schema — a form, a tool's input schema, the decoder — and its erasure to a value; JSON Schema of it */
 lazy val shape = effectModule("shape", "okay-effects-shape").dependsOn(json, algebra)
+/** an effect as a service: its operations described by shapes, served by name, performed from afar */
+lazy val describe = effectModule("describe", "okay-effects-describe").dependsOn(shape)
 /** `sbt records`: rewrites shape's RecordWords.scala, the record words for arities 1 to 12 (project/Records.scala) */
 val records = taskKey[Unit]("generate RecordWords.scala")
 records := {
@@ -267,7 +269,7 @@ def docBlocks(lang: String) = Def.task {
   objects :+ suite
 }
 lazy val docsCheck = (project in file("docs/check/scala-3"))
-  .dependsOn(tck.jvm, machine.jvm, free.jvm, tagless.jvm, concurrent.jvm, resource.jvm, io.jvm, probability.jvm, parsing.jvm, json.jvm, shape.jvm, algebra.jvm, logic.jvm,
+  .dependsOn(tck.jvm, machine.jvm, free.jvm, tagless.jvm, concurrent.jvm, resource.jvm, io.jvm, probability.jvm, parsing.jvm, json.jvm, shape.jvm, describe.jvm, algebra.jvm, logic.jvm,
     transaction.jvm, resilience.jvm, stream.jvm, async.jvm, interopCats.jvm, interopZio.jvm, interopTofu, interopJavaStream,
     interopZioStream.jvm, interopFs2.jvm, interopKyo.jvm, examples)
   .settings(scalaVersion := scala3Next, crossScalaVersions := Seq(scala3Next), publish / skip := true, libraryDependencies += munit,
@@ -314,7 +316,7 @@ lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
 /** every cross-built module, on each platform built */
-lazy val crossBuiltModules: Seq[CrossProject] = Seq(interopKyo, effects, tck, machine, suite, free, suiteFree, tagless, concurrent, resource, io, probability, parsing, logic, transaction, resilience, stream, async, json, shape, algebra, interopCats, interopZio, interopZioStream, interopFs2, interopMonix)
+lazy val crossBuiltModules: Seq[CrossProject] = Seq(interopKyo, effects, tck, machine, suite, free, suiteFree, tagless, concurrent, resource, io, probability, parsing, logic, transaction, resilience, stream, async, json, shape, describe, algebra, interopCats, interopZio, interopZioStream, interopFs2, interopMonix)
 lazy val root = (project in file(".")).aggregate((Seq[ProjectReference](docsCheck, docsCheck2, docsCheckMonix, interopTofu, interopJavaStream, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2) ++ crossBuiltModules.flatMap(_.projects.values.map(p => p: ProjectReference))): _*)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
