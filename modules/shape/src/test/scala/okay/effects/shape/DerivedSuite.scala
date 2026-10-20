@@ -50,4 +50,19 @@ class DerivedSuite extends munit.FunSuite {
     assertEquals(Shape.of[Option[List[Int]]].encode(Some(List(1, 2))), Json.arr(Json.num(1), Json.num(2)))
     assertEquals(Shape.of[Double].decode(Json.num(2)), Right(2.0))
   }
+  test("a derived shape adjusted by field name: words, a secret, a constraint, a default; a name no field has is refused") {
+    val adjusted = derivedPerson.labelled("name", "Name", Some("as printed")).secret("id").defaulted("score", Json.num(1))
+      .fieldOf[List[String]]("tags")(f => f.copy(shape = f.shape.check("at least one tag")(_.nonEmpty)))
+    val Schema.Record(fs) = adjusted.erased: @unchecked
+    assertEquals(fs.find(_.name == "name").map(f => (f.label, f.doc)), Some((Some("Name"), Some("as printed"))))
+    assertEquals(fs.find(_.name == "id").map(_.secret), Some(true))
+    assertEquals(fs.find(_.name == "score").flatMap(_.default), Some(Json.num(1)))
+    assertEquals(adjusted.decode(Json.obj("id" -> Json.Str("x"), "name" -> Json.Str("X"), "vip" -> Json.Bool(false), "tags" -> Json.arr(Json.Str("t")))).map(_.score), Right(Some(1)))
+    assertEquals(adjusted.decode(Json.obj("id" -> Json.Str("x"), "name" -> Json.Str("X"), "vip" -> Json.Bool(false), "tags" -> Json.arr())).left.map(_.map(_.render)), Left(List("tags: at least one tag")))
+    assertEquals(adjusted.encode(ann), person.encode(ann), "written as before")
+    assertEquals(adjusted.decode(person.encode(ann)), Right(ann))
+    intercept[IllegalArgumentException](derivedPerson.field("nope")(f => f))
+    intercept[IllegalArgumentException](derivedPerson.defaulted("score", Json.Str("x")))
+    assertEquals(derivedPerson.described("Who").secret("id").erased match { case Schema.Described(Schema.Record(xs), _, _) => xs.find(_.name == "id").map(_.secret); case _ => None }, Some(true))
+  }
 }

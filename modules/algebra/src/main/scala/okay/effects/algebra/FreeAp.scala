@@ -21,22 +21,27 @@ sealed trait FreeAp[F[_], A] {
   /** every step's `M`, combined in order, no step run */
   def analyze[M](f: Const[F, M])(implicit M: Monoid[M]): M
   def map[B](f: A => B): FreeAp[F, B] = FreeAp.Ap[F, A, B](FreeAp.Pure[F, A => B](f), this)
+  /** every step carried to `G`, the structure kept: a record's fields each changed, the record the same */
+  def hoist[G[_]](nt: F ~> G): FreeAp[G, A]
 }
 
 object FreeAp {
   final case class Pure[F[_], A](a: A) extends FreeAp[F, A] {
     def foldMap[G[_]](nt: F ~> G)(implicit G: Applicative[G]): G[A] = G.pure(a)
     def analyze[M](f: Const[F, M])(implicit M: Monoid[M]): M = M.empty
+    def hoist[G[_]](nt: F ~> G): FreeAp[G, A] = Pure(a)
   }
   /** `f` applied to the step `fa`'s value */
   final case class Ap[F[_], A, B](f: FreeAp[F, A => B], fa: FreeAp[F, A]) extends FreeAp[F, B] {
     def foldMap[G[_]](nt: F ~> G)(implicit G: Applicative[G]): G[B] = G.app(f.foldMap(nt), fa.foldMap(nt))
     def analyze[M](f0: Const[F, M])(implicit M: Monoid[M]): M = M.combine(f.analyze(f0), fa.analyze(f0))
+    def hoist[G[_]](nt: F ~> G): FreeAp[G, B] = Ap(f.hoist(nt), fa.hoist(nt))
   }
   /** one step */
   final case class Lift[F[_], A](fa: F[A]) extends FreeAp[F, A] {
     def foldMap[G[_]](nt: F ~> G)(implicit G: Applicative[G]): G[A] = nt(fa)
     def analyze[M](f: Const[F, M])(implicit M: Monoid[M]): M = f(fa)
+    def hoist[G[_]](nt: F ~> G): FreeAp[G, A] = Lift(nt(fa))
   }
 
   def pure[F[_], A](a: A): FreeAp[F, A] = Pure(a)

@@ -30,6 +30,26 @@ sealed trait Shape[P] {
   def described(label: String, doc: Option[String] = None): Shape[P] = Shape.Described(this, label, doc)
   def optional: Shape[Option[P]] = Shape.Optional(this)
   def many(min: Int = 0, max: Option[Int] = None): Shape[List[P]] = Shape.Many(this, min, max)
+
+  /** A FIELD CHANGED BY NAME, in a record (or one refined or described): its words, its secret, its constraints,
+   * a default — what a type does not say and a derived shape lacks: `shape.field("number")(_.asSecret)`,
+   * `.field("age")(_.documented("in years"))`, `.field("name")(f => f.copy(shape = f.shape.check("not blank")(_ != "")))`.
+   * The name and the type stay (a changed name is put back); a name no field has is refused at once */
+  def field(name: String)(change: Shape.Field[_] => Shape.Field[_]): Shape[P] = this match {
+    case r: Shape.Record[P] => r.adjust(name)(change)
+    case m: Shape.Mapped[a, P] => Shape.Mapped(m.of.field(name)(change), m.to, m.from)
+    case d: Shape.Described[P] => Shape.Described(d.of.field(name)(change), d.label, d.doc)
+    case other => throw new IllegalArgumentException(s"no field '$name' to change: not a record but ${other.erased.getClass.getSimpleName}")
+  }
+  /** the same, the field's type named by the caller — `shape.fieldOf[List[String]]("tags")(f => f.copy(shape = f.shape.check("one at least")(_.nonEmpty)))`;
+   * the type is the caller's claim, as a shape by name cannot know it: a wrong one fails at the first decode */
+  def fieldOf[A](name: String)(change: Shape.Field[A] => Shape.Field[A]): Shape[P] = field(name)(f => change(f.asInstanceOf[Shape.Field[A]]))
+  /** a field's default by name, as JSON read by the field's shape: `shape.defaulted("score", Json.num(1))` */
+  def defaulted(name: String, value: Json): Shape[P] = field(name) { f => Shape.defaultOf(f, value) }
+  /** a field's words by name */
+  def labelled(name: String, label: String, doc: Option[String] = None): Shape[P] = field(name) { f => val l = f.labelled(label); doc.fold[Shape.Field[_]](l)(d => l.documented(d)) }
+  /** a field kept secret, by name */
+  def secret(name: String): Shape[P] = field(name)(_.asSecret)
 }
 
 object Shape extends RecordWords with ShapeDerivation {
@@ -58,6 +78,13 @@ object Shape extends RecordWords with ShapeDerivation {
       FreeAp.Ap[Field, Any, List[Any]](acc.map(vs => (v: Any) => vs :+ v), f.asInstanceOf[Field[Any]].free)
     }
     Record[P](free.map(make), (p: P) => fs.iterator.zip(unmake(p).iterator).map { case (f, v) => f.name -> f.asInstanceOf[Field[Any]].shape.encode(v) }.toVector)
+  }
+  private[shape] def defaultOf(f: Field[_], value: Json): Field[_] = {
+    def typed[A](fa: Field[A]): Field[A] = fa.shape.decode(value) match {
+      case Right(a) => fa.copy(default = Some(a))
+      case Left(ps) => throw new IllegalArgumentException(s"a default for '${fa.name}' that its shape does not read: ${Problem.render(ps)}")
+    }
+    typed(f)
   }
   /** a sum's case named from its type: `KindDefined` is `kind-defined`, `Dog` is `dog` */
   def caseName(simpleName: String): String = simpleName.replaceAll("([a-z0-9])([A-Z])", "$1-$2").toLowerCase.stripSuffix("$")
@@ -168,6 +195,14 @@ object Shape extends RecordWords with ShapeDerivation {
     def erased: Schema = Schema.Record(fields.analyze(Field.erasing)(Monoid.vector[Schema.Field]))
     def fold[G[_]](alg: ShapeAlgebra[G]): G[P] = alg.record(this)
     override def isLeaf: Boolean = false
+    /** the field named, changed — the record decoded by the field as changed, written as before (the type is the same) */
+    def adjust(name: String)(change: Field[_] => Field[_]): Record[P] = {
+      val names = fields.analyze(new Const[Field, Vector[String]] { def apply[A](f: Field[A]): Vector[String] = Vector(f.name) })(Monoid.vector[String])
+      if (!names.contains(name)) throw new IllegalArgumentException(s"no field '$name' among ${names.mkString(", ")}")
+      Record[P](fields.hoist(new (Field ~> Field) {
+        def apply[A](f: Field[A]): Field[A] = if (f.name == name) change(f).asInstanceOf[Field[A]].copy(name = name) else f
+      }), write)
+    }
   }
   /** a tagged union of cases: `{"type": name, ...}` — the case's own fields when it is a record, `"value"` otherwise */
   final case class OneOf[A](cases: List[Case[A]]) extends Shape[A] {
