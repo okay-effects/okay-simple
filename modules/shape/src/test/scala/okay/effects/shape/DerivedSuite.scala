@@ -18,7 +18,7 @@ class DerivedSuite extends munit.FunSuite {
   val pet: Shape[Pet] = Shape.sum(Shape.sub[Pet, Dog]("dog", record(field("name", text), field("age", int))(Dog(_, _))(d => (d.name, d.age))) { case d: Dog => Some(d); case _ => None },
     Shape.sub[Pet, Fish.type]("fish", unit.map[Fish.type](_ => Fish)(_ => ())) { case Fish => Some(Fish); case _ => None })
 
-  val derivedPerson: Shape[Person] = Shape.derived[Person]      // Address derived within, as no shape of it is given
+  implicit val derivedPerson: Shape[Person] = Shape.derived[Person]      // Address derived within, as no shape of it is given; the implicit being defined is not found by itself
   val derivedPet: Shape[Pet] = Shape.derived[Pet]
   val ann = Person("ann", "Ann", Some(Day(1990, 5, 6)), vip = true, Some(7), Some(Address("Kyiv", List("Main 1", "flat 2"))), List("x", "y"))
   val bo = Person("bo", "Bo", None, vip = false, None, None, Nil)

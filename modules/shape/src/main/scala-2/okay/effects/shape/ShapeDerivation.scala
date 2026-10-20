@@ -29,7 +29,12 @@ object ShapeMacros {
       case None => c.abort(name.pos, s"no field '$n' in $P: ${fields.map(_.name.decodedName.toString).mkString(", ")}")
     }
   }
-  def derived[A: c.WeakTypeTag](c: blackbox.Context): c.Expr[Shape[A]] = {
+  def derived[A: c.WeakTypeTag](c: blackbox.Context): c.Expr[Shape[A]] = c.Expr[Shape[A]](shapeOf(c)(c.weakTypeOf[A], given = false))
+
+  /** THE SHAPE OF A TYPE, AS A TREE, for another macro: given implicitly when `given`, else `Option`/`List`/`Vector`
+   * of one, else derived — what `derived` is made of. `derived` itself does not look for a given shape of the type it
+   * derives: `implicit val x: Shape[X] = Shape.derived[X]` would find itself */
+  def shapeOf(c: blackbox.Context)(tpe: c.Type, given: Boolean = true): c.Tree = {
     import c.universe._
     val shapeOf = typeOf[Shape[_]].typeConstructor
     val option = typeOf[Option[_]].typeConstructor; val list = typeOf[List[_]].typeConstructor; val vector = typeOf[Vector[_]].typeConstructor
@@ -69,6 +74,13 @@ object ShapeMacros {
         q"_root_.okay.effects.shape.Shape.OneOf[$t](_root_.scala.List(..$cases))"
       } else c.abort(c.enclosingPosition, s"no Shape for $t: give one, or make it a case class or a sealed trait")
     }
-    c.Expr[Shape[A]](derive(weakTypeOf[A], Set(weakTypeOf[A])))
+    if (given) shapeFor(tpe, Set.empty) else derive(tpe, Set(tpe))
+  }
+  /** a case class's fields, name and type, for another macro; none when not a case class */
+  def fieldsOf(c: blackbox.Context)(tpe: c.Type): Option[List[(String, c.Type)]] = {
+    import c.universe._
+    val sym = tpe.typeSymbol
+    if (sym.isClass && sym.asClass.isCaseClass) Some(tpe.decls.collect { case m: MethodSymbol if m.isCaseAccessor => (m.name.decodedName.toString, m.returnType.asSeenFrom(tpe, sym.asClass)) }.toList)
+    else None
   }
 }
