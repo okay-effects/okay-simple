@@ -2,6 +2,7 @@ package okay.effects.shape
 
 import okay.effects.json.Json
 import Json.{Arr, Null, Num, Obj, Str}
+import okay.effects.algebra.{Const, FreeAp, Monoid, Validated, ~>}
 
 /**
  * A TYPED SCHEMA OF A VALUE `P`: at once a form for a person (fields, labels, constraints), an input schema for an
@@ -113,14 +114,16 @@ object Shape extends RecordWords {
     def encode(as: List[A]): Json = Arr(as.iterator.map(of.encode).toVector)
     def erased: Schema = Schema.Many(of.erased, min, max)
   }
-  /** a record: `fields` decode it, `write` takes it apart (`record(...)(make)(unmake)` builds both) */
-  final case class Record[P](fields: Fields[P], write: P => Vector[(String, Json)]) extends Shape[P] {
+  /** a record: `fields`, the free applicative of its `Field`s, decode it — run in `Validated`, every field's problems
+   * kept — and list themselves without decoding (`erased`); `write` takes a value apart (`record(...)(make)(unmake)`
+   * builds both) */
+  final case class Record[P](fields: FreeAp[Field, P], write: P => Vector[(String, Json)]) extends Shape[P] {
     def decodeAt(v: Json, path: List[String]): Either[Problems, P] = v match {
-      case o: Obj => fields.decodeAt(o, path)
+      case o: Obj => fields.foldMap[({ type L[A] = Validated[Problems, A] })#L](Field.reading(o, path))(Validated.applicative[Problems](Monoid.list[Problem])).toEither
       case other => expected("a record", other, path)
     }
     def encode(p: P): Json = Obj(write(p))
-    def erased: Schema = Schema.Record(fields.erased)
+    def erased: Schema = Schema.Record(fields.analyze(Field.erasing)(Monoid.vector[Schema.Field]))
   }
   /** a tagged union of cases: `{"type": name, ...}` — the case's own fields when it is a record, `"value"` otherwise */
   final case class Sum[A](cases: List[Case[A]]) extends Shape[A] {
@@ -205,28 +208,10 @@ object Shape extends RecordWords {
     override def absent: Option[A] = inner.absent
   }
 
-  /** a record's fields: a free applicative, one value built from fields in order, every field's problems kept */
-  sealed trait Fields[P] {
-    def decodeAt(o: Obj, path: List[String]): Either[Problems, P]
-    def erased: Vector[Schema.Field]
-  }
-  object Fields {
-    final case class Pure[P](p: P) extends Fields[P] {
-      def decodeAt(o: Obj, path: List[String]): Either[Problems, P] = Right(p)
-      def erased: Vector[Schema.Field] = Vector.empty
-    }
-    final case class Ap[A, P](f: Fields[A => P], field: Field[A]) extends Fields[P] {
-      def decodeAt(o: Obj, path: List[String]): Either[Problems, P] = (f.decodeAt(o, path), field.decodeAt(o, path)) match {
-        case (Right(g), Right(a)) => Right(g(a))
-        case (Left(ps), Right(_)) => Left(ps)
-        case (Right(_), Left(ps)) => Left(ps)
-        case (Left(ps), Left(qs)) => Left(ps ++ qs)
-      }
-      def erased: Vector[Schema.Field] = f.erased :+ field.erased
-    }
-  }
   final case class Field[A](name: String, shape: Shape[A], label: Option[String] = None, doc: Option[String] = None,
                             secret: Boolean = false, default: Option[A] = None) {
+    /** this field alone, as a record's fields */
+    def free: FreeAp[Field, A] = FreeAp.lift[Field, A](this)
     def decodeAt(o: Obj, path: List[String]): Either[Problems, A] = o.get(name) match {
       case Some(v) => shape.decodeAt(v, name :: path)
       case None => default.orElse(shape.absent).toRight(List(Problem((name :: path).reverse, "required")))
@@ -236,6 +221,17 @@ object Shape extends RecordWords {
     def documented(d: String): Field[A] = copy(doc = Some(d))
     def asSecret: Field[A] = copy(secret = true)
     def withDefault(a: A): Field[A] = copy(default = Some(a))
+  }
+  object Field {
+    /** the fields read from an object at a path: the natural transformation `Record` runs its free applicative with */
+    def reading(o: Obj, path: List[String]): Field ~> ({ type L[A] = Validated[Problems, A] })#L =
+      new (Field ~> ({ type L[A] = Validated[Problems, A] })#L) {
+        def apply[A](f: Field[A]): Validated[Problems, A] = Validated.fromEither(f.decodeAt(o, path))
+      }
+    /** the fields listed, nothing decoded */
+    val erasing: Const[Field, Vector[Schema.Field]] = new Const[Field, Vector[Schema.Field]] {
+      def apply[A](f: Field[A]): Vector[Schema.Field] = Vector(f.erased)
+    }
   }
 
   // ---- the words
@@ -252,7 +248,7 @@ object Shape extends RecordWords {
   def any: Shape[Json] = AnyValue
   def choice[A](options: (String, A)*): Shape[A] = Choice(options.toList)
   def field[A](name: String, shape: Shape[A]): Field[A] = Field(name, shape)
-  val unit: Shape[Unit] = Record[Unit](Fields.Pure(()), _ => Vector.empty)
+  val unit: Shape[Unit] = Record[Unit](FreeAp.pure[Field, Unit](()), _ => Vector.empty)
   def sum[A](cases: Case[A]*): Shape[A] = Sum(cases.toList)
   /** a case of a sum whose value IS a subtype: injected as it is */
   def sub[A, B <: A](name: String, shape: Shape[B])(project: A => Option[B]): Case[A] = Case[A, B](name, shape)(b => b)(project)

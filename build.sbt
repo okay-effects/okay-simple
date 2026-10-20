@@ -218,7 +218,7 @@ lazy val algebra = effectModule("algebra", "okay-effects-algebra")
 /** JSON parsed by the parsing module's effects: a text, or a stream of chunks as values come */
 lazy val json = effectModule("json", "okay-effects-json").dependsOn(parsing, stream)
 /** a typed schema — a form, a tool's input schema, the decoder — and its erasure to a value; JSON Schema of it */
-lazy val shape = effectModule("shape", "okay-effects-shape").dependsOn(json)
+lazy val shape = effectModule("shape", "okay-effects-shape").dependsOn(json, algebra)
 /** `sbt records`: rewrites shape's RecordWords.scala, the record words for arities 1 to 12 (project/Records.scala) */
 val records = taskKey[Unit]("generate RecordWords.scala")
 records := {
