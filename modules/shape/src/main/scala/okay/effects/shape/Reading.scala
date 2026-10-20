@@ -16,24 +16,26 @@ class Reading[F <: Effects](implicit implementation: F) {
   import fx._
 
   /** a reader: given the path and the shape to show, the program of the value or the problems */
-  type Rd[R[_], A] = (List[String], Schema) => Either[Problems, A] ! R
+  type Rd[R[_], A] = (List[String], Schema.Field) => Either[Problems, A] ! R
+  /** what is asked at a path that is no record's field: the root, a list's element, a sum's value */
+  private def anonymous(name: String, schema: Schema, secret: Boolean = false): Schema.Field = Schema.Field(name, schema, None, None, secret, None)
   private def problem[A](path: List[String], message: String): Either[Problems, A] = Left(List(Problem(path, message)))
 
   def read[P, R[_]](shape: Shape[P], path: List[String] = Nil)(implicit in: In[Fields, R]): Either[Problems, P] ! R =
-    shape.fold[({ type L[A] = Rd[R, A] })#L](new Reader[R])(path, shape.erased)
+    shape.fold[({ type L[A] = Rd[R, A] })#L](new Reader[R])(path, anonymous(path.lastOption.getOrElse(""), shape.erased))
 
   final class Reader[R[_]](implicit in: In[Fields, R]) extends ShapeAlgebra[({ type L[A] = Rd[R, A] })#L] {
-    private def get(path: List[String], shown: Schema): Option[Json] ! R = perform[Fields].apply[R, Option[Json]](Fields.Get[Option[Json]](path, shown, j => j))
-    private def retry(path: List[String], shown: Schema, ps: Problems): Option[Json] ! R = perform[Fields].apply[R, Option[Json]](Fields.Retry[Option[Json]](path, shown, ps, j => j))
-    private def has(path: List[String], shown: Schema): Fields.Presence ! R = perform[Fields].apply[R, Fields.Presence](Fields.Has[Fields.Presence](path, shown, b => b))
-    private def size(path: List[String], shown: Schema): Option[Int] ! R = perform[Fields].apply[R, Option[Int]](Fields.Size[Option[Int]](path, shown, n => n))
+    private def get(path: List[String], shown: Schema.Field): Option[Json] ! R = perform[Fields].apply[R, Option[Json]](Fields.Get[Option[Json]](path, shown, j => j))
+    private def retry(path: List[String], shown: Schema.Field, ps: Problems): Option[Json] ! R = perform[Fields].apply[R, Option[Json]](Fields.Retry[Option[Json]](path, shown, ps, j => j))
+    private def has(path: List[String], shown: Schema.Field): Fields.Presence ! R = perform[Fields].apply[R, Fields.Presence](Fields.Has[Fields.Presence](path, shown, b => b))
+    private def size(path: List[String], shown: Schema.Field): Option[Int] ! R = perform[Fields].apply[R, Option[Int]](Fields.Size[Option[Int]](path, shown, n => n))
     private def which(path: List[String], cases: List[String]): Option[String] ! R = perform[Fields].apply[R, Option[String]](Fields.Which[Option[String]](path, cases, c => c))
 
     /** a value in one piece: asked for, decoded by its WHOLE shape (refinements and all), asked again on a problem
      * while the handler offers another answer */
     private def leaf[A](shape: Shape[A]): Rd[R, A] = (path, shown) => get(path, shown).flatMap(leafFrom(shape, path, shown, _))
     /** the leaf decoded from what was got, asked again on a problem while the handler offers */
-    private def leafFrom[A](shape: Shape[A], path: List[String], shown: Schema, got: Option[Json]): Either[Problems, A] ! R = {
+    private def leafFrom[A](shape: Shape[A], path: List[String], shown: Schema.Field, got: Option[Json]): Either[Problems, A] ! R = {
       def attempt(oj: Option[Json]): Either[Problems, A] ! R = oj match {
         case None => shape.absent match {
           case Some(a) => pure[Either[Problems, A], R](Right(a))
@@ -73,12 +75,12 @@ class Reading[F <: Effects](implicit implementation: F) {
         }
       }
     def described[A](self: Shape.Described[A], of: Rd[R, A]): Rd[R, A] =
-      if (self.isLeaf) leaf(self) else (path, _) => of(path, self.erased)
+      if (self.isLeaf) leaf(self) else (path, shown) => of(path, shown.copy(schema = self.erased, label = shown.label.orElse(Some(self.label)), doc = shown.doc.orElse(self.doc)))
 
     def optional[A](self: Shape.Optional[A], of: Rd[R, A]): Rd[R, Option[A]] = (path, shown) =>
       has(path, shown).flatMap {
         case Fields.Presence.Absent => pure[Either[Problems, Option[A]], R](Right(None))
-        case _ => of(path, self.of.erased).map(_.map(a => Some(a): Option[A]))
+        case _ => of(path, shown.copy(schema = self.of.erased)).map(_.map(a => Some(a): Option[A]))
       }
 
     def many[A](self: Shape.Many[A], of: Rd[R, A]): Rd[R, List[A]] = (path, shown) =>
@@ -93,7 +95,7 @@ class Reading[F <: Effects](implicit implementation: F) {
             else if (self.max.exists(n > _)) List(Problem(path, s"at most ${self.max.get} items"))
             else Nil
           val elements: Either[Problems, Vector[A]] ! R = (0 until n).foldLeft(pure[Either[Problems, Vector[A]], R](Right(Vector.empty))) { (acc, i) =>
-            acc.flatMap(sofar => of(path :+ i.toString, self.of.erased).map(e => (sofar, e) match {
+            acc.flatMap(sofar => of(path :+ i.toString, anonymous(i.toString, self.of.erased, shown.secret)).map(e => (sofar, e) match {
               case (Right(as), Right(a)) => Right(as :+ a)
               case (Left(ps), Right(_)) => Left(ps)
               case (Right(_), Left(ps)) => Left(ps)
@@ -132,13 +134,13 @@ class Reading[F <: Effects](implicit implementation: F) {
             if (f.shape.isLeaf) {
               // a leaf's absence is the leaf's own: `Get` answers None, then the default, else `absent`, else `required`
               f.default match {
-                case Some(d) => get(at, f.erased.schema).flatMap {
+                case Some(d) => get(at, f.erased).flatMap {
                   case None => fx.pure[Either[Problems, A], R](Right(d))
-                  case got => leafFrom(f.shape, at, f.erased.schema, got)
+                  case got => leafFrom(f.shape, at, f.erased, got)
                 }
-                case None => field(f)(at, f.erased.schema)
+                case None => field(f)(at, f.erased)
               }
-            } else field(f)(at, f.erased.schema).map(orDefault(f, at))
+            } else field(f)(at, f.erased).map(orDefault(f, at))
           fx.map[Either[Problems, A], Validated[Problems, A], R](rd)(Validated.fromEither)
         }
       }).map(_.toEither)
@@ -155,7 +157,7 @@ class Reading[F <: Effects](implicit implementation: F) {
           case None => pure[Either[Problems, A], R](problem(path :+ "type", s"one of ${names.mkString(", ")}"))
           case Some(c) =>
             val at = if (self.flat(c)) path else path :+ "value"
-            c.shape.fold[({ type L[X] = Rd[R, X] })#L](this)(at, c.shape.erased).map(_.map(c.inject))
+            c.shape.fold[({ type L[X] = Rd[R, X] })#L](this)(at, anonymous(c.name, c.shape.erased)).map(_.map(c.inject))
         }
         }
       }
@@ -185,9 +187,9 @@ class Reading[F <: Effects](implicit implementation: F) {
         def answer[X](op: Fields[X]): X = op match {
           case Fields.Get(path, _, answer) => answer(at(path))
           case Fields.Retry(_, _, _, answer) => answer(None)
-          case Fields.Has(path, shape, answer) => answer(at(path) match {
+          case Fields.Has(path, field, answer) => answer(at(path) match {
             case None | Some(Json.Null) => Fields.Presence.Absent
-            case Some(v) => if (compatible(shape, v)) Fields.Presence.Present else Fields.Presence.Other(Json.kind(v))
+            case Some(v) => if (compatible(field.schema, v)) Fields.Presence.Present else Fields.Presence.Other(Json.kind(v))
           })
           case Fields.Size(path, _, answer) => answer(at(path).collect { case Json.Arr(items) => items.size })
           case Fields.Which(path, _, answer) => answer(at(path).collect { case o: Json.Obj => o.get("type") }.flatten.collect { case Json.Str(t) => t })
