@@ -45,8 +45,17 @@ read as far as it is asked. The `Left` at a failure is the last element, the str
 
 ## Measured
 
-The point of this module is that a parser on effects can be fit for real life. The same grammar on the first
-version of the parsing module — the input `State[String]`, each character a `substring(1)` — was QUADRATIC: 1.5 s and
-over 1 GB of heap on 100 KB, 3200× a hand-written loop. With the input as an index answered in place and the grammar
-decided by the next character, the module's cost is the handlers' alone. Measured where it lands is in
-`bench/` (`JsonBenchmark`), and the numbers are kept in BACKLOG.md's "parsing" items as they are taken.
+The point of this module is that a parser on effects can be fit for real life. The same grammar on the first version
+of the parsing module — the input `State[String]`, each character a `substring(1)`, the grammar on `orElse` and `many`
+— was QUADRATIC: 1.5 s and over 1 GB of heap on 100 KB, 3200× a hand-written loop. With the input an index answered in
+place, `takeWhile` an operation, and the grammar decided by the next character, the cost is the handlers' alone and
+linear (JMH, `bench/JsonBenchmark`, bench.d/2026-10-20_cd1562f_json-effects-vs-hand.txt):
+
+| text | hand-written | on the machine | on `Free` |
+|---|---|---|---|
+| 5 KB | 10 µs | 195 µs, 19× | 243 µs, 23× |
+| 100 KB | 204 µs | 3.9 ms, 19× | 4.8 ms, 23× |
+
+Twenty times the text, twenty times the time. Nineteen times a hand loop is the price of every token being an
+operation found by its handler and answered through the machine; where it is spent, and what of it the machine can
+shed, is the next measurement, not a guess.

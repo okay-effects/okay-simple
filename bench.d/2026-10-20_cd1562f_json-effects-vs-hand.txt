@@ -1,0 +1,16 @@
+JsonBenchmark, commit cd1562f, 2026-10-20, JDK 26, Apple silicon; sbt "bench/Jmh/run -f 1 -wi 2 -i 3 -w 2 -r 2 JsonBenchmark"
+The JSON grammar on effects (parsing's Input/Expect/Choose, decided by the next character) against HandJson, a hand-written
+recursive descent to the same Json. 5 KB and 100 KB texts, an array of records.
+
+Benchmark               (impl)  (size)  Mode  Cnt     Score     Error  Units
+JsonBenchmark.effects  machine      5k  avgt    3   194.783 ±  20.078  us/op
+JsonBenchmark.effects  machine    100k  avgt    3  3865.782 ± 229.447  us/op
+JsonBenchmark.effects     free      5k  avgt    3   242.823 ±   3.231  us/op
+JsonBenchmark.effects     free    100k  avgt    3  4817.708 ±  34.840  us/op
+JsonBenchmark.hand     machine      5k  avgt    3    10.404 ±   0.923  us/op
+JsonBenchmark.hand     machine    100k  avgt    3   204.135 ±  14.508  us/op
+
+Ratios: machine 19x the hand parser at both sizes, Free 23x; LINEAR in the text (20x the text, 20x the time).
+Before (the first parsing module, Input = State[String] with substring(1), the grammar on orElse/many; a scratch
+measurement in okay-face, not JMH): 80x at 4.8 KB, 190x at 10 KB, 3200x at 100 KB and over 1 GB of heap — quadratic.
+Three iterations of 2 s each: a first number, to be redone with -i 5 -wi 3 before any optimisation is judged by it.
