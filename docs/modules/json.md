@@ -19,7 +19,8 @@ under either, and a third handler — another encoding, a cache, a test's table 
 | the value | `Json`: `Null`, `Bool(b)`, `Num(n)`, `Str(s)`, `Arr(items)`, `Obj(fields)`; `Json.obj(...)`, `arr(...)`, `num(...)`, `str(...)` |
 | text of a value | `Json.print(j, ascii = false)`, `Json.pretty(j, indent = 2, ascii = false)` — iterative, any depth |
 | the way out, an effect | `writeJson(j)`: `Unit ! R`, `JsonWriter` in `R`; WHERE is the handler's: `collected(format, separator)` into a string, `writing(sink, format)` to any program taking the text — a console, a socket — `streamed(format)` as a stream; HOW is the `Format`: `Compact(ascii)`, `Indented(indent, ascii)` |
-| a stream written | `chunks(j)`: a `Stream[String, R]` of the value's pieces as it is walked, the dual of `values`; `lines(values)`: JSON lines, a value a line |
+| a stream written | `chunks(j)`: a `Stream[String, R]` of the value's pieces as it is walked, the dual of `values`; `toLines(values)`: JSON lines, a value a line |
+| JSON lines read | `fromLines(chunks)`: a `Stream[Either[LineError, Json], R]`, a line a value, blank lines skipped, a bad line a `Left` with its number and the stream GOES ON; `splitLines(chunks)` the lines themselves |
 | the effect | `parseJson(text, maxDepth = 1000)`: `Either[ParseError, Json] ! R`, `JsonParser` in `R`; `descent(p)` and `grammar(p)` its handlers |
 | at once | `parse(text, maxDepth)`: `Either[ParseError, Json]`, by descent; `parser(text)` the grammar as a program; `value` the grammar, for a parser of one's own |
 | a stream parsed | `values(chunks, maxDepth)`: a `Stream[Either[ParseError, Json], R]` of the values as they come, whitespace between them — JSON lines, or values concatenated; a failure is one `Left`, the last element |
@@ -55,7 +56,7 @@ row that takes a string, a console's line, a socket's send, a file's append, `st
 program writes — and HOW is the `Format` the handler is given, compact for a wire, indented for a person, ASCII-only
 for a channel that wants it. The printer underneath is ITERATIVE, an explicit stack of what is still to write, so the
 value nested a hundred thousand deep that the grammar parsed on the heap prints on the heap too. `chunks(j)` writes
-one value as a stream of its pieces; `lines(values)` writes JSON lines.
+one value as a stream of its pieces; `toLines(values)` writes JSON lines.
 
 ```scala
 import okay.effects.std.*
@@ -70,19 +71,28 @@ assert(run(streamed[Pure]()(out).toList) == List("""{"a":[1,"é"]}""", "7"))
 type WT = Writer % String + JsonWriter
 assert(run(writer[String](writing[Writer % String](s => tell[String, Writer % String](s))(out.into[WT])))._1 == List("""{"a":[1,"é"]}""", "7"))
 assert(run(chunks[Pure](obj("a" -> arr(num(1)))).toList).mkString == """{"a":[1]}""")
-assert(run(lines[Pure](emits[Json, Pure](List(num(1), Null))).toList) == List("1\n", "null\n"))
+assert(run(toLines[Pure](emits[Json, Pure](List(num(1), Null))).toList) == List("1\n", "null\n"))
 ```
 
-## Values as they come
+## Values as they come, and JSON lines
+
+Two readers of a stream of chunks, and the difference is what happens after a mistake. `values` reads JSON values
+separated by whitespace, each parsed by the grammar as the chunks come, a chunk boundary anywhere — inside a string,
+an escape, a literal, a number — changing nothing (the suite cuts a text at every position); a failure is one `Left`,
+the last element, because after a broken value there is no knowing where the next begins. `fromLines` reads JSON LINES
+— a value a line, which is what a journal or a log is — each line parsed on its own, a blank line skipped, a bad line a
+`Left` with its number, AND THE STREAM GOES ON with the next line: the line is the unit that resynchronises. Both pull
+only as far as they are asked, in constant memory however long the stream.
 
 ```scala
 val input = fromIterator[String, Pure](Iterator("{\"a\": 1}\n{\"b\":", " 2}\n", "3 \"x\""))
 assert(run(values(input).toList) == List(Right(obj("a" -> num(1))), Right(obj("b" -> num(2))), Right(num(3)), Right(Str("x"))))
 assert(run(values(fromIterator[String, Pure](Iterator("1 ", "[2"))).toList).map(_.left.map(_.offset)) == List(Right(num(1)), Left(4L)))
-```
 
-Each value is parsed when the stream is pulled, the chunks pulled as the parser needs them: a file of JSON lines is
-read as far as it is asked. The `Left` at a failure is the last element, the stream cannot resynchronise after it.
+val journal = fromIterator[String, Pure](Iterator("{\"a\": 1}\r\n[1, 2\n\n\"ok\"", "\n3"))
+assert(run(fromLines(journal).toList).map(_.left.map(_.line)) == List(Right(obj("a" -> num(1))), Left(2L), Right(Str("ok")), Right(num(3))))
+assert(run(fromLines(fromIterator[String, Pure](Iterator.continually("1\n"))).take(2).toList) == List(Right(num(1)), Right(num(1))))
+```
 
 ## Measured
 

@@ -120,9 +120,46 @@ abstract class JsonChecks(val fx0: Runner) extends munit.FunSuite {
     assert(pieces.size > 5)
     val deep = parse("[" * 100000 + "]" * 100000, maxDepth = 100001).toOption.get
     assertEquals(fx0.run(js.chunks[Void](deep).fold(0)((n, s) => n + s.length)), 200000)
-    val lines = fx0.run(js.lines[Void](streams.emits[Json, Void](List(num(1), obj("a" -> Null)))).toList)
+    val lines = fx0.run(js.toLines[Void](streams.emits[Json, Void](List(num(1), obj("a" -> Null)))).toList)
     assertEquals(lines, List("1\n", """{"a":null}""" + "\n"))
     assertEquals(fx0.run(js.values[Void](streams.emits[String, Void](lines)).toList), List(Right(num(1)), Right(obj("a" -> Null))))
+    // lazy: the first piece of a deep value costs no walk of the rest
+    assertEquals(fx0.run(js.chunks[Void](deep).take(2).toList), List("[", "["))
+  }
+  test("streams: a chunk boundary anywhere — inside a string, an escape, a literal, a number — changes nothing") {
+    val text = """{"a": [1, -2.5e+2, true, null], "b": "x\"y\u00e9\n", "c": {}} 42 "z" [] false"""
+    val whole = fx0.run(js.values[Void](streams.emits[String, Void](List(text))).toList)
+    assertEquals(whole.size, 5)
+    assert(whole.forall(_.isRight))
+    (1 until text.length).foreach { cut =>
+      val two = List(text.substring(0, cut), text.substring(cut))
+      assertEquals(fx0.run(js.values[Void](streams.emits[String, Void](two)).toList), whole, s"cut at $cut")
+    }
+    val many = text.grouped(3).toList
+    assertEquals(fx0.run(js.values[Void](streams.emits[String, Void](many)).toList), whole)
+    assertEquals(fx0.run(js.values[Void](streams.emits[String, Void](text.map(_.toString).toList)).toList), whole)
+  }
+  test("JSON lines: lines cut across chunks, \\r\\n, blank lines, a bad line reported by number and the rest read") {
+    val text = "{\"a\": 1}\r\n\n[1, 2\n  \n\"ok\"\n3"
+    val expected = List(Right(obj("a" -> num(1))), Left(3L), Right(Str("ok")), Right(num(3)))
+    def read(chunks: List[String]) = fx0.run(js.fromLines[Void](streams.emits[String, Void](chunks)).toList).map(_.left.map(_.line))
+    assertEquals(read(List(text)), expected)
+    (1 until text.length).foreach(cut => assertEquals(read(List(text.substring(0, cut), text.substring(cut))), expected, s"cut at $cut"))
+    assertEquals(read(text.map(_.toString).toList), expected)
+    assertEquals(fx0.run(js.fromLines[Void](streams.emits[String, Void](List("[1, 2\n"))).toList).map(_.left.map(e => (e.line, e.error.offset, e.error.expected))), List(Left((1L, 5L, List("',' or ']'")))))
+    assertEquals(fx0.run(js.splitLines[Void](streams.emits[String, Void](List("a\nb", "c\r\n", "\nd"))).toList), List("a", "bc", "", "d"))
+    assertEquals(fx0.run(js.splitLines[Void](streams.emits[String, Void](Nil)).toList), Nil)
+  }
+  test("JSON lines: two hundred thousand lines through, as far as asked, in constant memory") {
+    val n = 200000
+    var produced = 0
+    val lines = streams.fromIterator[String, Void](Iterator.tabulate(n) { i => produced += 1; s"""{"i": $i, "tags": ["a", "b"]}""" + "\n" })
+    val count = fx0.run(js.fromLines[Void](lines).fold(0L)((c, e) => if (e.isRight) c + 1 else c))
+    assertEquals(count, n.toLong)
+    produced = 0
+    val lazyLines = streams.fromIterator[String, Void](Iterator.tabulate(n) { i => produced += 1; s"$i\n" })
+    assertEquals(fx0.run(js.fromLines[Void](lazyLines).take(3).toList), List(Right(num(0)), Right(num(1)), Right(num(2))))
+    assert(produced <= 5, s"produced $produced chunks for three lines")
   }
 }
 

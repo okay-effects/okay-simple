@@ -217,9 +217,34 @@ class Jsons[I <: okay.effects.Effects, S <: Streams[I]](val streams: S) {
     }
     streams.fromGenerator[String].apply[RY, Rest, Unit](walk(j))
   }
-  /** JSON lines: a value a line, each printed compact, the newline on */
-  def lines[Rest[_]](values: streams.Stream[Json, Rest], ascii: Boolean = false): streams.Stream[String, Rest] =
+  /** JSON LINES out: a value a line, each printed compact, the newline on */
+  def toLines[Rest[_]](values: streams.Stream[Json, Rest], ascii: Boolean = false): streams.Stream[String, Rest] =
     values.map(j => Json.print(j, ascii) + "\n")
+
+  /** a stream of chunks as a stream of its LINES, cut at `\n` wherever a chunk boundary falls, a trailing `\r` dropped;
+   * the last line with no newline is a line too */
+  def splitLines[Rest[_]](chunks: streams.Stream[String, Rest]): streams.Stream[String, Rest] = {
+    type Y[X] = Yield[String, X]
+    type RY[X] = okay.effects.Sum[Rest, Y, X]
+    def line(s: String): String = if (s.endsWith("\r")) s.dropRight(1) else s
+    def loop(s: streams.Stream[String, RY], carry: String): Unit ! RY = s.pull().flatMap(_.fold(
+      if (carry.nonEmpty) emit[String, RY](line(carry)) else pure[Unit, RY](()))(
+      (chunk, rest) => {
+        val parts = (carry + chunk).split("\n", -1)
+        parts.init.foldLeft(pure[Unit, RY](()))((acc, l) => acc.flatMap(_ => emit[String, RY](line(l)))).flatMap(_ => loop(rest, parts.last))
+      }))
+    streams.fromGenerator[String].apply[RY, Rest, Unit](loop(fromStreams.lift[Rest, RY](chunks), ""))
+  }
+
+  /** a line that did not parse: which, and why */
+  final case class LineError(line: Long, error: ParseError)
+
+  /** JSON LINES in: a value a line, blank lines skipped, each line parsed on its own (by descent) — a bad line is a
+   * `Left` with its number and the stream GOES ON with the next, which `values` cannot: a line is the unit that
+   * resynchronises. Lines are 1-based */
+  def fromLines[Rest[_]](chunks: streams.Stream[String, Rest], maxDepth: Int = 1000): streams.Stream[Either[LineError, Json], Rest] =
+    splitLines(chunks).zipWithIndex.filter { case (l, _) => l.exists(!isSpace(_)) }
+      .map { case (l, i) => Descent.parse(l, maxDepth).left.map(e => LineError(i + 1, e)) }
 
   /** the row a JSON parser runs in: the three effects and nothing else */
   type P[X] = okay.effects.Sum[({ type L[x] = okay.effects.Sum[({ type M[y] = okay.effects.Sum[okay.effects.Void, Choose, y] })#M, Expect, x] })#L, Input, X]
