@@ -60,7 +60,8 @@ object ShapeMacros {
         }
         val args = fields.zipWithIndex.map { case (f, i) => q"vs($i).asInstanceOf[${f.returnType.asSeenFrom(t, cls)}]" }
         val parts = fields.map(f => q"a.${f.name}")
-        q"""_root_.okay.effects.shape.Shape.fields[$t](_root_.scala.List(..$fieldTrees))((vs: _root_.scala.List[_root_.scala.Any]) => ${cls.companion}.apply(..$args))((a: $t) => _root_.scala.List[_root_.scala.Any](..$parts))"""
+        // `new`, not the companion's `apply`: a case class local to a method has no companion the macro can name
+        q"""_root_.okay.effects.shape.Shape.fields[$t](_root_.scala.List(..$fieldTrees))((vs: _root_.scala.List[_root_.scala.Any]) => new $t(..$args))((a: $t) => _root_.scala.List[_root_.scala.Any](..$parts))"""
       } else if (cls.isSealed) {
         if (cls.fullName.startsWith("scala.") || cls.fullName.startsWith("java.")) c.abort(c.enclosingPosition, s"no Shape for $t, a library type: give one implicitly")
         cls.typeSignature   // the subclasses are known once the symbol is complete
