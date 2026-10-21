@@ -45,8 +45,8 @@ locally { import okay.effects.machine.Machine.self; assert(run(p) == (42, 42)) }
 An implementation is a VALUE, and it carries itself as an implicit of its own singleton type, `self: this.type`: so
 `import okay.effects.machine.Machine.*` brings the words and, with them, the machine as the implicit implementation —
 whatever asks for a `Machine.type`, a `Runner` or an `Effects` gets it: `run(p)`, `new Faces()`, `new Https()`, with
-nothing more said, and the type inferred is exactly `Machine.type`. The implicit alone, without the words, is
-`import okay.effects.machine.implicits.*`. Mind Scala 2 when you hold an implementation of your own as an implicit
+nothing more said, and the type inferred is exactly `Machine.type`. The implicit alone, when the words are another's
+(tagless's `run`), is `import okay.effects.machine.Machine.self`. Mind Scala 2 when you hold an implementation of your own as an implicit
 `Runner` in the same scope as an imported one: Scala 2 takes the more specific type, the imported one's; Scala 3
 the nearer. Import the words of the implementation you mean, or none.
 

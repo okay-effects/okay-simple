@@ -9,8 +9,4 @@ package object free {
   /** the same, seen through the interface only — its own types abstract to its users:
    * `import okay.effects.free.Free.*`, its standard effects `import okay.effects.free.Free.std.*` */
   val Free: Runner with Self = OnFree
-  /** the free monad as the implicit implementation, opted into: `import okay.effects.free.implicits._` */
-  object implicits {
-    implicit val free: Free.type = Free
-  }
 }
