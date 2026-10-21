@@ -39,13 +39,16 @@ val p: (Int, Int) ! Pure = state(1)(modify[Int, State % Int](_ * 42).andThen(get
 
 assert(run(p)(using okay.effects.machine.Machine) == (42, 42))
 locally { given Runner = okay.effects.free.Free; assert(run(p) == (42, 42)) }
-locally { import okay.effects.machine.implicits.*; assert(run(p) == (42, 42)) }
+locally { import okay.effects.machine.Machine.self; assert(run(p) == (42, 42)) }   // the implicit alone: this `run` is tagless's
 ```
 
-An implementation is a VALUE, given where it is wanted; none is implicit by itself, so code with an implementation
-of its own in scope meets no ambiguity (Scala 2 has no rule of the nearer scope). To have one implicit, opt in:
-`import okay.effects.machine.implicits._` gives the machine to whatever asks for a `Machine.type`, a `Runner` or an
-`Effects` — `new Faces()`, `run(p)` — and `okay.effects.free.implicits._` the free monad likewise.
+An implementation is a VALUE, and it carries itself as an implicit of its own singleton type, `self: this.type`: so
+`import okay.effects.machine.Machine.*` brings the words and, with them, the machine as the implicit implementation —
+whatever asks for a `Machine.type`, a `Runner` or an `Effects` gets it: `run(p)`, `new Faces()`, `new Https()`, with
+nothing more said, and the type inferred is exactly `Machine.type`. The implicit alone, without the words, is
+`import okay.effects.machine.implicits.*`. Mind Scala 2 when you hold an implementation of your own as an implicit
+`Runner` in the same scope as an imported one: Scala 2 takes the more specific type, the imported one's; Scala 3
+the nearer. Import the words of the implementation you mean, or none.
 
 Each word, made on `fx`, is `fx`'s own: `pure` its `pure`, a handler its `handle` of that shape. One trusted step:
 the `k` an implementation gives a general clause comes back as a `Program`, checked by identity — a `k` kept and run
