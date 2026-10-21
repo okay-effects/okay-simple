@@ -396,6 +396,8 @@ class Std[F <: Effects with Singleton](val fx: F) {
         case Std.Choose.Among(xs) =>
           def go(ys: List[X]): Option[A] ! Rest = ys match {
             case Nil => pure[Option[A], Rest](None)
+            // the last choice in tail position: no frame kept per choice point when there is one choice
+            case y :: Nil => k(y)
             case y :: t => k(y).flatMap {
               case None => go(t)
               case found => pure[Option[A], Rest](found)
@@ -410,6 +412,9 @@ class Std[F <: Effects with Singleton](val fx: F) {
     handle[Choose, R, Rest, A, List[A]](p, new Handler[Choose, Rest, A, List[A]] {
       def ret(a: A) = pure(List(a))
       def op[X](op: Choose[X], k: X => List[A] ! Rest) = op match {
+        // one choice: its ways, in tail position — no frame kept per choice point, so a chain of them is constant
+        // in memory
+        case Std.Choose.Among(x :: Nil) => k(x)
         // the ways so far kept reversed, each branch's put before them: linear in the ways, not quadratic
         case Std.Choose.Among(xs) =>
           xs.foldLeft(pure[List[A], Rest](Nil))((acc, x) => acc.flatMap(l => k(x).map(r => r reverse_::: l))).map(_.reverse)
