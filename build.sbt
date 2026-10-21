@@ -183,10 +183,16 @@ lazy val interopMonix = crossBoth("interopMonix", "interop/monix", can = Set("js
     "io.monix" %%% "monix-tail" % "3.5.2"))
 
 /** INTEROP WITH KYO: a kyo computation a standard `Lift`, a program of them a kyo computation; streams to kyo's. Scala 3's:
- * kyo is Scala 3's */
+ * kyo is Scala 3's. KYO NEEDS JDK 25 TO COMPILE AGAINST: its class files are Java 25's and its inline macros run inside the
+ * compiler, so on an older JDK this module is SKIPPED (compile, test, publish) with a warning, and everything else builds —
+ * `sbt publishLocal` on JDK 21 publishes all but okay-effects-kyo. To have it, run sbt on JDK 25 or later */
+val jdkMajor: Int = System.getProperty("java.specification.version").split("\\.").head.toInt
+val kyoJdk = 25
 lazy val interopKyo = crossBoth("interopKyo", "interop/kyo")
   .dependsOn(effects, stream, machine, free % Test, tagless % Test)
-  .settings(name := "okay-effects-kyo", scalaVersion := scala3Next, crossScalaVersions := Seq(scala3Next), libraryDependencies += "io.getkyo" %%% "kyo-prelude" % "1.0.0-RC7")
+  .settings(name := "okay-effects-kyo", scalaVersion := scala3Next, crossScalaVersions := Seq(scala3Next), libraryDependencies += "io.getkyo" %%% "kyo-prelude" % "1.0.0-RC7",
+    compile / skip := { if (jdkMajor < kyoJdk) sLog.value.warn(s"okay-effects-kyo is skipped: kyo needs JDK $kyoJdk to compile against, and this sbt runs on JDK $jdkMajor"); jdkMajor < kyoJdk },
+    Test / test / skip := jdkMajor < kyoJdk, publish / skip := jdkMajor < kyoJdk, publishLocal / skip := jdkMajor < kyoJdk)
 
 /** INTEROP WITH TOFU: `WithLocal` of a `Reader`, `Errors` of an `Error`, over cats' monad of the programs */
 lazy val interopTofu = (project in file("interop/tofu")).dependsOn(interopCats.jvm, machine.jvm, free.jvm % Test)
