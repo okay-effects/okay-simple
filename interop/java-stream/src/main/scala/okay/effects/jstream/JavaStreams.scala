@@ -16,7 +16,7 @@ import okay.effects.stream.Streams
  *  - `toJava(s)`, `toJavaIterator(s)`: a stream of no effect as a Java stream, an iterator — lazy, each element pulled
  *    by `fx`'s run when Java asks for it: endless streams too, `limit`ed on Java's side.
  */
-class JavaStreams[I <: Runner, S <: Streams[I]](val streams: S) {
+class JavaStreams[I <: Runner with Singleton, S <: Streams[I]](val streams: S) {
   /** the implementation: the streams' own */
   val fx: streams.fx.type = streams.fx
   import fx._

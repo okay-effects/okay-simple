@@ -26,7 +26,7 @@ object Search {
  * answer, the bindings inside the choice so each way has its own. And a FAIR search, `fair(n)(p)`: the ways tried
  * breadth-first, so a search with ways that never end still finds what the others give.
  */
-class Logic[F <: Effects](implicit implementation: F) {
+class Logic[F <: Effects with Singleton](implicit implementation: F) {
   /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
   val fx: F = implementation
   import fx._

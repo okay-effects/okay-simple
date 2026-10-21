@@ -27,7 +27,7 @@ object Env {
  * operation done where it is answered, in place) or a PURE one for tests (`console(inputs)`, `clock(start, step)`,
  * `env(vars)`). The same program under either.
  */
-class Io[F <: Effects](implicit implementation: F) {
+class Io[F <: Effects with Singleton](implicit implementation: F) {
   /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
   val fx: F = implementation
   import fx._

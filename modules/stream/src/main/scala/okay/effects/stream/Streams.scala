@@ -10,7 +10,7 @@ import okay.effects.{Effects, Std}
  * pulled twice, it runs twice. With the standard generators, `Yield`: `fromGenerator(p)`, a program that `emit`s, as a
  * stream; `s.emitAll`, a stream as a program that `emit`s.
  */
-class Streams[F <: Effects](implicit implementation: F) {
+class Streams[F <: Effects with Singleton](implicit implementation: F) {
   /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
   val fx: F = implementation
   import fx._

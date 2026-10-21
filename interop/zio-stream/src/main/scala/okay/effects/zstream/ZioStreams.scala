@@ -16,7 +16,7 @@ import zio.stream.ZStream
  *    first pull: its scope opened then, closed at its end or its failure — so a stream not pulled to its end keeps
  *    the `ZStream`'s scope open; take what you need from it with `ZStream`'s `take` on ZIO's side when that matters.
  */
-class ZioStreams[I <: Runner, S <: Streams[I]](val streams: S) {
+class ZioStreams[I <: Runner with Singleton, S <: Streams[I]](val streams: S) {
   /** the implementation: the streams' own */
   val fx: streams.fx.type = streams.fx
   private implicit val exact: fx.type = fx

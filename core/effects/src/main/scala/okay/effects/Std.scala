@@ -105,7 +105,7 @@ object Std {
  * An effect with a parameter is written here as both compilers read it, `({ type L[x] = State[S, x] })#L` — Scala 3's
  * `State % S`, Scala 2's `(State % S)#L`.
  */
-class Std[F <: Effects](val fx: F) {
+class Std[F <: Effects with Singleton](val fx: F) {
   import fx._
 
   type State[S, X] = Std.State[S, X]

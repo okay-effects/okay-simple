@@ -11,7 +11,7 @@ import okay.effects.json.Json
  * `fromJson(j)`, answering from a value — `run(fromJson(j)(read(s)))` is `s.decode(j)` — and `answering(xs)`, a
  * script of answers in order, a person's stand-in for tests. The interpreter is a `ShapeAlgebra`: no match on nodes.
  */
-class Reading[F <: Effects](implicit implementation: F) {
+class Reading[F <: Effects with Singleton](implicit implementation: F) {
   val fx: F = implementation
   import fx._
 

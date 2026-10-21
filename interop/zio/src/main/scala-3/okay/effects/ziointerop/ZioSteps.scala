@@ -21,7 +21,7 @@ type ZioStep[Env, Err] = [X] =>> ZIO[Env, Err, X]
  * A row of ZIO members only: another effect is handled before. The typed way to mix ZIO with the other effects is
  * `ZioRow` (`fromZIOTyped`), its channels our `Reader`, `Error`, `Async`.
  */
-class ZioSteps[F <: Runner](using implementation: F):
+class ZioSteps[F <: Runner with Singleton](using implementation: F):
   val fx: F = implementation
   import fx.{!, In, Pure}
 

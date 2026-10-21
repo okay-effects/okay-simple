@@ -10,7 +10,7 @@ import okay.effects.stream.Streams
  * gives whichever is ready first, and then pulls the next of that stream. A stream that ends is left out. Pulled a
  * step ahead: while the merged stream's element is used, each stream's next is on its way.
  */
-class AsyncStreams[I <: Runner, S <: Streams[I]](val streams: S)(implicit ec: ExecutionContext) {
+class AsyncStreams[I <: Runner with Singleton, S <: Streams[I]](val streams: S)(implicit ec: ExecutionContext) {
   /** the implementation: the streams' own */
   val fx: streams.fx.type = streams.fx
   private implicit val exact: fx.type = fx

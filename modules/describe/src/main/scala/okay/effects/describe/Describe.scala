@@ -30,7 +30,7 @@ abstract class Describe[F[_]](val name: String) {
 final case class RemoteFailure(op: String, problems: Problems) extends RuntimeException(s"$op: ${Problem.render(problems)}")
 
 /** the words over a description: serving an operation by name, and performing an effect remotely */
-class Domains[F <: Effects](implicit implementation: F) {
+class Domains[F <: Effects with Singleton](implicit implementation: F) {
   val fx: F = implementation
   import fx._
 

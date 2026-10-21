@@ -17,7 +17,7 @@ object Scope {
  * outside drops the rest of the scope, its finalizers with it — so handle errors inside. A `k` resumed twice inside
  * the scope ends it twice: each end runs the finalizers deferred before it, so for programs that resume once.
  */
-class Resources[F <: Effects](implicit implementation: F) {
+class Resources[F <: Effects with Singleton](implicit implementation: F) {
   /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
   val fx: F = implementation
   import fx._

@@ -54,7 +54,7 @@ object Cell {
 }
 
 /** `perform[E]`'s rest: the operation, its answer `X` inferred from it, the row `R` from what is expected or given */
-final class Perform[F <: Effectful, E[_]](val fx: F) extends AnyVal {
+final class Perform[F <: Effectful with Singleton, E[_]](val fx: F) extends AnyVal {
   def apply[R[_], X](op: E[X])(implicit in: fx.In[E, R]): fx.![X, R] = fx.perform[E, R, X](op)
 }
 

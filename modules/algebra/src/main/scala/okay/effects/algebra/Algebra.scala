@@ -8,7 +8,7 @@ import okay.effects.Effects
  * a MonadPlus; `Delimited`'s `Cps`, a ParaMonad. And the generic words the classes exist for — `traverse`,
  * `sequence`, `replicateA` — over any instance.
  */
-class Algebra[F <: Effects](implicit implementation: F) {
+class Algebra[F <: Effects with Singleton](implicit implementation: F) {
   /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
   val fx: F = implementation
   import fx._

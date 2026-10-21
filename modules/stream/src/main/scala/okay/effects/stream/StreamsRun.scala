@@ -7,7 +7,7 @@ import okay.effects.Runner
  * lazy, each element pulled by the run when asked, so an endless stream is taken as far as asked. Over the streams it
  * is given; in `import okay.effects.stream._`, the default's.
  */
-class StreamsRun[I <: Runner, S <: Streams[I]](val streams: S) {
+class StreamsRun[I <: Runner with Singleton, S <: Streams[I]](val streams: S) {
   /** the implementation: the streams' own */
   val fx: streams.fx.type = streams.fx
   // `streams.Stream` by name, not imported: in Scala 2 this package's own (its default, on the machine) would win

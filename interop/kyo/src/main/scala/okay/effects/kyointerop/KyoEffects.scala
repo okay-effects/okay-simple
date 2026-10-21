@@ -15,7 +15,7 @@ import _root_.okay.effects.stream.Streams
  *  - `fromKyoStream(ks)`: a kyo stream a stream here — run to its end at the first pull, its elements then given out
  *    (kyo has no public pull of one chunk).
  */
-class KyoEffects[I <: Runner, S0 <: Streams[I]](val streams: S0) {
+class KyoEffects[I <: Runner with Singleton, S0 <: Streams[I]](val streams: S0) {
   /** the implementation: the streams' own */
   val fx: streams.fx.type = streams.fx
   import streams.{Pull, Stream}

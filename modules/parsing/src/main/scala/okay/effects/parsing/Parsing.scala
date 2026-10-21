@@ -52,7 +52,7 @@ object ParseError {
  * by `Choose`, each alternative from the input of its time. `parse(text)(p)` runs a parser over a text:
  * `Right(a)` when all of it parsed, `Left(error)` saying where it failed and what was expected there.
  */
-class Parsing[F <: Effects](implicit implementation: F) {
+class Parsing[F <: Effects with Singleton](implicit implementation: F) {
   /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
   val fx: F = implementation
   import fx._

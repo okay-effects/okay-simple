@@ -31,7 +31,7 @@ object Step {
  * No `fork` of a thread from inside one: an effect carrying a program of its own row is of a type that contains
  * itself.
  */
-class Concurrent[F <: Effects](implicit implementation: F) {
+class Concurrent[F <: Effects with Singleton](implicit implementation: F) {
   /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
   val fx: F = implementation
   import fx._

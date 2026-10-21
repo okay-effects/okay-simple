@@ -23,7 +23,7 @@ import zio.{Exit, Runtime, Tag, Task, Unsafe, ZEnvironment, ZIO, ZLayer}
  *
  * `import okay.effects.ziointerop._`, the machine's; on another implementation `ZioEffects()`.
  */
-class ZioEffects[F <: Runner](implicit implementation: F) {
+class ZioEffects[F <: Runner with Singleton](implicit implementation: F) {
   /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
   val fx: F = implementation
   import fx._

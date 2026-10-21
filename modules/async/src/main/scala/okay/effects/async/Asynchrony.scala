@@ -42,7 +42,7 @@ final class Cancelled extends RuntimeException("cancelled")
  * a fiber interrupted; `race` and `timeout` cancel the program that lost, `both` and `parTraverse` the others when one
  * fails.
  */
-class Asynchrony[F <: Runner](implicit implementation: F, ec: ExecutionContext) {
+class Asynchrony[F <: Runner with Singleton](implicit implementation: F, ec: ExecutionContext) {
   /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
   val fx: F = implementation
   import fx._

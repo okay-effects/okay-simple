@@ -17,7 +17,7 @@ import tofu.{Errors, WithLocal}
  * Each asks where the effect is (`Split`) and that the rest of the row is in `R` (`Sub`): found for a row named.
  * `val tofu = Tofu(Cats(Machine)); import tofu._`
  */
-class Tofu[F <: Runner](val catsInterop: Cats[F]) {
+class Tofu[F <: Runner with Singleton](val catsInterop: Cats[F]) {
   import catsInterop.fx._
   /** the standard effects, named in full: tofu's classes have an `ask`, an `attempt` of their own */
   private val std = catsInterop.fx.std
@@ -44,5 +44,5 @@ class Tofu[F <: Runner](val catsInterop: Cats[F]) {
 }
 
 object Tofu {
-  def apply[F <: Runner](catsInterop: Cats[F]): Tofu[F] = new Tofu[F](catsInterop)
+  def apply[F <: Runner with Singleton](catsInterop: Cats[F]): Tofu[F] = new Tofu[F](catsInterop)
 }

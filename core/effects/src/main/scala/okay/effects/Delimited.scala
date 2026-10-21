@@ -35,7 +35,7 @@ object Delimited {
   /** continuation-passing over the implementation's programs: `Cps[A, B, C, R]` a function from the rest, of the
    * answer `B`, to the `reset`'s program of `C`. Each step `delay`ed — the call into the program before it, and into
    * the rest — so the implementation's run, a loop, keeps binds nested either way in constant stack */
-  class ByCps[F <: Effects](val fx: F) extends Delimited[F] {
+  class ByCps[F <: Effects with Singleton](val fx: F) extends Delimited[F] {
     import fx._
 
     type Cps[A, B, C, R[_]] = (A => B ! R) => C ! R

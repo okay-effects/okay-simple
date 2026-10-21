@@ -34,7 +34,7 @@ object Format {
  * stop, by choice). From a text in memory (`parse`), or from a stream of chunks as values come (`values`), with an
  * error saying where and what was expected. Over the streams given, so its streams are the caller's.
  */
-class Jsons[I <: okay.effects.Effects, S <: Streams[I]](val streams: S) {
+class Jsons[I <: okay.effects.Effects with Singleton, S <: Streams[I]](val streams: S) {
   import streams.fx._
   import streams.fx.std.{Choose, Yield, emit, first}
   val parsers: Parsing[streams.fx.type] = new Parsing[streams.fx.type]()(streams.fx)

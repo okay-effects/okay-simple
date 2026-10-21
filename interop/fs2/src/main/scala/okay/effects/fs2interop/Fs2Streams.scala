@@ -16,7 +16,7 @@ import okay.effects.stream.Streams
  *    its own (`uncons`), so a resource the fs2 stream holds across its elements is released at each step's end: for
  *    such a stream, compile it on fs2's side and lift what it gives.
  */
-class Fs2Streams[I <: Runner, S <: Streams[I]](val streams: S) {
+class Fs2Streams[I <: Runner with Singleton, S <: Streams[I]](val streams: S) {
   /** the implementation: the streams' own */
   val fx: streams.fx.type = streams.fx
   private implicit val exact: fx.type = fx
