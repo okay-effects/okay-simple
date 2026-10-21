@@ -39,7 +39,13 @@ val p: (Int, Int) ! Pure = state(1)(modify[Int, State % Int](_ * 42).andThen(get
 
 assert(run(p)(using okay.effects.machine.Machine) == (42, 42))
 locally { given Runner = okay.effects.free.Free; assert(run(p) == (42, 42)) }
+locally { import okay.effects.machine.implicits.*; assert(run(p) == (42, 42)) }
 ```
+
+An implementation is a VALUE, given where it is wanted; none is implicit by itself, so code with an implementation
+of its own in scope meets no ambiguity (Scala 2 has no rule of the nearer scope). To have one implicit, opt in:
+`import okay.effects.machine.implicits._` gives the machine to whatever asks for a `Machine.type`, a `Runner` or an
+`Effects` — `new Faces()`, `run(p)` — and `okay.effects.free.implicits._` the free monad likewise.
 
 Each word, made on `fx`, is `fx`'s own: `pure` its `pure`, a handler its `handle` of that shape. One trusted step:
 the `k` an implementation gives a general clause comes back as a `Program`, checked by identity — a `k` kept and run
