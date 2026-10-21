@@ -9,5 +9,5 @@ package okay.effects
  * with an imported implementation's words: Scala 2 takes the more specific type, the imported one's; Scala 3 the nearer.
  */
 trait Self { this: Effects =>
-  implicit val self: this.type = this
+  implicit def self: this.type = this
 }
