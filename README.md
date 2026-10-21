@@ -105,6 +105,7 @@ implementation is one; code that runs programs takes a `Runner`. So words of no 
 | a row of no effect | `Pure` | the same; among names `*[Pure]` |
 | a row of one effect, `E` | `E` | the same |
 | the row `R` and `E` after it, left to right | `R + E` | `(R + E)#L`, of names |
+| the row of a name, applied — one spelling for both | `Row[N, X]`: `Row[*[Pure] + *[Face], X]` | the same, `N#L[X]` |
 | an effect of the operations `F[X]` | `F`: `Choose` | `F`; among names `*[F]` |
 | an effect of the operations `F[S, X]`, with its parameter | `F % S`: `State % Int` | `(F % S)#L`; among names `F % S` |
 | the operation of `E` answered by an `X` | `E[X]` | the same |

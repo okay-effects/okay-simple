@@ -30,6 +30,9 @@ trait Effects extends Effectful {
   type %[F[_, _], S] = okay.effects.%[F, S]
   type *[F[_]] = okay.effects.*[F]
   type +[R <: Effect, E <: Effect] = okay.effects.+[R, E]
+  /** THE ROW OF A NAME, applied — the one spelling both compilers read: `type F[X] = Row[*[Pure] + *[Face], X]`,
+   * `Row[(Reader % String) + (State % Int), X]`. Here the name's `L` at `X`; in Scala 3 the name is the row already */
+  type Row[N <: Effect, X] = N#L[X]
   /** a context bound: `def greet[R[_]: Has[(Reader % String)#L]#L]: Int ! R` */
   type Has[E[_]] = { type L[R[_]] = In[E, R] }
 
