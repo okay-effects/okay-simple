@@ -17,7 +17,8 @@ object Selectors:
       case s @ Select(q, n) if s.symbol.flags.is(Flags.CaseAccessor) => select(q, param).map(_ :+ n)
       case _ => None
     val found = unwrap(sel.asTerm) match
-      case Block(List(DefDef(_, List(TermParamClause(List(p))), _, Some(body))), Closure(_, _)) => select(body, p.name).filter(_.nonEmpty)
+      case Block(List(DefDef(_, List(TermParamClause(List(p))), _, Some(body))), Closure(_, _)) =>
+        select(body, p.name).filter(_.nonEmpty)
       case _ => None
     found.getOrElse(report.errorAndAbort("a field is selected as _.field, or _.a.b, of a case class: not " + sel.show))
 
@@ -36,5 +37,5 @@ object Selectors:
     import quotes.reflect.*
     path(sel) match
       case List(name) => typeOfSelected(sel).asType match
-        case '[t] => '{ new Shape.At[P, t]($shape, ${ Expr(name) }) }
+          case '[t] => '{ new Shape.At[P, t]($shape, ${ Expr(name) }) }
       case names => report.errorAndAbort("a record's own field is adjusted: " + names.mkString(".") + " goes within")

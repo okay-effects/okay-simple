@@ -21,20 +21,23 @@ class AsyncStreams[I <: Runner with Singleton, S <: Streams[I]](val streams: S)(
   // `asynchrony.`'s words by name, not imported: in Scala 2 the package's own (its default, on the machine) would win
   /** the streams merged as their elements come */
   def mergeAsync[O](ss: List[Stream[O, Async]]): Stream[O, Async] =
-    new Stream[O, Async](() => racing[O](ss.zipWithIndex.map { case (s, i) => (i, asynchrony.toFuture(s.pull())) }).pull())
+    new Stream[O, Async](() =>
+      racing[O](ss.zipWithIndex.map { case (s, i) => (i, asynchrony.toFuture(s.pull())) }).pull())
 
   /** the same, the streams given one by one: `mergeAsync(a, b, c)` */
-  def mergeAsync[O](first: Stream[O, Async], rest: Stream[O, Async]*): Stream[O, Async] = mergeAsync[O](first :: rest.toList)
+  def mergeAsync[O](first: Stream[O, Async], rest: Stream[O, Async]*): Stream[O, Async] =
+    mergeAsync[O](first :: rest.toList)
 
   /** the pulls on their way, each with its stream's number: the first to come given out, its stream's next pulled */
   private def racing[O](pending: List[(Int, Future[Pull[O, Async]])]): Stream[O, Async] = new Stream[O, Async](() =>
     if (pending.isEmpty) streams.empty[O, Async].pull()
     else asynchrony.fromFuture[(Int, Pull[O, Async]), Async](
       Future.firstCompletedOf(pending.map { case (i, f) => f.map(p => (i, p)) })).flatMap { case (i, pull) =>
-        val others = pending.filterNot(_._1 == i)
-        pull.fold(racing[O](others).pull())((o, rest) =>
-          pure[Pull[O, Async], Async](new streams.Emit[O, Async](o, racing[O](others :+ ((i, asynchrony.toFuture(rest.pull())))))))
-      })
+      val others = pending.filterNot(_._1 == i)
+      pull.fold(racing[O](others).pull())((o, rest) =>
+        pure[Pull[O, Async], Async](new streams.Emit[O, Async](o,
+            racing[O](others :+ ((i, asynchrony.toFuture(rest.pull())))))))
+    })
 }
 
 object AsyncStreams {

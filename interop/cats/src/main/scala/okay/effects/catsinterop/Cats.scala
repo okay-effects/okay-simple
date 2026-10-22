@@ -14,7 +14,8 @@ import okay.effects.{Runner, Std}
  * `val cats = Cats(Machine); import cats._`
  */
 class Cats[F <: Runner with Singleton](implicit implementation: F) {
-  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
+  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation
+   * to the code it is imported into */
   val fx: F = implementation
   import fx._
 

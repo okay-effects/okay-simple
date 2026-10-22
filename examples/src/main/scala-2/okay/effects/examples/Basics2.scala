@@ -23,7 +23,8 @@ class Basics2[F <: Runner with Singleton](implicit val fx: F) {
   import fx.std._
   import Basics2.Counter
 
-  def greet[R[_]](implicit r: In[(Reader % String)#L, R], w: In[(Writer % String)#L, R], s: In[(State % Int)#L, R]): Int ! R =
+  def greet[R[_]](implicit r: In[(Reader % String)#L, R], w: In[(Writer % String)#L, R], s: In[(State % Int)#L, R])
+    : Int ! R =
     for {
       name <- ask[String, R]
       _ <- tell[String, R](s"hello, $name")
@@ -39,19 +40,20 @@ class Basics2[F <: Runner with Singleton](implicit val fx: F) {
   def peek[R[_]](implicit in: In[Counter, R]): Int ! R = perform[Counter].apply[R, Int](Counter.Peek(n => n))
 
   def counting[R[_], Rest[_], A](p: A ! R)(implicit s: Split[Counter, R, Rest]): (Int, A) ! Rest =
-    handle[Counter, Int, R, Rest, A, (Int, A)](p, 0, new StatefulTailHandler[Counter, Int, Rest, A, (Int, A)] {
-      def ret(n: Int, a: A) = pure((n, a))
-      def answer[X](cell: Cell[Int], op: Counter[X]): X = op match {
-        case Counter.Tick(answer) => cell.set(cell.get + 1); answer(())
-        case Counter.Peek(answer) => answer(cell.get)
-      }
-    })
+    handle[Counter, Int, R, Rest, A, (Int, A)](p, 0,
+      new StatefulTailHandler[Counter, Int, Rest, A, (Int, A)] {
+        def ret(n: Int, a: A) = pure((n, a))
+        def answer[X](cell: Cell[Int], op: Counter[X]): X = op match {
+          case Counter.Tick(answer) => cell.set(cell.get + 1); answer(())
+          case Counter.Peek(answer) => answer(cell.get)
+        }
+      })
 
   /** the effect beside a standard one, by names: `*[Counter]` the effect of no parameter among names */
   type Ticking[X] = (*[Counter] + (State % Int))#L[X]
   def counted: (Int, (Int, Int)) =
     run(state(100)(counting(tick[Ticking].andThen(tick[Ticking]).andThen(peek[Ticking])
-      .flatMap(n => modify[Int, Ticking](_ + n).as(n)))))
+            .flatMap(n => modify[Int, Ticking](_ + n).as(n)))))
 
   /** a search, Scala 2: the first even number among the choices, times ten */
   def firstEven(xs: List[Int]): Option[Int] =

@@ -13,7 +13,8 @@ abstract class ProbabilityChecks(val fx0: Runner) extends munit.FunSuite {
   import pr.fx._
   import pr.fx.std._
 
-  def dice: Int ! Dist = uniform[Int, Dist]((1 to 6).toList).flatMap(a => uniform[Int, Dist]((1 to 6).toList).map(b => a + b))
+  def dice: Int ! Dist =
+    uniform[Int, Dist]((1 to 6).toList).flatMap(a => uniform[Int, Dist]((1 to 6).toList).map(b => a + b))
 
   test("exact: two dice, each sum's probability") {
     val d = pr.fx.run(exact(dice)).toMap
@@ -26,10 +27,12 @@ abstract class ProbabilityChecks(val fx0: Runner) extends munit.FunSuite {
     assertEqualsDouble(d(true), 1 - 0.7 * 0.7, 1e-12)
   }
   type DR[X] = Sum[Random, Dist, X]
-  def diceIn: Int ! DR = uniform[Int, DR]((1 to 6).toList).flatMap(a => uniform[Int, DR]((1 to 6).toList).map(b => a + b))
+  def diceIn: Int ! DR =
+    uniform[Int, DR]((1 to 6).toList).flatMap(a => uniform[Int, DR]((1 to 6).toList).map(b => a + b))
   test("sampled: from a seed, the same; in range; the mean near 7") {
     def sample(seed: Long, n: Int): List[Int] =
-      pr.fx.run(random(seed)((1 to n).toList.foldLeft(pure[List[Int], Random](Nil))((p, _) => p.flatMap(l => sampled(diceIn).map(_ :: l)))))
+      pr.fx.run(random(seed)((1 to n).toList.foldLeft(pure[List[Int], Random](Nil))((p, _) =>
+            p.flatMap(l => sampled(diceIn).map(_ :: l)))))
     assertEquals(sample(1, 20), sample(1, 20))
     val xs = sample(7, 4000)
     assert(xs.forall(x => x >= 2 && x <= 12))

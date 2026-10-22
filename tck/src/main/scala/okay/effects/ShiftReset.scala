@@ -18,5 +18,5 @@ class ShiftReset(val fx: Runner) {
   type RowL[X] = Sum[Void, CL, X]
   /** each resumption its own: the rest once for 1, once for 2 */
   def both: List[Int] = run(reset[List[Int], Pure](shift[Int, List[Int], Pure, RowL](k =>
-    k(1).flatMap(a => k(2).map(b => a ++ b))).map(x => List(x * 10))))
+        k(1).flatMap(a => k(2).map(b => a ++ b))).map(x => List(x * 10))))
 }

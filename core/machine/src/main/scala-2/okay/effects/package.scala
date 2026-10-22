@@ -24,8 +24,9 @@ package object effects {
 
   implicit def splitOne[E[_]]: Split[E, E, Pure] = Machine.splitOne[E]
   implicit def splitLast[R[_], E[_]]: Split[E, ({ type L[x] = Sum[R, E, x] })#L, R] = Machine.splitLast[R, E]
-  implicit def splitInit[E[_], R[_], G[_], Rest[_]](implicit s: Split[E, R, Rest]):
-      Split[E, ({ type L[x] = Sum[R, G, x] })#L, ({ type L[x] = Sum[Rest, G, x] })#L] = Machine.splitInit[E, R, G, Rest](s)
+  implicit def splitInit[E[_], R[_], G[_], Rest[_]](
+    implicit s: Split[E, R, Rest]): Split[E, ({ type L[x] = Sum[R, G, x] })#L, ({ type L[x] = Sum[Rest, G, x] })#L] =
+    Machine.splitInit[E, R, G, Rest](s)
   implicit def subPure[S[_]]: Sub[Pure, S] = Machine.subPure[S]
   implicit def subOne[E[_], S[_]](implicit e: In[E, S]): Sub[E, S] = Machine.subOne[E, S](e)
   implicit def subMore[R[_], E[_], S[_]](implicit r: Sub[R, S], e: In[E, S]): Sub[({ type L[x] = Sum[R, E, x] })#L, S] =
@@ -47,21 +48,24 @@ package object effects {
 
   def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: Handler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
     Machine.handle[E, R, Rest, A, B](p, h)(s)
-  def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: TailHandler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
+  def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: TailHandler[E, Rest, A, B])(
+    implicit s: Split[E, R, Rest]): B ! Rest =
     Machine.handle[E, R, Rest, A, B](p, h)(s)
-  def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: AbortHandler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
+  def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: AbortHandler[E, Rest, A, B])(
+    implicit s: Split[E, R, Rest]): B ! Rest =
     Machine.handle[E, R, Rest, A, B](p, h)(s)
   def handle[E[_], S, R[_], Rest[_], A, B](p: A ! R, s0: S, h: StatefulTailHandler[E, S, Rest, A, B])(
-      implicit s: Split[E, R, Rest]): B ! Rest = Machine.handle[E, S, R, Rest, A, B](p, s0, h)(s)
+    implicit s: Split[E, R, Rest]): B ! Rest = Machine.handle[E, S, R, Rest, A, B](p, s0, h)(s)
   def handle[E[_], S, R[_], Rest[_], A, B](p: A ! R, s0: S, h: StatefulHandler[E, S, Rest, A, B])(
-      implicit s: Split[E, R, Rest]): B ! Rest = Machine.handle[E, S, R, Rest, A, B](p, s0, h)(s)
+    implicit s: Split[E, R, Rest]): B ! Rest = Machine.handle[E, S, R, Rest, A, B](p, s0, h)(s)
   def handleLast[E[_], R[_], A, B](p: A ! ({ type L[x] = Sum[R, E, x] })#L, h: Handler[E, R, A, B]): B ! R =
     Machine.handleLast[E, R, A, B](p, h)
   def intercept[E[_], R[_], A, B](p: A ! R, h: Handler[E, R, A, B])(implicit in: In[E, R]): B ! R =
     Machine.intercept[E, R, A, B](p, h)(in)
 
   def run[A](p: A ! Pure): A = Machine.run[A](p)
-  def lower[G[_], A](p: A ! ({ type L[x] = Std.Lift[G, x] })#L)(implicit G: Std.Lowering[G]): G[A] = Machine.lower[G, A](p)(G)
+  def lower[G[_], A](p: A ! ({ type L[x] = Std.Lift[G, x] })#L)(implicit G: Std.Lowering[G]): G[A] =
+    Machine.lower[G, A](p)(G)
 
   /** the standard effects on the machine: `import okay.effects.std._` */
   val std: Machine.std.type = Machine.std

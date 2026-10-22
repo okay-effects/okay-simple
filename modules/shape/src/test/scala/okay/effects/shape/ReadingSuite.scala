@@ -14,8 +14,11 @@ abstract class ReadingChecks(val fx0: Runner) extends munit.FunSuite {
   type R[X] = Sum[Void, Fields, X]
 
   final case class Address(city: String, lines: List[String])
-  final case class Person(name: String, age: Int, email: Option[String], tags: List[String], born: Day, home: Option[Address], note: String)
-  val address: Shape[Address] = record(field("city", text(Constraint.MinLength(1))), field("lines", text.many(min = 1)))(Address(_, _))(a => (a.city, a.lines))
+  final case class Person(name: String, age: Int, email: Option[String], tags: List[String], born: Day,
+    home: Option[Address], note: String)
+  val address: Shape[Address] =
+    record(field("city", text(Constraint.MinLength(1))), field("lines", text.many(min = 1)))(Address(_, _))(a =>
+      (a.city, a.lines))
   val person: Shape[Person] = record(
     field("name", text(Constraint.MinLength(1))).labelled("Name"),
     field("age", int.check("of age")(_ >= 18)),
@@ -23,7 +26,8 @@ abstract class ReadingChecks(val fx0: Runner) extends munit.FunSuite {
     field("tags", text.many()).withDefault(Nil),
     field("born", date),
     field("home", address.optional),
-    field("note", text).withDefault("-"))(Person(_, _, _, _, _, _, _))(p => (p.name, p.age, p.email, p.tags, p.born, p.home, p.note))
+    field("note", text).withDefault("-"))(Person(_, _, _, _, _, _, _))(p =>
+    (p.name, p.age, p.email, p.tags, p.born, p.home, p.note))
 
   sealed trait Pet
   final case class Dog(name: String) extends Pet
@@ -33,40 +37,48 @@ abstract class ReadingChecks(val fx0: Runner) extends munit.FunSuite {
     sub[Pet, Fish]("fish", record(field("litres", int))(Fish(_))(_.litres)) { case f: Fish => Some(f); case _ => None })
 
   def fromJson[A](s: Shape[A], j: Json): Either[Problems, A] = fx0.run(rd.fromJson(j)(rd.read[A, R](s)))
-  def answering[A](s: Shape[A], answers: Json*): Either[Problems, A] = fx0.run(rd.answering(answers.toList)(rd.read[A, R](s)))
+  def answering[A](s: Shape[A], answers: Json*): Either[Problems, A] =
+    fx0.run(rd.answering(answers.toList)(rd.read[A, R](s)))
 
-  val ann = obj("name" -> Str("Ann"), "age" -> num(41), "email" -> Str("ann@x.io"), "tags" -> arr(Str("a")), "born" -> Str("1985-03-09"),
+  val ann = obj("name" -> Str("Ann"), "age" -> num(41), "email" -> Str("ann@x.io"), "tags" -> arr(Str("a")),
+    "born" -> Str("1985-03-09"),
     "home" -> obj("city" -> Str("Kyiv"), "lines" -> arr(Str("1 Main"))), "note" -> Str("hi"))
 
   test("the law: read from a json is decode, values and problems alike") {
     val inputs = List(ann,
       obj("name" -> Str("Bo"), "age" -> num(20), "born" -> Str("2000-02-29")),
-      obj("name" -> Str(""), "age" -> num(3), "email" -> Str("nope"), "tags" -> arr(Str("ok"), num(2)), "born" -> Str("x"),
+      obj("name" -> Str(""), "age" -> num(3), "email" -> Str("nope"), "tags" -> arr(Str("ok"), num(2)),
+        "born" -> Str("x"),
         "home" -> obj("city" -> Str(""), "lines" -> arr())),
       obj("age" -> Str("old")),
       obj("name" -> Str("Cy"), "age" -> num(30), "born" -> Str("2000-01-01"), "home" -> Null, "email" -> Null),
       obj("name" -> Str("Di"), "age" -> num(30), "born" -> Str("2000-01-01"), "home" -> Str("x"), "tags" -> Str("y")),
       Str("not a record"))
     inputs.foreach(j => assertEquals(fromJson(person, j), person.decode(j), Json.print(j)))
-    List(obj("type" -> Str("dog"), "name" -> Str("Rex")), obj("type" -> Str("fish"), "litres" -> Str("many")), obj("type" -> Str("cat")), obj("name" -> Str("x")))
+    List(obj("type" -> Str("dog"), "name" -> Str("Rex")), obj("type" -> Str("fish"), "litres" -> Str("many")),
+      obj("type" -> Str("cat")), obj("name" -> Str("x")))
       .foreach(j => assertEquals(fromJson(pet, j), pet.decode(j), Json.print(j)))
     assertEquals(fromJson(int.many(min = 2), arr(num(1))), int.many(min = 2).decode(arr(num(1))))
     assertEquals(fromJson(Schema.shape, Schema.shape.encode(person.erased)), Right(person.erased))
   }
   test("a person's answers, in order, asked again on a problem") {
     val got = answering(person,
-      Json.Bool(true),                  // a record here
-      Str("Ann"),                       // name
-      num(3), num(41),                  // age: not of age, asked again
+      Json.Bool(true), // a record here
+      Str("Ann"), // name
+      num(3), num(41), // age: not of age, asked again
       Json.Bool(true), Str("ann@x.io"), // email: present, the value
-      Json.Bool(true), num(1), Str("a"),   // tags: present, one, the value
-      Str("1985-13-09"), Str("1985-03-09"),  // born: not a date, asked again
-      Json.Bool(true), Json.Bool(true), Str("Kyiv"), Json.Bool(true), num(1), Str("1 Main"),   // home: present, a record; city; lines: present, one
-      Null)                             // note: nothing entered: the default
-    assertEquals(got, Right(Person("Ann", 41, Some("ann@x.io"), List("a"), Day(1985, 3, 9), Some(Address("Kyiv", List("1 Main"))), "-")))
+      Json.Bool(true), num(1), Str("a"), // tags: present, one, the value
+      Str("1985-13-09"), Str("1985-03-09"), // born: not a date, asked again
+      Json.Bool(true), Json.Bool(true), Str("Kyiv"), Json.Bool(true), num(1),
+      Str("1 Main"), // home: present, a record; city; lines: present, one
+      Null) // note: nothing entered: the default
+    assertEquals(got,
+      Right(Person("Ann", 41, Some("ann@x.io"), List("a"), Day(1985, 3, 9), Some(Address("Kyiv", List("1 Main"))),
+          "-")))
   }
   test("a person who gives up: the problems stand, every field's") {
-    val got = answering(person, Json.Bool(true), Str(""), Null, num(3), Null, Json.Bool(false), Json.Bool(false), Str("2001-01-01"), Json.Bool(false), Str("n"))
+    val got = answering(person, Json.Bool(true), Str(""), Null, num(3), Null, Json.Bool(false), Json.Bool(false),
+      Str("2001-01-01"), Json.Bool(false), Str("n"))
     assertEquals(got, Left(List(Problem(List("name"), "at least 1 characters"), Problem(List("age"), "of age"))))
   }
   test("a sum asked which case") {
@@ -88,13 +100,21 @@ abstract class ReadingChecks(val fx0: Runner) extends munit.FunSuite {
       def any = here
       def optional[A](self: Shape.Optional[A], of: Paths[A]) = p => of(p).map(_ + "?")
       def many[A](self: Shape.Many[A], of: Paths[A]) = p => of(p :+ "*")
-      def record[P](self: Shape.Record[P]) = p => self.erased match { case Schema.Record(fs) => fs.toList.flatMap(f => field(self.fields.analyze(new okay.effects.algebra.Const[Shape.Field, List[Shape.Field[_]]] { def apply[A](x: Shape.Field[A]) = List(x) })(okay.effects.algebra.Monoid.list).find(_.name == f.name).get)(p :+ f.name)); case _ => Nil }
-      def sum[A](self: Shape.OneOf[A]) = p => self.cases.flatMap(c => c.shape.fold(this)(if (self.flat(c)) p :+ c.name else p :+ c.name :+ "value"))
+      def record[P](self: Shape.Record[P]) = p =>
+        self.erased match {
+          case Schema.Record(fs) => fs.toList.flatMap(f =>
+              field(self.fields.analyze(new okay.effects.algebra.Const[Shape.Field, List[Shape.Field[_]]] {
+                def apply[A](x: Shape.Field[A]) = List(x)
+              })(okay.effects.algebra.Monoid.list).find(_.name == f.name).get)(p :+ f.name)); case _ => Nil
+        }
+      def sum[A](self: Shape.OneOf[A]) =
+        p => self.cases.flatMap(c => c.shape.fold(this)(if (self.flat(c)) p :+ c.name else p :+ c.name :+ "value"))
       def mapped[A, B](self: Shape.Mapped[A, B], of: Paths[A]) = of
       def described[A](self: Shape.Described[A], of: Paths[A]) = of
       def deferred[A](name: String, of: () => Paths[A]) = p => List((p :+ name).mkString("."))
     }
-    assertEquals(person.fold(paths)(Nil), List("name", "age", "email?", "tags.*", "born", "home.city?", "home.lines.*?", "note"))
+    assertEquals(person.fold(paths)(Nil),
+      List("name", "age", "email?", "tags.*", "born", "home.city?", "home.lines.*?", "note"))
     assertEquals(pet.fold(paths)(Nil), List("dog.name", "fish.litres"))
   }
 }

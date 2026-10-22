@@ -28,9 +28,11 @@ abstract class ParsingChecks(val fx0: Runner) extends munit.FunSuite {
     assertEquals(run(parse("12*12")(expr)), Right(144))
   }
   test("all of the input, or an error at the furthest point, saying what was expected there") {
-    assertEquals(run(parse("2+")(expr)).left.map(e => (e.offset, e.expected, e.found)), Left((2L, List("a digit", "'('"), Some("end of input"))))
+    assertEquals(run(parse("2+")(expr)).left.map(e => (e.offset, e.expected, e.found)),
+      Left((2L, List("a digit", "'('"), Some("end of input"))))
     assertEquals(run(parse("(1")(expr)).left.map(e => (e.offset, e.expected)), Left((2L, List("'*'", "'+'", "')'"))))
-    assertEquals(run(parse("2+3)")(expr)).left.map(_.message), Left("at line 1, column 4: expected '*' or '+' or end of input, found ')'"))
+    assertEquals(run(parse("2+3)")(expr)).left.map(_.message),
+      Left("at line 1, column 4: expected '*' or '+' or end of input, found ')'"))
   }
   test("a word among others: backtracking") {
     assertEquals(run(parse("letter")(orElse[String, P](string[P]("let"), string[P]("letter")))), Right("letter"))
@@ -47,10 +49,13 @@ abstract class ParsingChecks(val fx0: Runner) extends munit.FunSuite {
       case 'b' => Some(string[P]("banana"))
       case _ => None
     }
-    def words: List[String] ! P = whileNext[String, P](c => c == 'a' || c == 'b')(word.flatMap(w => skipWhile[P](_ == ' ').as(w)))
+    def words: List[String] ! P =
+      whileNext[String, P](c => c == 'a' || c == 'b')(word.flatMap(w => skipWhile[P](_ == ' ').as(w)))
     assertEquals(run(parse("apple banana apple")(words)), Right(List("apple", "banana", "apple")))
-    assertEquals(run(parse("apple cherry")(words)).left.map(e => (e.offset, e.expected)), Left((6L, List("end of input"))))
-    assertEquals(run(parse("apricot")(words)).left.map(e => (e.offset, e.expected, e.found)), Left((0L, List("'apple'"), Some("'a'"))))
+    assertEquals(
+      run(parse("apple cherry")(words)).left.map(e => (e.offset, e.expected)), Left((6L, List("end of input"))))
+    assertEquals(run(parse("apricot")(words)).left.map(e => (e.offset, e.expected, e.found)),
+      Left((0L, List("'apple'"), Some("'a'"))))
   }
   test("deep nesting is the heap's, not the stack's") {
     val n = 100000
@@ -60,9 +65,10 @@ abstract class ParsingChecks(val fx0: Runner) extends munit.FunSuite {
     val chunks = streams.fromIterator[String, Void](Iterator("2+3*", "(4", "+1)"))
     assertEquals(ps.fx.run(fromStreams.parseStream[Void](chunks)(expr)), Right(17))
     val cut = streams.fromIterator[String, Void](Iterator("2+3*", "(4"))
-    assertEquals(ps.fx.run(fromStreams.parseStream[Void](cut)(expr)).left.map(e => (e.offset, e.expected)), Left((6L, List("'*'", "'+'", "')'"))))
+    assertEquals(ps.fx.run(fromStreams.parseStream[Void](cut)(expr)).left.map(e => (e.offset, e.expected)),
+      Left((6L, List("'*'", "'+'", "')'"))))
     assertEquals(ps.fx.run(fromStreams.parseStream[Void](streams.fromIterator[String, Void](Iterator("let", "ter")))(
-      orElse[String, P](string[P]("let"), string[P]("letter")))), Right("letter"))
+          orElse[String, P](string[P]("let"), string[P]("letter")))), Right("letter"))
   }
 
   // ---- committed alternatives
@@ -97,7 +103,8 @@ abstract class ParsingChecks(val fx0: Runner) extends munit.FunSuite {
   test("committed, deep: a hundred thousand open attempts are the heap's") {
     def factor: Int ! P =
       orCommitted[Int, P](number, char[P]('(').flatMap(_ => cexpr).flatMap(e => char[P](')').as(e)))
-    def cexpr: Int ! P = factor.flatMap(f => manyCommitted[Int, P](char[P]('+').flatMap(_ => factor)).map(fs => f + fs.sum))
+    def cexpr: Int ! P =
+      factor.flatMap(f => manyCommitted[Int, P](char[P]('+').flatMap(_ => factor)).map(fs => f + fs.sum))
     val n = 100000
     assertEquals(run(parse("(" * n + "1+2" + ")" * n)(cexpr)), Right(3))
     assertEquals(run(parse("(1+)")(cexpr)).left.map(e => (e.offset, e.expected)), Left((3L, List("a digit", "'('"))))
@@ -107,13 +114,15 @@ abstract class ParsingChecks(val fx0: Runner) extends munit.FunSuite {
   test("a rolled-back alternative reads the chunks already pulled: a source that does not remember is asked once") {
     val xs = Vector("let", "ter")
     var pulls = 0
-    def from(i: Int): streams.Stream[String, Void] = new streams.Stream[String, Void](() => delay {
-      pulls += 1
-      pure[streams.Pull[String, Void], Void](
-        if (i < xs.length) new streams.Emit[String, Void](xs(i), from(i + 1))
-        else new streams.End[String, Void])
-    })
-    val parsed = ps.fx.run(fromStreams.parseStream[Void](from(0))(orElse[String, P](string[P]("let"), string[P]("letter"))))
+    def from(i: Int): streams.Stream[String, Void] = new streams.Stream[String, Void](() =>
+      delay {
+        pulls += 1
+        pure[streams.Pull[String, Void], Void](
+          if (i < xs.length) new streams.Emit[String, Void](xs(i), from(i + 1))
+          else new streams.End[String, Void])
+      })
+    val parsed =
+      ps.fx.run(fromStreams.parseStream[Void](from(0))(orElse[String, P](string[P]("let"), string[P]("letter"))))
     assertEquals(parsed, Right("letter"))
     assertEquals(pulls, 3, "each chunk pulled once, and the end once")
   }

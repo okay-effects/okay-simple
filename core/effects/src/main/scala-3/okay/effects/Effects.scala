@@ -19,7 +19,8 @@ trait Effects extends Effectful:
   type %[F[_, _], S] = [X] =>> F[S, X]
   type *[F[_]] = [X] =>> F[X]
   /** THE ROW OF A NAME, applied — the one spelling both compilers read: `type F[X] = Row[*[Pure] + *[Face], X]`,
-   * `Row[(Reader % String) + (State % Int), X]`. Here the name is the row already, applied; in Scala 2 its `L` at `X` */
+   * `Row[(Reader % String) + (State % Int), X]`. Here the name is the row already, applied; in Scala 2 its `L` at `X`
+ */
   type Row[N[_], X] = N[X]
   /** a context bound: `def greet[R[_]: {Has[Reader % String], Has[State % Int]}]: Int ! R` */
   type Has[E[_]] = [R[_]] =>> In[E, R]

@@ -37,7 +37,10 @@ class ZioStepsSuite extends munit.FunSuite:
   test("mapErrorSteps: the first failure stops the program, mapped") {
     var after = false
     val down: ZIO[Db, DbErr, Int] = ZIO.fail(DbErr("down"))
-    val failing: Int ! Row = down.step[Row].flatMap(a => z2.step[Row].map { b => after = true; a + b })
+    val failing: Int ! Row = down.step[Row].flatMap(a =>
+      z2.step[Row].map { b =>
+        after = true; a + b
+      })
     val q: Int ! ZioStep[Db & Log, String] = failing.mapErrorSteps(_.toString)
     assertEquals(unsafeRun(q.toZIOSteps.provideEnvironment(env)), Left("DbErr(down)"))
     assert(!after)
@@ -47,20 +50,22 @@ class ZioStepsSuite extends munit.FunSuite:
     type Three[X] = (ZioStep[Db, DbErr] + ZioStep[Log, LogErr] + ZioStep[Any, Nothing])[X]
     var seen = List.empty[String]
     def note(s: String): ZIO[Any, Nothing, Unit] = ZIO.succeed { seen = s :: seen }
-    val q: Int ! Three = for
-      _ <- note("a").step[Three]
-      a <- z1.step[Three]
-      _ <- note("b").step[Three]
-      b <- z2.step[Three]
-      _ <- note("c").step[Three]
-    yield a + b
+    val q: Int ! Three =
+      for
+        _ <- note("a").step[Three]
+        a <- z1.step[Three]
+        _ <- note("b").step[Three]
+        b <- z2.step[Three]
+        _ <- note("c").step[Three]
+      yield a + b
     assertEquals(unsafeRun(q.toZIOSteps.provideEnvironment(env)), Right(5))
     assertEquals(seen.reverse, List("a", "b", "c"))
   }
 
   test("a thousand steps") {
     type One[X] = ZioStep[Any, Nothing][X]
-    val q: Int ! One = (1 to 1000).foldLeft(ZIO.succeed(0).step[One])((m, _) => m.flatMap(x => ZIO.succeed(x + 1).step[One]))
+    val q: Int ! One =
+      (1 to 1000).foldLeft(ZIO.succeed(0).step[One])((m, _) => m.flatMap(x => ZIO.succeed(x + 1).step[One]))
     assertEquals(unsafeRun(q.toZIOSteps), Right(1000))
   }
 

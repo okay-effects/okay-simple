@@ -1,6 +1,7 @@
 package okay.effects.json
 
-/** A JSON VALUE: a datum any face and any transport speaks. An `Obj` is ORDERED: the order a wire writes, a form shows */
+/** A JSON VALUE: a datum any face and any transport speaks. An `Obj` is ORDERED: the order a wire writes, a form shows
+ */
 sealed trait Json
 object Json {
   case object Null extends Json
@@ -39,8 +40,12 @@ object Json {
 
   // ---- text OF a value; the text TO a value is the parser's, `Jsons`. ITERATIVE, an explicit stack of what is still
   // to write, so a value nested a hundred thousand deep (the grammar parses one) prints, no stack overflow
-  def print(v: Json, ascii: Boolean = false): String = { val b = new java.lang.StringBuilder; write(v, b, -1, ascii); b.toString }
-  def pretty(v: Json, indent: Int = 2, ascii: Boolean = false): String = { val b = new java.lang.StringBuilder; write(v, b, indent, ascii); b.toString }
+  def print(v: Json, ascii: Boolean = false): String = {
+    val b = new java.lang.StringBuilder; write(v, b, -1, ascii); b.toString
+  }
+  def pretty(v: Json, indent: Int = 2, ascii: Boolean = false): String = {
+    val b = new java.lang.StringBuilder; write(v, b, indent, ascii); b.toString
+  }
 
   /** what is still to write: a value at a depth, a piece of text, a newline at a depth */
   private sealed trait Todo
@@ -54,33 +59,35 @@ object Json {
       val head = todo.head; todo = todo.tail
       head match {
         case Raw(s) => b.append(s)
-        case Newline(depth) => if (indent >= 0) { b.append('\n'); var i = 0; while (i < indent * depth) { b.append(' '); i += 1 } }
+        case Newline(depth) =>
+          if (indent >= 0) { b.append('\n'); var i = 0; while (i < indent * depth) { b.append(' '); i += 1 } }
         case Value(v, depth) => v match {
-          case Null => b.append("null")
-          case Bool(x) => b.append(if (x) "true" else "false")
-          case Num(n) => b.append(n.bigDecimal.toPlainString)
-          case Str(s) => quote(s, b, ascii)
-          case Arr(items) =>
-            if (items.isEmpty) b.append("[]")
-            else {
-              b.append('[')
-              val inner = items.iterator.zipWithIndex.flatMap { case (x, i) =>
-                (if (i > 0) List(Raw(",")) else Nil) ++ List(Newline(depth + 1), Value(x, depth + 1))
-              }.toList
-              todo = inner ++ List(Newline(depth), Raw("]")) ++ todo
-            }
-          case Obj(fields) =>
-            if (fields.isEmpty) b.append("{}")
-            else {
-              b.append('{')
-              val sep = if (indent >= 0) ": " else ":"
-              val inner = fields.iterator.zipWithIndex.flatMap { case ((k, x), i) =>
-                val key = new java.lang.StringBuilder; quote(k, key, ascii)
-                (if (i > 0) List(Raw(",")) else Nil) ++ List(Newline(depth + 1), Raw(key.toString + sep), Value(x, depth + 1))
-              }.toList
-              todo = inner ++ List(Newline(depth), Raw("}")) ++ todo
-            }
-        }
+            case Null => b.append("null")
+            case Bool(x) => b.append(if (x) "true" else "false")
+            case Num(n) => b.append(n.bigDecimal.toPlainString)
+            case Str(s) => quote(s, b, ascii)
+            case Arr(items) =>
+              if (items.isEmpty) b.append("[]")
+              else {
+                b.append('[')
+                val inner = items.iterator.zipWithIndex.flatMap { case (x, i) =>
+                  (if (i > 0) List(Raw(",")) else Nil) ++ List(Newline(depth + 1), Value(x, depth + 1))
+                }.toList
+                todo = inner ++ List(Newline(depth), Raw("]")) ++ todo
+              }
+            case Obj(fields) =>
+              if (fields.isEmpty) b.append("{}")
+              else {
+                b.append('{')
+                val sep = if (indent >= 0) ": " else ":"
+                val inner = fields.iterator.zipWithIndex.flatMap { case ((k, x), i) =>
+                  val key = new java.lang.StringBuilder; quote(k, key, ascii)
+                  (if (i > 0) List(Raw(",")) else Nil) ++ List(Newline(depth + 1), Raw(key.toString + sep),
+                    Value(x, depth + 1))
+                }.toList
+                todo = inner ++ List(Newline(depth), Raw("}")) ++ todo
+              }
+          }
       }
     }
   }

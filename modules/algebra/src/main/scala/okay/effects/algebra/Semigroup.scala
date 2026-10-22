@@ -32,9 +32,11 @@ object Monoid {
   implicit def list[A]: Monoid[List[A]] = of(List.empty[A])(_ ++ _)
   implicit def set[A]: Monoid[Set[A]] = of(Set.empty[A])(_ ++ _)
   implicit def map[K, V](implicit V: Semigroup[V]): Monoid[Map[K, V]] =
-    of(Map.empty[K, V])((x, y) => y.foldLeft(x) { case (acc, (k, v)) => acc.updated(k, acc.get(k).fold(v)(V.combine(_, v))) })
+    of(Map.empty[K, V])((x, y) =>
+      y.foldLeft(x) { case (acc, (k, v)) => acc.updated(k, acc.get(k).fold(v)(V.combine(_, v))) })
   implicit def option[A](implicit A: Semigroup[A]): Monoid[Option[A]] =
-    of(Option.empty[A])((x, y) => (x, y) match { case (Some(a), Some(b)) => Some(A.combine(a, b)); case (a, None) => a; case (None, b) => b })
+    of(Option.empty[A])((x, y) =>
+      (x, y) match { case (Some(a), Some(b)) => Some(A.combine(a, b)); case (a, None) => a; case (None, b) => b })
   implicit val string: Monoid[String] = of("")(_ + _)
   implicit val unit: Monoid[Unit] = of(())((_, _) => ())
   val all: Monoid[Boolean] = of(true)(_ && _)

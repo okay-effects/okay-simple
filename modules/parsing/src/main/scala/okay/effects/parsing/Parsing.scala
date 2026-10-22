@@ -48,7 +48,10 @@ object ParseError {
   def at(text: String, offset: Long, expected: List[String]): ParseError = {
     val o = math.max(0L, math.min(offset, text.length.toLong)).toInt
     var line = 1; var col = 1; var i = 0
-    while (i < o) { if (text.charAt(i) == '\n') { line += 1; col = 1 } else col += 1; i += 1 }
+    while (i < o) {
+      if (text.charAt(i) == '\n') { line += 1; col = 1 }
+      else col += 1; i += 1
+    }
     val found = if (o < text.length) Some(s"'${text.charAt(o)}'") else Some("end of input")
     ParseError(o.toLong, line, col, expected, found)
   }
@@ -62,16 +65,21 @@ object ParseError {
  * `Right(a)` when all of it parsed, `Left(error)` saying where it failed and what was expected there.
  */
 class Parsing[F <: Effects with Singleton](implicit implementation: F) {
-  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
+  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation
+   * to the code it is imported into */
   val fx: F = implementation
   import fx._
   import fx.std._
 
   // ---- the input's words
-  def peek[R[_]](implicit in: In[Input, R]): Option[Char] ! R = perform[Input].apply[R, Option[Char]](Input.Peek[Option[Char]](c => c))
-  def take[R[_]](implicit in: In[Input, R]): Option[Char] ! R = perform[Input].apply[R, Option[Char]](Input.Take[Option[Char]](c => c))
-  def takeWhile[R[_]](ok: Char => Boolean)(implicit in: In[Input, R]): String ! R = perform[Input].apply[R, String](Input.TakeWhile[String](ok, s => s))
-  def takeIf[R[_]](s: String)(implicit in: In[Input, R]): Boolean ! R = perform[Input].apply[R, Boolean](Input.TakeIf[Boolean](s, b => b))
+  def peek[R[_]](implicit in: In[Input, R]): Option[Char] ! R =
+    perform[Input].apply[R, Option[Char]](Input.Peek[Option[Char]](c => c))
+  def take[R[_]](implicit in: In[Input, R]): Option[Char] ! R =
+    perform[Input].apply[R, Option[Char]](Input.Take[Option[Char]](c => c))
+  def takeWhile[R[_]](ok: Char => Boolean)(implicit in: In[Input, R]): String ! R =
+    perform[Input].apply[R, String](Input.TakeWhile[String](ok, s => s))
+  def takeIf[R[_]](s: String)(implicit in: In[Input, R]): Boolean ! R =
+    perform[Input].apply[R, Boolean](Input.TakeIf[Boolean](s, b => b))
   def offset[R[_]](implicit in: In[Input, R]): Long ! R = perform[Input].apply[R, Long](Input.Offset[Long](o => o))
   def skipWhile[R[_]](ok: Char => Boolean)(implicit in: In[Input, R]): Unit ! R = takeWhile[R](ok).as(())
   def spaces[R[_]](implicit in: In[Input, R]): Unit ! R = skipWhile[R](_.isWhitespace)
@@ -88,13 +96,16 @@ class Parsing[F <: Effects with Singleton](implicit implementation: F) {
   def item[R[_]](implicit i: In[Input, R], e: In[Expect, R], c: In[Choose, R]): Char ! R =
     take[R].flatMap { case Some(ch) => pure[Char, R](ch); case None => fail[Char, R]("a character") }
   /** the next character if `ok` — NOT taken otherwise, so a choice decided by it consumes nothing on the way out */
-  def satisfy[R[_]](ok: Char => Boolean, what: String = "a character")(implicit i: In[Input, R], e: In[Expect, R], c: In[Choose, R]): Char ! R =
+  def satisfy[R[_]](ok: Char => Boolean, what: String = "a character")(implicit i: In[Input, R], e: In[Expect, R],
+    c: In[Choose, R]): Char ! R =
     peek[R].flatMap { case Some(ch) if ok(ch) => take[R].as(ch); case _ => fail[Char, R](what) }
-  def char[R[_]](ch: Char)(implicit i: In[Input, R], e: In[Expect, R], c: In[Choose, R]): Char ! R = satisfy[R](_ == ch, s"'$ch'")
+  def char[R[_]](ch: Char)(implicit i: In[Input, R], e: In[Expect, R], c: In[Choose, R]): Char ! R =
+    satisfy[R](_ == ch, s"'$ch'")
   def string[R[_]](s: String)(implicit i: In[Input, R], e: In[Expect, R], c: In[Choose, R]): String ! R =
     takeIf[R](s).flatMap(ok => if (ok) pure[String, R](s) else fail[String, R](s"'$s'"))
   /** one or more characters while `ok` */
-  def takeWhile1[R[_]](ok: Char => Boolean, what: String)(implicit i: In[Input, R], e: In[Expect, R], c: In[Choose, R]): String ! R =
+  def takeWhile1[R[_]](ok: Char => Boolean, what: String)(implicit i: In[Input, R], e: In[Expect, R], c: In[Choose, R])
+    : String ! R =
     takeWhile[R](ok).flatMap(s => if (s.isEmpty) fail[String, R](what) else pure[String, R](s))
   /** the end of the input */
   def eof[R[_]](implicit i: In[Input, R], e: In[Expect, R], c: In[Choose, R]): Unit ! R =
@@ -102,12 +113,15 @@ class Parsing[F <: Effects with Singleton](implicit implementation: F) {
 
   // ---- decided by the next character: no choice point, no backtracking
   /** the parser `cases` gives for the next character; `None`, or no character, fails saying `what` */
-  def byNext[A, R[_]](what: String)(cases: Char => Option[A ! R])(implicit i: In[Input, R], e: In[Expect, R], c: In[Choose, R]): A ! R =
+  def byNext[A, R[_]](what: String)(cases: Char => Option[A ! R])(implicit i: In[Input, R], e: In[Expect, R],
+    c: In[Choose, R]): A ! R =
     peek[R].flatMap { case Some(ch) => cases(ch).getOrElse(fail[A, R](what)); case None => fail[A, R](what) }
   /** `p` again and again while the next character is `ok` */
   def whileNext[A, R[_]](ok: Char => Boolean)(p: => A ! R)(implicit i: In[Input, R]): List[A] ! R = {
     def loop(acc: List[A]): List[A] ! R =
-      peek[R].flatMap { case Some(ch) if ok(ch) => p.flatMap(a => loop(a :: acc)); case _ => pure[List[A], R](acc.reverse) }
+      peek[R].flatMap {
+        case Some(ch) if ok(ch) => p.flatMap(a => loop(a :: acc)); case _ => pure[List[A], R](acc.reverse)
+      }
     loop(Nil)
   }
 
@@ -115,7 +129,8 @@ class Parsing[F <: Effects with Singleton](implicit implementation: F) {
   /** `p`, or else `q` from the same input */
   def orElse[A, R[_]](p: => A ! R, q: => A ! R)(implicit c: In[Choose, R]): A ! R =
     among[Boolean, R](List(true, false)).flatMap(first => if (first) p else q)
-  def many[A, R[_]](p: => A ! R)(implicit c: In[Choose, R]): List[A] ! R = orElse[List[A], R](many1[A, R](p), pure[List[A], R](Nil))
+  def many[A, R[_]](p: => A ! R)(implicit c: In[Choose, R]): List[A] ! R =
+    orElse[List[A], R](many1[A, R](p), pure[List[A], R](Nil))
   def many1[A, R[_]](p: => A ! R)(implicit c: In[Choose, R]): List[A] ! R = p.flatMap(a => many[A, R](p).map(a :: _))
   def optional[A, R[_]](p: => A ! R)(implicit c: In[Choose, R]): Option[A] ! R =
     orElse[Option[A], R](p.map(a => Some(a): Option[A]), pure[Option[A], R](None))
@@ -133,12 +148,13 @@ class Parsing[F <: Effects with Singleton](implicit implementation: F) {
    * makes them */
   def orCommitted[A, R[_]](p: => A ! R, q: => A ! R)(
     implicit i: In[Input, R], e: In[Expect, R], c: In[Choose, R]): A ! R =
-    offset[R].flatMap(start => perform[Expect].apply[R, Long](Expect.Open[Long](start, id => id)).flatMap(id =>
-      among[Boolean, R](List(true, false)).flatMap { first =>
-        if (first) p.flatMap(a => perform[Expect].apply[R, Unit](Expect.Close[Unit](id, u => u)).as(a))
-        else perform[Expect].apply[R, Boolean](Expect.Committed[Boolean](id, b => b)).flatMap(committed =>
-          if (committed) among[A, R](Nil) else q)
-      }))
+    offset[R].flatMap(start =>
+      perform[Expect].apply[R, Long](Expect.Open[Long](start, id => id)).flatMap(id =>
+        among[Boolean, R](List(true, false)).flatMap { first =>
+          if (first) p.flatMap(a => perform[Expect].apply[R, Unit](Expect.Close[Unit](id, u => u)).as(a))
+          else perform[Expect].apply[R, Boolean](Expect.Committed[Boolean](id, b => b)).flatMap(committed =>
+            if (committed) among[A, R](Nil) else q)
+        }))
   /** `p` as many times as it parses, committed: a `p` that went past its start and failed is the parse's error */
   def manyCommitted[A, R[_]](p: => A ! R)(implicit i: In[Input, R], e: In[Expect, R], c: In[Choose, R]): List[A] ! R =
     orCommitted[List[A], R](p.flatMap(a => manyCommitted[A, R](p).map(a :: _)), pure[List[A], R](Nil))
@@ -148,24 +164,27 @@ class Parsing[F <: Effects with Singleton](implicit implementation: F) {
   def input(text: String): InputHandler = new InputHandler(text)
   final class InputHandler(text: String) {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Input, R, Rest]): A ! Rest =
-      handle[Input, Int, R, Rest, A, A](p, 0, new StatefulTailHandler[Input, Int, Rest, A, A] {
-        def ret(s: Int, a: A) = pure(a)
-        def answer[X](cell: Cell[Int], op: Input[X]): X = op match {
-          case Input.Peek(answer) =>
-            val i = cell.get; answer(if (i < text.length) Some(text.charAt(i)) else None)
-          case Input.Take(answer) =>
-            val i = cell.get
-            if (i < text.length) { cell.set(i + 1); answer(Some(text.charAt(i))) } else answer(None)
-          case Input.TakeWhile(ok, answer) =>
-            val i = cell.get; var j = i
-            while (j < text.length && ok(text.charAt(j))) j += 1
-            cell.set(j); answer(text.substring(i, j))
-          case Input.TakeIf(s, answer) =>
-            val i = cell.get
-            if (text.startsWith(s, i)) { cell.set(i + s.length); answer(true) } else answer(false)
-          case Input.Offset(answer) => answer(cell.get.toLong)
-        }
-      })
+      handle[Input, Int, R, Rest, A, A](p, 0,
+        new StatefulTailHandler[Input, Int, Rest, A, A] {
+          def ret(s: Int, a: A) = pure(a)
+          def answer[X](cell: Cell[Int], op: Input[X]): X = op match {
+            case Input.Peek(answer) =>
+              val i = cell.get; answer(if (i < text.length) Some(text.charAt(i)) else None)
+            case Input.Take(answer) =>
+              val i = cell.get
+              if (i < text.length) { cell.set(i + 1); answer(Some(text.charAt(i))) }
+              else answer(None)
+            case Input.TakeWhile(ok, answer) =>
+              val i = cell.get; var j = i
+              while (j < text.length && ok(text.charAt(j))) j += 1
+              cell.set(j); answer(text.substring(i, j))
+            case Input.TakeIf(s, answer) =>
+              val i = cell.get
+              if (text.startsWith(s, i)) { cell.set(i + s.length); answer(true) }
+              else answer(false)
+            case Input.Offset(answer) => answer(cell.get.toLong)
+          }
+        })
   }
 
   /** the furthest failure and everything expected there, kept outside the choice: `Left((offset, expected))` when the
@@ -174,7 +193,8 @@ class Parsing[F <: Effects with Singleton](implicit implementation: F) {
    * below */
   def expectations: Expectations = new Expectations
   final class Expectations {
-    def apply[R[_], Rest[_], A](p: Option[A] ! R)(implicit sp: Split[Expect, R, Rest]): Either[(Long, List[String]), A] ! Rest =
+    def apply[R[_], Rest[_], A](p: Option[A] ! R)(
+      implicit sp: Split[Expect, R, Rest]): Either[(Long, List[String]), A] ! Rest =
       handle[Expect, Expectations.State, R, Rest, Option[A], Either[(Long, List[String]), A]](p, Expectations.empty,
         new StatefulTailHandler[Expect, Expectations.State, Rest, Option[A], Either[(Long, List[String]), A]] {
           def ret(s: Expectations.State, oa: Option[A]) = pure(oa match {
@@ -185,7 +205,7 @@ class Parsing[F <: Effects with Singleton](implicit implementation: F) {
             case Expect.Failed(o, what, answer) =>
               val s = cell.get
               val at = if (o > s.furthest) s.copy(furthest = o, expected = List(what))
-                else if (o == s.furthest && !s.expected.contains(what)) s.copy(expected = what :: s.expected) else s
+              else if (o == s.furthest && !s.expected.contains(what)) s.copy(expected = what :: s.expected) else s
               cell.set(at.copy(open = at.open match {
                 case top :: below => top.copy(reached = math.max(top.reached, o)) :: below
                 case Nil => Nil
@@ -209,9 +229,9 @@ class Parsing[F <: Effects with Singleton](implicit implementation: F) {
               case (above, a :: below) =>
                 val reached = (a :: above).map(_.reached).max
                 (s.copy(open = below match {
-                  case b :: more => b.copy(reached = math.max(b.reached, reached)) :: more
-                  case Nil => Nil
-                }), Some(a.copy(reached = reached)))
+                    case b :: more => b.copy(reached = math.max(b.reached, reached)) :: more
+                    case Nil => Nil
+                  }), Some(a.copy(reached = reached)))
               case _ => (s, None)
             }
         })
@@ -226,8 +246,9 @@ class Parsing[F <: Effects with Singleton](implicit implementation: F) {
   /** `p` over `text`, all of it: the value, or the furthest failure with its line and column */
   def parse(text: String): Parse = new Parse(text)
   final class Parse(text: String) {
-    def apply[R[_], R1[_], R2[_], Rest[_], A](p: A ! R)(implicit si: Split[Input, R, R1], sc: Split[Choose, R1, R2], se: Split[Expect, R2, Rest],
-        i: In[Input, R], e: In[Expect, R], c: In[Choose, R]): Either[ParseError, A] ! Rest =
+    def apply[R[_], R1[_], R2[_], Rest[_], A](p: A ! R)(implicit si: Split[Input, R, R1], sc: Split[Choose, R1, R2],
+      se: Split[Expect, R2, Rest],
+      i: In[Input, R], e: In[Expect, R], c: In[Choose, R]): Either[ParseError, A] ! Rest =
       expectations(first(input(text)(p.flatMap(a => eof[R].as(a)))))
         .map(_.left.map { case (o, ws) => ParseError.at(text, o, ws) })
   }

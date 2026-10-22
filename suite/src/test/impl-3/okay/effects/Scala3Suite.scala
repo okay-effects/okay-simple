@@ -23,11 +23,12 @@ class Scala3Suite extends munit.FunSuite:
 
   /** its clauses typed by Scala 3's GADT inference: no `answer` in the operations */
   def counting[R[_], Rest[_], A](p: A ! R)(using Split[Counter, R, Rest]): (Int, A) ! Rest =
-    handle[Counter, R, Rest, A, Int => (Int, A) ! Rest](p, new Handler[Counter, Rest, A, Int => (Int, A) ! Rest]:
-      def ret(a: A) = pure(n => pure((n, a)))
-      def op[X](op: Counter[X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match
-        case Counter.Tick => pure(n => k(()).flatMap(f => f(n + 1)))
-        case Counter.Peek => pure(n => k(n).flatMap(f => f(n)))
+    handle[Counter, R, Rest, A, Int => (Int, A) ! Rest](p,
+      new Handler[Counter, Rest, A, Int => (Int, A) ! Rest]:
+        def ret(a: A) = pure(n => pure((n, a)))
+        def op[X](op: Counter[X], k: X => (Int => (Int, A) ! Rest) ! Rest) = op match
+          case Counter.Tick => pure(n => k(()).flatMap(f => f(n + 1)))
+          case Counter.Peek => pure(n => k(n).flatMap(f => f(n)))
     ).flatMap(f => f(0))
 
   test("a row with no parentheses, a program by context bounds"):

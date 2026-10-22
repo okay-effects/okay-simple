@@ -21,7 +21,8 @@ object Programs1 {
   val pairs: List[(Int, Int)] ! Pure =
     all(among[Int, Pick](List(1, 2)).flatMap((a: Int) => among[Int, Pick](List(10, 20)).map((b: Int) => (a, b))))
   val found: Option[Int] ! Pure =
-    first(among[Int, Pick](List(1, 2, 3, 4)).flatMap((a: Int) => if (a % 2 == 0) pure[Int, Pick](a) else fail[Int, Pick]))
+    first(among[Int, Pick](List(1, 2, 3, 4)).flatMap((a: Int) =>
+        if (a % 2 == 0) pure[Int, Pick](a) else fail[Int, Pick]))
 
   type Gen[X] = Sum[Void, ({ type L[x] = Std.Yield[Int, x] })#L, X]
   def nats(n: Int): Unit ! Gen = emit[Int, Gen](n).flatMap(_ => nats(n + 1))
@@ -32,7 +33,8 @@ object Programs1 {
 
   type C[X] = Std.Control[Int ! Pure, X]
   type Ctl[X] = Sum[Void, C, X]
-  val shifted: Int ! Pure = reset[Int, Pure](shift[Int, Int, Pure, Ctl]((k: Int => Int ! Pure) => k(1).flatMap((a: Int) => k(a))).map(_ * 10))
+  val shifted: Int ! Pure =
+    reset[Int, Pure](shift[Int, Int, Pure, Ctl]((k: Int => Int ! Pure) => k(1).flatMap((a: Int) => k(a))).map(_ * 10))
 
   def loop(n: Int): Unit ! App =
     if (n == 0) pure[Unit, App](()) else modify[Int, App](_ + 1).flatMap(_ => loop(n - 1))
@@ -48,7 +50,9 @@ abstract class TaglessChecks(fx0: Runner) extends munit.FunSuite {
     assertEquals(run(pairs), List((1, 10), (1, 20), (2, 10), (2, 20)))
     assertEquals(run(found), Some(2))
   }
-  test("a stateful general handler: the first three of a generator") { assertEquals(run(firstThree), (List(0, 1, 2), None)) }
+  test("a stateful general handler: the first three of a generator") {
+    assertEquals(run(firstThree), (List(0, 1, 2), None))
+  }
   test("an aborting handler") { assertEquals(run(raised), Left("boom")) }
   test("shift and reset: k resumed twice") { assertEquals(run(shifted), 100) }
   test("in constant stack: 100 000 operations") { assertEquals(run(counted)._1, 100000) }

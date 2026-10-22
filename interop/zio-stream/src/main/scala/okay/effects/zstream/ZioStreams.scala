@@ -26,7 +26,8 @@ class ZioStreams[I <: Runner with Singleton, S <: Streams[I]](val streams: S) {
   import streams.{End, Pull, Stream}
 
   def toZStream[O](s: Stream[O, Tasks]): ZStream[Any, Throwable, O] =
-    ZStream.unfoldZIO(s)(cur => toZIOTask(cur.pull()).map(_.fold[Option[(O, Stream[O, Tasks])]](None)((o, rest) => Some((o, rest)))))
+    ZStream.unfoldZIO(s)(cur =>
+      toZIOTask(cur.pull()).map(_.fold[Option[(O, Stream[O, Tasks])]](None)((o, rest) => Some((o, rest)))))
 
   def toZStreamPure[O](s: Stream[O, Pure]): ZStream[Any, Nothing, O] =
     ZStream.unfold(s)(cur => run(cur.pull()).fold[Option[(O, Stream[O, Pure])]](None)((o, rest) => Some((o, rest))))
@@ -38,15 +39,16 @@ class ZioStreams[I <: Runner with Singleton, S <: Streams[I]](val streams: S) {
 
   /** the next chunk pulled, its elements given out one at a time, then the next */
   private def pulling[O](scope: Scope.Closeable, pull: ZIO[Any, Option[Throwable], Chunk[O]]): Stream[O, Tasks] =
-    new Stream[O, Tasks](() => fromZIOTask[Option[Chunk[O]], Tasks](pull.foldZIO(
-      {
-        case None => scope.close(Exit.unit).as(None)
-        case Some(e) => scope.close(Exit.fail(e)) *> ZIO.fail(e)
-      },
-      chunk => ZIO.succeed(Some(chunk)))).flatMap {
-      case None => pure[Pull[O, Tasks], Tasks](new End[O, Tasks])
-      case Some(chunk) => (streams.emits[O, Tasks](chunk.toList) ++ pulling(scope, pull)).pull()
-    })
+    new Stream[O, Tasks](() =>
+      fromZIOTask[Option[Chunk[O]], Tasks](pull.foldZIO(
+          {
+          case None => scope.close(Exit.unit).as(None)
+          case Some(e) => scope.close(Exit.fail(e)) *> ZIO.fail(e)
+        },
+          chunk => ZIO.succeed(Some(chunk)))).flatMap {
+        case None => pure[Pull[O, Tasks], Tasks](new End[O, Tasks])
+        case Some(chunk) => (streams.emits[O, Tasks](chunk.toList) ++ pulling(scope, pull)).pull()
+      })
 }
 
 object ZioStreams {

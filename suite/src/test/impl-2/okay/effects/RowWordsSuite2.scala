@@ -14,12 +14,13 @@ class RowWordsSuite2 extends munit.FunSuite {
         c <- ask[Config]
         n <- get[Int]
         reply <- if (n >= c.limit) tell(s"refused $user: busy").as("try later")
-                 else put(n + 1).andThen(tell(s"served $user")).as(s"${c.greeting} $user")
+        else put(n + 1).andThen(tell(s"served $user")).as(s"${c.greeting} $user")
       } yield reply
   }
 
   test("a service in Scala 2: no row in its logic") {
-    val day = for { a <- service.serve("ann"); b <- service.serve("bob"); c <- service.serve("cid") } yield List(a, b, c)
+    val day =
+      for { a <- service.serve("ann"); b <- service.serve("bob"); c <- service.serve("cid") } yield List(a, b, c)
     assertEquals(run(state(0)(writer[String](reader(Config("hello", 2))(day)))),
       (2, (List("served ann", "served bob", "refused cid: busy"), List("hello ann", "hello bob", "try later"))))
   }
@@ -28,8 +29,8 @@ class RowWordsSuite2 extends munit.FunSuite {
     def tick: Int ! Row =
       for {
         step <- ask[Int]
-        n    <- get[Int]
-        _    <- put(n + step)
+        n <- get[Int]
+        _ <- put(n + step)
       } yield n + step
   }
 

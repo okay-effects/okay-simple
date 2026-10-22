@@ -13,11 +13,12 @@ object JsonSchema {
     else add(node(s), Defs -> Obj(defs.iterator.map { case (n, d) => n -> node(d) }.toVector))
 
   def node(s: Schema): Json = s match {
-    case Schema.Text(cs) => add(Obj.of("type" -> Str("string")), cs.flatMap {
-      case Constraint.MinLength(n) => List("minLength" -> Json.num(n))
-      case Constraint.MaxLength(n) => List("maxLength" -> Json.num(n))
-      case Constraint.Pattern(regex, hint) => List("pattern" -> Str(regex), "x-hint" -> Str(hint))
-    }: _*)
+    case Schema.Text(cs) => add(Obj.of("type" -> Str("string")),
+        cs.flatMap {
+          case Constraint.MinLength(n) => List("minLength" -> Json.num(n))
+          case Constraint.MaxLength(n) => List("maxLength" -> Json.num(n))
+          case Constraint.Pattern(regex, hint) => List("pattern" -> Str(regex), "x-hint" -> Str(hint))
+        }: _*)
     case Schema.Integer(cs) => add(Obj.of("type" -> Str("integer")), numeric(cs): _*)
     case Schema.Number(cs) => add(Obj.of("type" -> Str("number")), numeric(cs): _*)
     case Schema.Bool => Obj.of("type" -> Str("boolean"))
@@ -25,22 +26,25 @@ object JsonSchema {
     case Schema.Choice(options) => Obj.of("type" -> Str("string"), "enum" -> Arr(options.iterator.map(Str(_)).toVector))
     case Schema.Optional(of) => Obj.of("anyOf" -> Arr(Vector(node(of), Obj.of("type" -> Str("null")))))
     case Schema.Many(of, min, max) => add(Obj.of("type" -> Str("array"), "items" -> node(of)),
-      (if (min > 0) List("minItems" -> Json.num(min)) else Nil) ++ max.map(m => "maxItems" -> Json.num(m)).toList: _*)
+        (if (min > 0) List("minItems" -> Json.num(min)) else Nil) ++ max.map(m => "maxItems" -> Json.num(m)).toList: _*)
     case Schema.Record(fields) => record(fields, Vector.empty)
     case Schema.OneOf(cases) => Obj.of("oneOf" -> Arr(cases.map { case (name, cs) =>
-      val tag = Schema.Field("type", Schema.Choice(List(name)), None, None, secret = false, None)
-      stripDescribed(cs) match {
-        case Schema.Record(fields) => record(fields, Vector(tag), described(cs))
-        case _ => Obj.of("type" -> Str("object"), "properties" -> Obj.of("type" -> Obj.of("const" -> Str(name)), "value" -> node(cs)),
-          "required" -> Arr(Vector(Str("type"), Str("value"))))
-      }
-    }))
-    case Schema.Described(of, label, doc) => add(node(of), ("title" -> Str(label)) :: doc.map(d => "description" -> Str(d)).toList: _*)
+        val tag = Schema.Field("type", Schema.Choice(List(name)), None, None, secret = false, None)
+        stripDescribed(cs) match {
+          case Schema.Record(fields) => record(fields, Vector(tag), described(cs))
+          case _ => Obj.of("type" -> Str("object"),
+              "properties" -> Obj.of("type" -> Obj.of("const" -> Str(name)), "value" -> node(cs)),
+              "required" -> Arr(Vector(Str("type"), Str("value"))))
+        }
+      }))
+    case Schema.Described(of, label, doc) =>
+      add(node(of), ("title" -> Str(label)) :: doc.map(d => "description" -> Str(d)).toList: _*)
     case Schema.Ref(name) => Obj.of("$" + "ref" -> Str("#/" + Defs + "/" + name))
     case Schema.Any => Obj.empty
   }
 
-  private def record(fields: Vector[Schema.Field], before: Vector[Schema.Field], words: List[(String, Json)] = Nil): Json = {
+  private def record(fields: Vector[Schema.Field], before: Vector[Schema.Field], words: List[(String, Json)] = Nil)
+    : Json = {
     val all = before ++ fields
     val properties = all.map(f => f.name -> property(f))
     val required = all.filter(f => !isOptional(f.schema) && f.default.isEmpty).map(f => Str(f.name))
@@ -52,8 +56,9 @@ object JsonSchema {
       case Schema.Optional(of) => node(of)
       case other => node(other)
     }
-    add(base, f.label.map(l => "title" -> Str(l)).toList ++ f.doc.map(d => "description" -> Str(d)).toList ++
-      f.default.map(d => "default" -> d).toList ++ (if (f.secret) List("x-secret" -> Json.Bool(true)) else Nil): _*)
+    add(base,
+      f.label.map(l => "title" -> Str(l)).toList ++ f.doc.map(d => "description" -> Str(d)).toList ++
+        f.default.map(d => "default" -> d).toList ++ (if (f.secret) List("x-secret" -> Json.Bool(true)) else Nil): _*)
   }
   private def numeric(cs: List[Constraint.OnNumber]): List[(String, Json)] = cs.map {
     case Constraint.Min(n) => "minimum" -> Json.Num(n)

@@ -8,7 +8,8 @@ import okay.effects.machine.Machine
 val onMachine: Algebra[Machine.type] = Algebra()(using Machine)
 export onMachine.{monad, monadPlus, paraMonad}
 // forwarded by hand, not exported: an `export` of these into the package makes a cycle with the class's own imports
-def traverse[A, B, R[_]](xs: Seq[A])(f: A => Machine.![B, R]): Machine.![Vector[B], R] = onMachine.traverse[A, B, R](xs)(f)
+def traverse[A, B, R[_]](xs: Seq[A])(f: A => Machine.![B, R]): Machine.![Vector[B], R] =
+  onMachine.traverse[A, B, R](xs)(f)
 def sequence[A, R[_]](xs: Seq[Machine.![A, R]]): Machine.![Vector[A], R] = onMachine.sequence[A, R](xs)
 def replicateA[A, R[_]](n: Int)(p: Machine.![A, R]): Machine.![Vector[A], R] = onMachine.replicateA[A, R](n)(p)
 def loop[A, B, R[_]](a: A)(f: A => Machine.![Either[A, B], R]): Machine.![B, R] = onMachine.loop[A, B, R](a)(f)

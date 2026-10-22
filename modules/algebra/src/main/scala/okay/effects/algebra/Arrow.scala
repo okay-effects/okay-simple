@@ -60,8 +60,11 @@ object Arrow {
   implicit def kleisli[F[_]](implicit M: Monad[F]): Arrow[({ type L[A, B] = Kleisli[F, A, B] })#L] =
     new Arrow[({ type L[A, B] = Kleisli[F, A, B] })#L] {
       def id[A]: Kleisli[F, A, A] = Kleisli(a => M.pure(a))
-      def compose[A, B, C](g: Kleisli[F, B, C], f: Kleisli[F, A, B]): Kleisli[F, A, C] = Kleisli(a => M.flatMap(f.run(a))(g.run))
+      def compose[A, B, C](g: Kleisli[F, B, C], f: Kleisli[F, A, B]): Kleisli[F, A, C] =
+        Kleisli(a => M.flatMap(f.run(a))(g.run))
       def lift[A, B](f: A => B): Kleisli[F, A, B] = Kleisli(a => M.pure(f(a)))
-      def first[A, B, C](p: Kleisli[F, A, B]): Kleisli[F, (A, C), (B, C)] = Kleisli { case (a, c) => M.fmap(p.run(a), (b: B) => (b, c)) }
+      def first[A, B, C](p: Kleisli[F, A, B]): Kleisli[F, (A, C), (B, C)] = Kleisli { case (a, c) =>
+        M.fmap(p.run(a), (b: B) => (b, c))
+      }
     }
 }

@@ -20,7 +20,8 @@ abstract class ResilienceChecks(val fx0: Runner) extends munit.FunSuite {
 
   /** fails until it has been tried `n` times: the tries counted in a state outside */
   def flaky(n: Int): String ! T =
-    modify[Int, T](_ + 1).flatMap(_ => get[Int, T]).flatMap(tries => if (tries < n) raise[String, T, String](s"try $tries") else pure[String, T]("ok"))
+    modify[Int, T](_ + 1).flatMap(_ => get[Int, T]).flatMap(tries =>
+      if (tries < n) raise[String, T, String](s"try $tries") else pure[String, T]("ok"))
 
   test("retried until it succeeds") {
     assertEquals(rs.fx.run(state(0)(retry[String](5)(flaky(3)))), (3, Right("ok")))
@@ -32,7 +33,8 @@ abstract class ResilienceChecks(val fx0: Runner) extends munit.FunSuite {
     assertEquals(rs.fx.run(state(0)(retryIf[String](5)(_ != "try 1")(flaky(3)))), (1, Left("try 1")))
   }
   test("a fallback where it raised") {
-    assertEquals(rs.fx.run(state(0)(fallback[String](flaky(9))(e => pure[String, S1](s"fallback after $e")))), (1, "fallback after try 1"))
+    assertEquals(rs.fx.run(state(0)(fallback[String](flaky(9))(e => pure[String, S1](s"fallback after $e")))),
+      (1, "fallback after try 1"))
   }
 }
 

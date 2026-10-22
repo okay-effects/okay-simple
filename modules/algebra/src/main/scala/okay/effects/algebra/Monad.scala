@@ -15,7 +15,9 @@ import scala.annotation.{implicitNotFound, tailrec}
  */
 
 /** map a function over the structure */
-@implicitNotFound("no Functor[${F}]. The instance for programs is Algebra's `monad[R]` (okay.effects.algebra); for your own type, give one in ITS companion.")
+@implicitNotFound(
+  "no Functor[${F}]. The instance for programs is Algebra's `monad[R]` (okay.effects.algebra); for your own type, " +
+    "give one in ITS companion.")
 trait Functor[F[_]] {
   def fmap[A, B](a: F[A], f: A => B): F[B]
 }
@@ -119,7 +121,9 @@ object Functor {
 }
 
 /** lift values and apply lifted functions; `fmap` derives from `pure` and `app` */
-@implicitNotFound("no Applicative[${F}]. The instance for programs is Algebra's `monad[R]` (okay.effects.algebra); Option's, Either's, List's are Functor's companion's.")
+@implicitNotFound(
+  "no Applicative[${F}]. The instance for programs is Algebra's `monad[R]` (okay.effects.algebra); Option's, " +
+    "Either's, List's are Functor's companion's.")
 trait Applicative[F[_]] extends Functor[F] {
   def pure[A](a: A): F[A]
   def app[A, B](f: F[A => B], a: F[A]): F[B]
@@ -157,7 +161,9 @@ trait Selective[F[_]] extends Applicative[F] {
 }
 
 /** sequence computations; `fmap`, `app` and `select` all derive from `flatMap` by the laws */
-@implicitNotFound("no Monad[${F}]. The instance for programs is Algebra's `monad[R]` (okay.effects.algebra); Option's, Either's, List's are Functor's companion's.")
+@implicitNotFound(
+  "no Monad[${F}]. The instance for programs is Algebra's `monad[R]` (okay.effects.algebra); Option's, Either's, " +
+    "List's are Functor's companion's.")
 trait Monad[F[_]] extends Selective[F] {
   def flatMap[A, B](a: F[A])(f: A => F[B]): F[B]
 
@@ -182,7 +188,10 @@ object Monad {
  * recursion into a loop without the carrier's help (Freeman, "Stack Safety for Free", 2015). A monad without an
  * instance has no `tailRecM`: a compile error, never an overflow.
  */
-@implicitNotFound("no TailRecM[${F}]: a stack-safe loop is the carrier's to provide. A carrier whose flatMap does not call its continuation before returning may say so: implicit val t: TailRecM[${F}] = TailRecM.deferring. An eager one writes its own loop.")
+@implicitNotFound(
+  "no TailRecM[${F}]: a stack-safe loop is the carrier's to provide. A carrier whose flatMap does not call its " +
+    "continuation before returning may say so: implicit val t: TailRecM[${F}] = TailRecM.deferring. An eager one " +
+    "writes its own loop.")
 trait TailRecM[F[_]] {
   def tailRecM[A, B](a: A)(f: A => F[Either[A, B]]): F[B]
 }
@@ -216,7 +225,9 @@ trait Alternative[F[_]] extends Applicative[F] {
 }
 
 /** a Monad that is also an Alternative, under the traditional names */
-@implicitNotFound("no MonadPlus[${F}]. List's, Vector's and LazyList's are Functor's companion's; a program's needs Choose in its row: Algebra's `monadPlus[R]`.")
+@implicitNotFound(
+  "no MonadPlus[${F}]. List's, Vector's and LazyList's are Functor's companion's; a program's needs Choose in its " +
+    "row: Algebra's `monadPlus[R]`.")
 trait MonadPlus[F[_]] extends Alternative[F] with Monad[F] {
   def mzero[A]: F[A] = empty[A]
   def mplus[A](x: F[A], y: => F[A]): F[A] = append(x, y)
@@ -257,7 +268,8 @@ object ParaMonad {
 
   /** every parameterised monad is a family of ordinary monads, one on each diagonal `M[*, R, R]` — asked for by
    * name, since no call site can partially unify `M[A, R, R]` as `F[A]` */
-  def diagonal[M[_, _, _], R](implicit P: ParaMonad[M]): Monad[({ type L[A] = M[A, R, R] })#L] = new DiagonalMonad[M, R](P)
+  def diagonal[M[_, _, _], R](implicit P: ParaMonad[M]): Monad[({ type L[A] = M[A, R, R] })#L] =
+    new DiagonalMonad[M, R](P)
 }
 
 final class DiagonalMonad[M[_, _, _], R](val P: ParaMonad[M]) extends Monad[({ type L[A] = M[A, R, R] })#L] {

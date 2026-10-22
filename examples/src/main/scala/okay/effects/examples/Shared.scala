@@ -24,12 +24,13 @@ class Shared(implicit val fx: Runner) {
 
   /** the handler: answering in place, its state the last number given — a ticket counter */
   def tickets[R[_], Rest[_], A](p: A ! R)(implicit s: Split[Ticket, R, Rest]): A ! Rest =
-    handle[Ticket, Int, R, Rest, A, A](p, 0, new StatefulTailHandler[Ticket, Int, Rest, A, A] {
-      def ret(n: Int, a: A) = pure(a)
-      def answer[X](cell: Cell[Int], op: Ticket[X]): X = op match {
-        case Ticket.Next(answer) => cell.set(cell.get + 1); answer(cell.get)
-      }
-    })
+    handle[Ticket, Int, R, Rest, A, A](p, 0,
+      new StatefulTailHandler[Ticket, Int, Rest, A, A] {
+        def ret(n: Int, a: A) = pure(a)
+        def answer[X](cell: Cell[Int], op: Ticket[X]): X = op match {
+          case Ticket.Next(answer) => cell.set(cell.get + 1); answer(cell.get)
+        }
+      })
 
   /** a row of two: tickets, and a writer of lines — by aliases, the same type in both compilers */
   type Lines[X] = Writer[String, X]

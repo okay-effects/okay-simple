@@ -12,8 +12,10 @@ sealed trait Fields[X]
 object Fields {
   /** a value in one piece at `path` — a primitive, or one refined or described; `None` when there is none */
   final case class Get[X](path: List[String], field: Schema.Field, answer: Option[Json] => X) extends Fields[X]
-  /** the value at `path` did not decode: the handler may give another (a person, asked again) or not (`None`: a wire) */
-  final case class Retry[X](path: List[String], field: Schema.Field, problems: Problems, answer: Option[Json] => X) extends Fields[X]
+  /** the value at `path` did not decode: the handler may give another (a person, asked again) or not (`None`: a wire)
+ */
+  final case class Retry[X](path: List[String], field: Schema.Field, problems: Problems, answer: Option[Json] => X)
+    extends Fields[X]
   /** what is at `path`: nothing, something of the shape's kind, or something else (a text where a record was asked) */
   final case class Has[X](path: List[String], field: Schema.Field, answer: Presence => X) extends Fields[X]
   sealed trait Presence

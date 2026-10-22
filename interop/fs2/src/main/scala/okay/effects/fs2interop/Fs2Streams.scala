@@ -38,14 +38,16 @@ class Fs2Streams[I <: Runner with Singleton, S <: Streams[I]](val streams: S) {
     _root_.fs2.Stream.unfold[_root_.fs2.Pure, Stream[O, Pure], O](s)(cur =>
       run(cur.pull()).fold[Option[(O, Stream[O, Pure])]](None)((o, rest) => Some((o, rest))))
 
-  def fromFs2[F[_], O](fs: _root_.fs2.Stream[F, O])(implicit compiler: _root_.fs2.Compiler[F, F], F: Monad[F]): Stream[O, Lifted[F]#L] = {
+  def fromFs2[F[_], O](
+    fs: _root_.fs2.Stream[F, O])(implicit compiler: _root_.fs2.Compiler[F, F], F: Monad[F]): Stream[O, Lifted[F]#L] = {
     type R[X] = Lifted[F]#L[X]
     type Step = Option[(_root_.fs2.Chunk[O], _root_.fs2.Stream[F, O])]
     val step: F[Step] = F.map(fs.pull.uncons.flatMap(o => _root_.fs2.Pull.output1(o)).stream.compile.last)(_.flatten)
-    new Stream[O, R](() => std.lift[F, Step, R](step).flatMap {
-      case None => pure[Pull[O, R], R](new End[O, R])
-      case Some((chunk, rest)) => (streams.emits[O, R](chunk.toList) ++ fromFs2[F, O](rest)).pull()
-    })
+    new Stream[O, R](() =>
+      std.lift[F, Step, R](step).flatMap {
+        case None => pure[Pull[O, R], R](new End[O, R])
+        case Some((chunk, rest)) => (streams.emits[O, R](chunk.toList) ++ fromFs2[F, O](rest)).pull()
+      })
   }
 }
 

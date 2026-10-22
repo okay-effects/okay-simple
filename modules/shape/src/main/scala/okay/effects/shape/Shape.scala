@@ -17,37 +17,46 @@ sealed trait Shape[P] {
   def decodeAt(v: Json, path: List[String]): Either[Problems, P]
   def encode(p: P): Json
   def erased: Schema
-  /** what an ABSENT field of this shape decodes to, if anything: `Optional` says `None`; the rest, nothing (required) */
+  /** what an ABSENT field of this shape decodes to, if anything: `Optional` says `None`; the rest, nothing (required)
+ */
   def absent: Option[P] = None
   /** this shape interpreted: the typed fold, a method of `alg` per node */
   def fold[G[_]](alg: ShapeAlgebra[G]): G[P]
-  /** a leaf: a value in one piece — a primitive, or one refined or described; a record, a sum, a list, an option are not */
+  /** a leaf: a value in one piece — a primitive, or one refined or described; a record, a sum, a list, an option are
+   * not */
   def isLeaf: Boolean = true
 
   def map[B](to: P => B)(from: B => P): Shape[B] = Shape.Mapped(this, (p: P) => Right(to(p)), from)
   def refine[B](to: P => Either[String, B])(from: B => P): Shape[B] = Shape.Mapped(this, to, from)
-  def check(message: String)(ok: P => Boolean): Shape[P] = Shape.Mapped(this, (p: P) => if (ok(p)) Right(p) else Left(message), (p: P) => p)
+  def check(message: String)(ok: P => Boolean): Shape[P] =
+    Shape.Mapped(this, (p: P) => if (ok(p)) Right(p) else Left(message), (p: P) => p)
   def described(label: String, doc: Option[String] = None): Shape[P] = Shape.Described(this, label, doc)
   def optional: Shape[Option[P]] = Shape.Optional(this)
   def many(min: Int = 0, max: Option[Int] = None): Shape[List[P]] = Shape.Many(this, min, max)
 
   /** A FIELD CHANGED BY NAME, in a record (or one refined or described): its words, its secret, its constraints,
    * a default — what a type does not say and a derived shape lacks: `shape.field("number")(_.asSecret)`,
-   * `.field("age")(_.documented("in years"))`, `.field("name")(f => f.copy(shape = f.shape.check("not blank")(_ != "")))`.
+   * `.field("age")(_.documented("in years"))`, `.field("name")(f => f.copy(shape = f.shape.check("not blank")(_ !=
+   * "")))`.
    * The name and the type stay (a changed name is put back); a name no field has is refused at once */
   def field(name: String)(change: Shape.Field[_] => Shape.Field[_]): Shape[P] = this match {
     case r: Shape.Record[P] => r.adjust(name)(change)
     case m: Shape.Mapped[a, P] => Shape.Mapped(m.of.field(name)(change), m.to, m.from)
     case d: Shape.Described[P] => Shape.Described(d.of.field(name)(change), d.label, d.doc)
-    case other => throw new IllegalArgumentException(s"no field '$name' to change: not a record but ${other.erased.getClass.getSimpleName}")
+    case other => throw new IllegalArgumentException(
+        s"no field '$name' to change: not a record but ${other.erased.getClass.getSimpleName}")
   }
-  /** the same, the field's type named by the caller — `shape.fieldOf[List[String]]("tags")(f => f.copy(shape = f.shape.check("one at least")(_.nonEmpty)))`;
+  /** the same, the field's type named by the caller — `shape.fieldOf[List[String]]("tags")(f => f.copy(shape =
+   * f.shape.check("one at least")(_.nonEmpty)))`;
    * the type is the caller's claim, as a shape by name cannot know it: a wrong one fails at the first decode */
-  def fieldOf[A](name: String)(change: Shape.Field[A] => Shape.Field[A]): Shape[P] = field(name)(f => change(f.asInstanceOf[Shape.Field[A]]))
+  def fieldOf[A](name: String)(change: Shape.Field[A] => Shape.Field[A]): Shape[P] =
+    field(name)(f => change(f.asInstanceOf[Shape.Field[A]]))
   /** a field's default by name, as JSON read by the field's shape: `shape.defaulted("score", Json.num(1))` */
   def defaulted(name: String, value: Json): Shape[P] = field(name) { f => Shape.defaultOf(f, value) }
   /** a field's words by name */
-  def labelled(name: String, label: String, doc: Option[String] = None): Shape[P] = field(name) { f => val l = f.labelled(label); doc.fold[Shape.Field[_]](l)(d => l.documented(d)) }
+  def labelled(name: String, label: String, doc: Option[String] = None): Shape[P] = field(name) { f =>
+    val l = f.labelled(label); doc.fold[Shape.Field[_]](l)(d => l.documented(d))
+  }
   /** a field kept secret, by name */
   def secret(name: String): Shape[P] = field(name)(_.asSecret)
 }
@@ -77,11 +86,16 @@ object Shape extends RecordWords with ShapeDerivation {
     val free: FreeAp[Field, List[Any]] = fs.foldLeft(FreeAp.pure[Field, List[Any]](Nil)) { (acc, f) =>
       FreeAp.Ap[Field, Any, List[Any]](acc.map(vs => (v: Any) => vs :+ v), f.asInstanceOf[Field[Any]].free)
     }
-    Record[P](free.map(make), (p: P) => fs.iterator.zip(unmake(p).iterator).map { case (f, v) => f.name -> f.asInstanceOf[Field[Any]].shape.encode(v) }.toVector)
+    Record[P](free.map(make),
+      (p: P) =>
+        fs.iterator.zip(unmake(p).iterator).map { case (f, v) =>
+          f.name -> f.asInstanceOf[Field[Any]].shape.encode(v)
+        }.toVector)
   }
   /** A FIELD BY NAME, CHECKED BY THE COMPILER: `shape.at("tags")` on a shape of a case class names a field the compiler
    * finds in the type, or refuses, and its type `T` is the field's — so `.check`, `.default`, `.shape` are typed and
-   * nothing is said twice. Scala 3 by `Mirror`, 2.13 by a macro; `field(name)` is the same for any shape, checked at once
+   * nothing is said twice. Scala 3 by `Mirror`, 2.13 by a macro; `field(name)` is the same for any shape, checked at
+   * once
    * when the shape is made */
   final class At[P, T](shape: Shape[P], name: String) {
     def apply(change: Field[T] => Field[T]): Shape[P] = shape.fieldOf[T](name)(change)
@@ -97,13 +111,16 @@ object Shape extends RecordWords with ShapeDerivation {
   private[shape] def defaultOf(f: Field[_], value: Json): Field[_] = {
     def typed[A](fa: Field[A]): Field[A] = fa.shape.decode(value) match {
       case Right(a) => fa.copy(default = Some(a))
-      case Left(ps) => throw new IllegalArgumentException(s"a default for '${fa.name}' that its shape does not read: ${Problem.render(ps)}")
+      case Left(ps) => throw new IllegalArgumentException(
+          s"a default for '${fa.name}' that its shape does not read: ${Problem.render(ps)}")
     }
     typed(f)
   }
   /** a sum's case named from its type: `KindDefined` is `kind-defined`, `Dog` is `dog` */
-  def caseName(simpleName: String): String = simpleName.replaceAll("([a-z0-9])([A-Z])", "$1-$2").toLowerCase.stripSuffix("$")
-  private[shape] def problem[A](path: List[String], message: String): Either[Problems, A] = Left(List(Problem(path.reverse, message)))
+  def caseName(simpleName: String): String =
+    simpleName.replaceAll("([a-z0-9])([A-Z])", "$1-$2").toLowerCase.stripSuffix("$")
+  private[shape] def problem[A](path: List[String], message: String): Either[Problems, A] =
+    Left(List(Problem(path.reverse, message)))
   private[shape] def expected[A](what: String, v: Json, path: List[String]): Either[Problems, A] =
     problem(path, s"expected $what, got ${Json.kind(v)}")
 
@@ -163,7 +180,7 @@ object Shape extends RecordWords with ShapeDerivation {
   final case class Choice[A](options: List[(String, A)]) extends Shape[A] {
     def decodeAt(v: Json, path: List[String]): Either[Problems, A] = v match {
       case Str(s) => options.collectFirst { case (n, a) if n == s => a }
-        .toRight(List(Problem(path.reverse, s"one of ${options.map(_._1).mkString(", ")}")))
+          .toRight(List(Problem(path.reverse, s"one of ${options.map(_._1).mkString(", ")}")))
       case other => expected(s"one of ${options.map(_._1).mkString(", ")}", other, path)
     }
     def encode(a: A): Json = options.collectFirst { case (n, x) if x == a => Str(n) }.getOrElse(Str(a.toString))
@@ -203,20 +220,25 @@ object Shape extends RecordWords with ShapeDerivation {
    * builds both) */
   final case class Record[P](fields: FreeAp[Field, P], write: P => Vector[(String, Json)]) extends Shape[P] {
     def decodeAt(v: Json, path: List[String]): Either[Problems, P] = v match {
-      case o: Obj => fields.foldMap[({ type L[A] = Validated[Problems, A] })#L](Field.reading(o, path))(Validated.applicative[Problems](Monoid.list[Problem])).toEither
+      case o: Obj => fields.foldMap[({ type L[A] = Validated[Problems, A] })#L](Field.reading(o, path))(
+          Validated.applicative[Problems](Monoid.list[Problem])).toEither
       case other => expected("a record", other, path)
     }
     def encode(p: P): Json = Obj(write(p))
     def erased: Schema = Schema.Record(fields.analyze(Field.erasing)(Monoid.vector[Schema.Field]))
     def fold[G[_]](alg: ShapeAlgebra[G]): G[P] = alg.record(this)
     override def isLeaf: Boolean = false
-    /** the field named, changed — the record decoded by the field as changed, written as before (the type is the same) */
+    /** the field named, changed — the record decoded by the field as changed, written as before (the type is the same)
+ */
     def adjust(name: String)(change: Field[_] => Field[_]): Record[P] = {
-      val names = fields.analyze(new Const[Field, Vector[String]] { def apply[A](f: Field[A]): Vector[String] = Vector(f.name) })(Monoid.vector[String])
+      val names = fields.analyze(new Const[Field, Vector[String]] {
+        def apply[A](f: Field[A]): Vector[String] = Vector(f.name)
+      })(Monoid.vector[String])
       if (!names.contains(name)) throw new IllegalArgumentException(s"no field '$name' among ${names.mkString(", ")}")
       Record[P](fields.hoist(new (Field ~> Field) {
-        def apply[A](f: Field[A]): Field[A] = if (f.name == name) change(f).asInstanceOf[Field[A]].copy(name = name) else f
-      }), write)
+          def apply[A](f: Field[A]): Field[A] =
+            if (f.name == name) change(f).asInstanceOf[Field[A]].copy(name = name) else f
+        }), write)
     }
   }
   /** a tagged union of cases: `{"type": name, ...}` — the case's own fields when it is a record, `"value"` otherwise */
@@ -224,18 +246,19 @@ object Shape extends RecordWords with ShapeDerivation {
     private def names = cases.map(_.name).mkString(", ")
     def decodeAt(v: Json, path: List[String]): Either[Problems, A] = v match {
       case o: Obj => o.get("type") match {
-        case Some(Str(t)) => cases.find(_.name == t) match {
-          case Some(c) =>
-            if (flat(c)) c.shape.decodeAt(o.without("type"), path).map(c.inject)
-            else o.get("value") match {
-              case Some(x) => c.shape.decodeAt(x, "value" :: path).map(c.inject)
-              case None => c.shape.absent.map(c.inject).toRight(List(Problem(("value" :: path).reverse, "required")))
+          case Some(Str(t)) => cases.find(_.name == t) match {
+              case Some(c) =>
+                if (flat(c)) c.shape.decodeAt(o.without("type"), path).map(c.inject)
+                else o.get("value") match {
+                  case Some(x) => c.shape.decodeAt(x, "value" :: path).map(c.inject)
+                  case None =>
+                    c.shape.absent.map(c.inject).toRight(List(Problem(("value" :: path).reverse, "required")))
+                }
+              case None => problem("type" :: path, s"one of $names")
             }
-          case None => problem("type" :: path, s"one of $names")
+          case Some(other) => expected(s"one of $names", other, "type" :: path)
+          case None => problem(path, s"a 'type' field naming one of $names")
         }
-        case Some(other) => expected(s"one of $names", other, "type" :: path)
-        case None => problem(path, s"a 'type' field naming one of $names")
-      }
       case other => expected("a record with a 'type'", other, path)
     }
     def encode(a: A): Json = cases.iterator.flatMap(c => c.write(a).map(v => (c, v))).nextOption() match {
@@ -260,13 +283,14 @@ object Shape extends RecordWords with ShapeDerivation {
     final def write(a: A): Option[Json] = project(a).map(shape.encode)
   }
   object Case {
-    def apply[A, B0](name0: String, shape0: Shape[B0])(inject0: B0 => A)(project0: A => Option[B0]): Case[A] = new Case[A] {
-      type B = B0
-      val name: String = name0
-      val shape: Shape[B0] = shape0
-      val inject: B0 => A = inject0
-      val project: A => Option[B0] = project0
-    }
+    def apply[A, B0](name0: String, shape0: Shape[B0])(inject0: B0 => A)(project0: A => Option[B0]): Case[A] =
+      new Case[A] {
+        type B = B0
+        val name: String = name0
+        val shape: Shape[B0] = shape0
+        val inject: B0 => A = inject0
+        val project: A => Option[B0] = project0
+      }
   }
   /** a refinement or a conversion; `to` may say no, with a message — one problem at this path */
   final case class Mapped[A, B](of: Shape[A], to: A => Either[String, B], from: B => A) extends Shape[B] {
@@ -317,7 +341,7 @@ object Shape extends RecordWords with ShapeDerivation {
   }
 
   final case class Field[A](name: String, shape: Shape[A], label: Option[String] = None, doc: Option[String] = None,
-                            secret: Boolean = false, default: Option[A] = None) {
+    secret: Boolean = false, default: Option[A] = None) {
     /** this field alone, as a record's fields */
     def free: FreeAp[Field, A] = FreeAp.lift[Field, A](this)
     def decodeAt(o: Obj, path: List[String]): Either[Problems, A] = o.get(name) match {
@@ -348,7 +372,8 @@ object Shape extends RecordWords with ShapeDerivation {
   def integer: Shape[BigInt] = Integer()
   def integer(constraints: Constraint.OnNumber*): Shape[BigInt] = Integer(constraints.toList)
   def int: Shape[Int] = integer.refine(n => if (n.isValidInt) Right(n.toInt) else Left("too large a number"))(BigInt(_))
-  def long: Shape[Long] = integer.refine(n => if (n.isValidLong) Right(n.toLong) else Left("too large a number"))(BigInt(_))
+  def long: Shape[Long] =
+    integer.refine(n => if (n.isValidLong) Right(n.toLong) else Left("too large a number"))(BigInt(_))
   def number: Shape[BigDecimal] = Number()
   def number(constraints: Constraint.OnNumber*): Shape[BigDecimal] = Number(constraints.toList)
   def bool: Shape[Boolean] = Bool
@@ -359,7 +384,8 @@ object Shape extends RecordWords with ShapeDerivation {
   val unit: Shape[Unit] = Record[Unit](FreeAp.pure[Field, Unit](()), _ => Vector.empty)
   def sum[A](cases: Case[A]*): Shape[A] = OneOf(cases.toList)
   /** a case of a sum whose value IS a subtype: injected as it is */
-  def sub[A, B <: A](name: String, shape: Shape[B])(project: A => Option[B]): Case[A] = Case[A, B](name, shape)(b => b)(project)
+  def sub[A, B <: A](name: String, shape: Shape[B])(project: A => Option[B]): Case[A] =
+    Case[A, B](name, shape)(b => b)(project)
   def deferred[A](name: String)(of: => Shape[A]): Shape[A] = Deferred(name, () => of)
   def loose(schema: Schema, defs: Map[String, Schema] = Map.empty): Shape[Json] = Loose(schema, defs)
 }

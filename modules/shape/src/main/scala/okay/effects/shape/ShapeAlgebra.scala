@@ -32,7 +32,8 @@ trait ShapeAlgebra[G[_]] {
   /** a field's shape interpreted with this algebra */
   final def field[A](f: Shape.Field[A]): G[A] = f.shape.fold(this)
   /** a record's fields as a free applicative of their interpretations */
-  final def fields[P](r: Shape.Record[P]): FreeAp[G, P] = r.fields.foldMap[({ type L[X] = FreeAp[G, X] })#L](new okay.effects.algebra.~>[Shape.Field, ({ type L[X] = FreeAp[G, X] })#L] {
-    def apply[A](f: Shape.Field[A]): FreeAp[G, A] = FreeAp.lift[G, A](field(f))
-  })(FreeAp.applicative[G])
+  final def fields[P](r: Shape.Record[P]): FreeAp[G, P] = r.fields.foldMap[({ type L[X] = FreeAp[G, X] })#L](
+    new okay.effects.algebra.~>[Shape.Field, ({ type L[X] = FreeAp[G, X] })#L] {
+      def apply[A](f: Shape.Field[A]): FreeAp[G, A] = FreeAp.lift[G, A](field(f))
+    })(FreeAp.applicative[G])
 }

@@ -4,5 +4,6 @@ package okay.effects.parsing
 val onMachine = Parsing()(using okay.effects.machine.Machine)
 export onMachine.*
 /** the input from a stream of chunks, on the default streams */
-val fromStreams: StreamInput[okay.effects.stream.onMachine.type] = new StreamInput[okay.effects.stream.onMachine.type](okay.effects.stream.onMachine)
+val fromStreams: StreamInput[okay.effects.stream.onMachine.type] =
+  new StreamInput[okay.effects.stream.onMachine.type](okay.effects.stream.onMachine)
 export fromStreams.{inputFrom, parseStream}

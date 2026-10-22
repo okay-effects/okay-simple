@@ -44,8 +44,8 @@ object Places:
     def apply[E2[_]](p: Place[E2, R, ?]): Place[E2, R + E, ?] = take(at, p) match
       case _: Taken.Mine[e, r] => last
       case _: Taken.Theirs[e, e2, r] => p match
-        case _: Place.Absurd[r2] => Place.Absurd[R + E]()
-        case _ => Place.Init(p)
+          case _: Place.Absurd[r2] => Place.Absurd[R + E]()
+          case _ => Place.Init(p)
 
   /** the places of `R` renamed to `R + G`'s: one further in */
   def further[R[_]]: Renaming[R, R + Void] = new Renaming[R, R + Void]:
@@ -72,9 +72,9 @@ object Places:
         case _: Place.Last[r, g] => gNow
         case _: Place.Absurd[r] => Place.Absurd[Rest + G + E]()
         case ip: Place.Init[e2, r, g, rest] => (inner(ip.s): @unchecked) match
-          case _: Place.Last[r3, e3] => eNow
-          case ip2: Place.Init[e4, r4, g4, rest4] => Place.Init(Place.Init[E2, Rest, G, rest4](ip2.s))
-          case _: Place.Absurd[r5] => Place.Absurd[Rest + G + E]()
+            case _: Place.Last[r3, e3] => eNow
+            case ip2: Place.Init[e4, r4, g4, rest4] => Place.Init(Place.Init[E2, Rest, G, rest4](ip2.s))
+            case _: Place.Absurd[r5] => Place.Absurd[Rest + G + E]()
 
   /** `Sub`'s three steps: `Pure`'s places — of `Void` only — the empty effect's in `S`; a row of one, its place in
    * `S`; `R + E`, `R`'s and `E`'s */
@@ -102,16 +102,16 @@ object Places:
   def take[E[_], R[_], Rest[_], E2[_]](s: Place[E, R, Rest], at: Place[E2, R, ?]): Taken[E, E2, Rest] =
     (s: @unchecked) match
       case _: Place.Last[r, e] => (at: @unchecked) match
-        case _: Place.Last[r2, e2] => Taken.Mine()
-        case i: Place.Init[e2, r2, g, rest] => Taken.Theirs(i.s)
-        case _: Place.Absurd[r2] => Taken.Theirs(Place.Absurd())
+          case _: Place.Last[r2, e2] => Taken.Mine()
+          case i: Place.Init[e2, r2, g, rest] => Taken.Theirs(i.s)
+          case _: Place.Absurd[r2] => Taken.Theirs(Place.Absurd())
       case _: Place.Only[e] => (at: @unchecked) match
-        case _: Place.Only[e2] => Taken.Mine()
-        case _: Place.Absurd[r2] => Taken.Theirs(Place.Absurd())
+          case _: Place.Only[e2] => Taken.Mine()
+          case _: Place.Absurd[r2] => Taken.Theirs(Place.Absurd())
       case i: Place.Init[e, r, g, rest] => (at: @unchecked) match
-        case _: Place.Last[r2, e2] => Taken.Theirs(Place.Last())
-        case j: Place.Init[e2, r2, g2, rest2] => take(i.s, j.s) match
-          case _: Taken.Mine[e3, r3] => Taken.Mine()
-          case t: Taken.Theirs[e3, e4, r4] => Taken.Theirs(Place.Init(t.at))
-        case _: Place.Absurd[r2] => Taken.Theirs(Place.Absurd())
+          case _: Place.Last[r2, e2] => Taken.Theirs(Place.Last())
+          case j: Place.Init[e2, r2, g2, rest2] => take(i.s, j.s) match
+              case _: Taken.Mine[e3, r3] => Taken.Mine()
+              case t: Taken.Theirs[e3, e4, r4] => Taken.Theirs(Place.Init(t.at))
+          case _: Place.Absurd[r2] => Taken.Theirs(Place.Absurd())
       case _: Place.Absurd[r] => Taken.Theirs(at)

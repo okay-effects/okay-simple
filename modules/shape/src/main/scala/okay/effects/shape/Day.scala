@@ -4,7 +4,8 @@ package okay.effects.shape
 final case class Day(year: Int, month: Int, day: Int) extends Ordered[Day] {
   override def toString: String = f"$year%04d-$month%02d-$day%02d"
   def compare(that: Day): Int = {
-    val y = year.compare(that.year); if (y != 0) y else { val m = month.compare(that.month); if (m != 0) m else day.compare(that.day) }
+    val y = year.compare(that.year);
+    if (y != 0) y else { val m = month.compare(that.month); if (m != 0) m else day.compare(that.day) }
   }
 }
 object Day {

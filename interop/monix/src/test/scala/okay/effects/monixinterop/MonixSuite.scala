@@ -33,8 +33,9 @@ abstract class MonixChecks(val fx0: Runner) extends munit.FunSuite {
   }
   test("an Observable read to its end; its failure the task's") {
     toTask(fromObservable(Observable(1, 2, 3)).fold(0)(_ + _)).runToFuture.map(n => assertEquals(n, 6))
-      .flatMap(_ => toTask(fromObservable(Observable(1) ++ Observable.raiseError(new RuntimeException("boom"))).toList)
-        .attempt.runToFuture)
+      .flatMap(_ =>
+        toTask(fromObservable(Observable(1) ++ Observable.raiseError(new RuntimeException("boom"))).toList)
+          .attempt.runToFuture)
       .map(e => assertEquals(e.left.map(_.getMessage), Left("boom")))
   }
 }

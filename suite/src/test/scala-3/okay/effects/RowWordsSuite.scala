@@ -13,7 +13,7 @@ class RowWordsSuite extends munit.FunSuite:
         c <- ask[Config]
         n <- get
         reply <- if n >= c.limit then tell(s"refused $user: busy").as("try later")
-                 else put(n + 1).andThen(tell(s"served $user")).as(s"${c.greeting} $user")
+        else put(n + 1).andThen(tell(s"served $user")).as(s"${c.greeting} $user")
       yield reply
 
     /** the state's type from the row: one State in it */
@@ -46,8 +46,8 @@ class RowWordsSuite extends munit.FunSuite:
     def tick: Int ! Row =
       for
         step <- ask[Int]
-        n    <- get
-        _    <- put(n + step)
+        n <- get
+        _ <- put(n + step)
       yield n + step
     val three = for a <- tick; b <- tick; c <- tick yield List(a, b, c)
 

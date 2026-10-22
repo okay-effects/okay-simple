@@ -39,18 +39,21 @@ object Fold {
   def last[A]: Fold[A, Option[A]] = apply(Option.empty[A])((_, a) => Some(a))
   def exists[A](p: A => Boolean): Fold[A, Boolean] = apply(false)((s, a) => s || p(a))
   def forall[A](p: A => Boolean): Fold[A, Boolean] = apply(true)((s, a) => s && p(a))
-  def mean: Fold[Double, Double] = of[Double, (Double, Long), Double]((0.0, 0L)) { case ((sum, n), x) => (sum + x, n + 1) } { case (sum, n) => if (n == 0) 0.0 else sum / n }
+  def mean: Fold[Double, Double] = of[Double, (Double, Long), Double]((0.0, 0L)) { case ((sum, n), x) =>
+    (sum + x, n + 1)
+  } { case (sum, n) => if (n == 0) 0.0 else sum / n }
 
   /** two folds in ONE pass: `Fold[A, *]` is an Applicative (the state a pair) — `(sum, count).mapN(_ / _)` the mean */
-  implicit def applicative[A]: Applicative[({ type L[R] = Fold[A, R] })#L] = new Applicative[({ type L[R] = Fold[A, R] })#L] {
-    def pure[R](r: R): Fold[A, R] = of[A, Unit, R](())((_, _) => ())(_ => r)
-    def app[R, T](f: Fold[A, R => T], x: Fold[A, R]): Fold[A, T] = new Fold[A, T] {
-      type S = (f.S, x.S)
-      def init: S = (f.init, x.init)
-      def add(s: S, a: A): S = (f.add(s._1, a), x.add(s._2, a))
-      def end(s: S): T = f.end(s._1)(x.end(s._2))
+  implicit def applicative[A]: Applicative[({ type L[R] = Fold[A, R] })#L] =
+    new Applicative[({ type L[R] = Fold[A, R] })#L] {
+      def pure[R](r: R): Fold[A, R] = of[A, Unit, R](())((_, _) => ())(_ => r)
+      def app[R, T](f: Fold[A, R => T], x: Fold[A, R]): Fold[A, T] = new Fold[A, T] {
+        type S = (f.S, x.S)
+        def init: S = (f.init, x.init)
+        def add(s: S, a: A): S = (f.add(s._1, a), x.add(s._2, a))
+        def end(s: S): T = f.end(s._1)(x.end(s._2))
+      }
     }
-  }
 }
 
 /** a fold that may STOP: `done` says when, `end` turns the state into the result */
@@ -62,16 +65,18 @@ trait FoldUntil[-A, S, R] {
 }
 
 object FoldUntil {
-  def apply[A, S, R](z: S)(f: (S, A) => S)(stop: S => Boolean)(finish: S => R): FoldUntil[A, S, R] = new FoldUntil[A, S, R] {
-    def init: S = z
-    def add(s: S, a: A): S = f(s, a)
-    def done(s: S): Boolean = stop(s)
-    def end(s: S): R = finish(s)
-  }
+  def apply[A, S, R](z: S)(f: (S, A) => S)(stop: S => Boolean)(finish: S => R): FoldUntil[A, S, R] =
+    new FoldUntil[A, S, R] {
+      def init: S = z
+      def add(s: S, a: A): S = f(s, a)
+      def done(s: S): Boolean = stop(s)
+      def end(s: S): R = finish(s)
+    }
   /** every Fold is one that never stops */
   def ofFold[A, R](fo: Fold[A, R]): FoldUntil[A, fo.S, R] = apply[A, fo.S, R](fo.init)(fo.add)(_ => false)(fo.end)
   def find[A](p: A => Boolean): FoldUntil[A, Option[A], Option[A]] =
-    apply[A, Option[A], Option[A]](Option.empty[A])((s, a) => if (s.isDefined) s else if (p(a)) Some(a) else None)(_.isDefined)(identity)
+    apply[A, Option[A], Option[A]](Option.empty[A])((s, a) => if (s.isDefined) s else if (p(a)) Some(a) else None)(
+      _.isDefined)(identity)
   def headOption[A]: FoldUntil[A, Option[A], Option[A]] = find(_ => true)
   def take[A](n: Int): FoldUntil[A, Vector[A], Vector[A]] =
     apply[A, Vector[A], Vector[A]](Vector.empty[A])((s, a) => if (s.size < n) s :+ a else s)(_.size >= n)(identity)
@@ -105,6 +110,7 @@ object Foldable {
   }
   implicit val option: Foldable[Option] = new Foldable[Option] {
     def fold[A, R](fa: Option[A])(f: Fold[A, R]): R = f.end(fa.fold(f.init)(a => f.add(f.init, a)))
-    def foldUntil[A, S, R](fa: Option[A])(fo: FoldUntil[A, S, R]): R = fo.end(fa.fold(fo.init)(a => if (fo.done(fo.init)) fo.init else fo.add(fo.init, a)))
+    def foldUntil[A, S, R](fa: Option[A])(fo: FoldUntil[A, S, R]): R =
+      fo.end(fa.fold(fo.init)(a => if (fo.done(fo.init)) fo.init else fo.add(fo.init, a)))
   }
 }

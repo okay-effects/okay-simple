@@ -23,7 +23,8 @@ abstract class TofuChecks(val fx0: Runner) extends munit.FunSuite {
 
   test("WithLocal: the context asked, and changed for a part") {
     val wl = withLocal[Row, NoReader, String]
-    val p: String ! Row = wl.context.flatMap(c => wl.local(ask[String, Row].map(_ + "!"))(_.toUpperCase).map(c + " " + _))
+    val p: String ! Row =
+      wl.context.flatMap(c => wl.local(ask[String, Row].map(_ + "!"))(_.toUpperCase).map(c + " " + _))
     assertEquals(run(attempt[String](reader("ann")(p))), Right("ann ANN!"))
   }
   test("Errors: raised, handled with, restored") {

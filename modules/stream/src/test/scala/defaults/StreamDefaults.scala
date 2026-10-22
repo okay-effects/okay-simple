@@ -14,8 +14,10 @@ class StreamDefaults extends munit.FunSuite {
     assertEquals(run(state(0)(totals)), (6, List(1, 3, 6)))
     def naturals(n: Int): Unit ! Y = emit[Int, Y](n).flatMap(_ => naturals(n + 1))
     assertEquals(run(fromGenerator[Int](naturals(0)).take(3).toList), List(0, 1, 2))
-    assertEquals(run(merge[Int, Pure](List(emits[Int, Pure](List(1, 3)), emits[Int, Pure](List(2, 4)))).toList), List(1, 2, 3, 4))
-    assertEquals(run(merge(emits[Int, Pure](List(1, 3)), emits[Int, Pure](List(2, 4)), emits[Int, Pure](List(9))).toList), List(1, 2, 9, 3, 4))
+    assertEquals(run(merge[Int, Pure](List(emits[Int, Pure](List(1, 3)), emits[Int, Pure](List(2, 4)))).toList),
+      List(1, 2, 3, 4))
+    assertEquals(run(merge(emits[Int, Pure](List(1, 3)), emits[Int, Pure](List(2, 4)),
+          emits[Int, Pure](List(9))).toList), List(1, 2, 9, 3, 4))
   }
   test("a stream as a Scala lazy list and iterator, lazily: an endless one taken as far as asked") {
     assertEquals(toLazyList(iterate[Int, Pure](1)(_ + 1).map(n => n * n)).take(4).toList, List(1, 4, 9, 16))

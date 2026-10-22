@@ -3,7 +3,8 @@ package okay.effects.examples
 import okay.effects.Runner
 
 /**
- * ONE APPLICATION OF TWO COMPILERS, over any implementation `fx`, given: Scala 3 code taking the effect, the handler and the
+ * ONE APPLICATION OF TWO COMPILERS, over any implementation `fx`, given: Scala 3 code taking the effect, the handler
+ * and the
  * program Scala 2.13 compiled (`Basics2`, `Shared`) as they are, beside its own, in one row and one run. An
  * application with Scala 2 code in it takes the interface's Scala 2.13 build, which Scala 3 reads: so its Scala 3
  * code writes rows as Scala 2 does, by names, `#L`, and the context bounds `Has[E]#L`.

@@ -5,7 +5,8 @@ class ReadmeSuite extends munit.FunSuite {
   import okay.effects.machine.Machine._
   import okay.effects.machine.Machine.std._
 
-  def greet[R[_]](implicit r: In[(Reader % String)#L, R], w: In[(Writer % String)#L, R], s: In[(State % Int)#L, R]): Int ! R =
+  def greet[R[_]](implicit r: In[(Reader % String)#L, R], w: In[(Writer % String)#L, R], s: In[(State % Int)#L, R])
+    : Int ! R =
     for {
       name <- ask[String, R]
       _ <- tell[String, R](s"hello, $name")

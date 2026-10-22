@@ -1,7 +1,9 @@
 package okay.effects.bench
 
 import java.util.concurrent.TimeUnit
-import org.openjdk.jmh.annotations.{Benchmark, BenchmarkMode, Mode, OutputTimeUnit, Param, Scope, Setup, State => JmhState}
+import org.openjdk.jmh.annotations.{
+  Benchmark, BenchmarkMode, Mode, OutputTimeUnit, Param, Scope, Setup, State => JmhState
+}
 import okay.effects.Runner
 import okay.effects.machine.Machine
 import okay.effects.tagless.Tagless.*
@@ -25,7 +27,8 @@ class TaglessLanes(using val fx: Runner) {
   }
 
   type RS[X] = (State % Int)[X]
-  def counting(i: Int): Unit ! RS = if (i == 0) pure(()) else get[Int, RS].flatMap(s => put[Int, RS](s + 1)).andThen(counting(i - 1))
+  def counting(i: Int): Unit ! RS =
+    if (i == 0) pure(()) else get[Int, RS].flatMap(s => put[Int, RS](s + 1)).andThen(counting(i - 1))
   def stateLoop: Int = run(state(0)(counting(n)))._1
 }
 

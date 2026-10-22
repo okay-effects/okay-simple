@@ -1,6 +1,5 @@
 package okay.effects
 
-
 /** AN EFFECT FOR A STATEFUL GENERAL HANDLER: numbers given out, and forks — each branch resumed with its own state */
 sealed trait Gen[X]
 object Gen {
@@ -23,17 +22,20 @@ class Numbering(val fx: Runner) {
 
   /** each branch's value and the state it ended with: `k` resumed with the next state, twice at a fork */
   def numbering[R[_], Rest[_], A](p: A ! R)(implicit s: Split[Gen, R, Rest]): List[(Int, A)] ! Rest =
-    handle[Gen, Int, R, Rest, A, List[(Int, A)]](p, 0, new StatefulHandler[Gen, Int, Rest, A, List[(Int, A)]] {
-      def ret(n: Int, a: A) = pure(List((n, a)))
-      def op[X](n: Int, op: Gen[X], k: (X, Int) => List[(Int, A)] ! Rest) = op match {
-        case Gen.Next(answer) => k(answer(n), n + 1)
-        case Gen.Fork(answer) => k(answer(false), n).flatMap(l => k(answer(true), n + 10).map(l ++ _))
-        case Gen.Stop() => pure(Nil)
-      }
-    })
+    handle[Gen, Int, R, Rest, A, List[(Int, A)]](p, 0,
+      new StatefulHandler[Gen, Int, Rest, A, List[(Int, A)]] {
+        def ret(n: Int, a: A) = pure(List((n, a)))
+        def op[X](n: Int, op: Gen[X], k: (X, Int) => List[(Int, A)] ! Rest) = op match {
+          case Gen.Next(answer) => k(answer(n), n + 1)
+          case Gen.Fork(answer) => k(answer(false), n).flatMap(l => k(answer(true), n + 10).map(l ++ _))
+          case Gen.Stop() => pure(Nil)
+        }
+      })
 
   def forked: Int ! Gen =
-    for { a <- next[Gen]; b <- fork[Gen]; c <- next[Gen]; _ <- if (b && c > 100) stop[Gen, Unit] else pure[Unit, Gen](()) } yield a * 100 + c
+    for {
+      a <- next[Gen]; b <- fork[Gen]; c <- next[Gen]; _ <- if (b && c > 100) stop[Gen, Unit] else pure[Unit, Gen](())
+    } yield a * 100 + c
   def numbered = run(numbering(forked))
 
   /** beside a state, outside it: the state one through both branches, each branch its own number */
@@ -46,5 +48,7 @@ class Numbering(val fx: Runner) {
   def numberedInState = run(state(5)(numbering(withState)))
 
   /** a branch stopped: dropped, its state with it */
-  def stopped = run(numbering(for { b <- fork[Gen]; _ <- if (b) stop[Gen, Unit] else pure[Unit, Gen](()); n <- next[Gen] } yield n))
+  def stopped = run(numbering(for {
+    b <- fork[Gen]; _ <- if (b) stop[Gen, Unit] else pure[Unit, Gen](()); n <- next[Gen]
+  } yield n))
 }

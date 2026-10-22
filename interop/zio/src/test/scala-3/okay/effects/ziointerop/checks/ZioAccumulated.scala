@@ -26,11 +26,13 @@ class ZioAccumulated extends munit.FunSuite:
   val program: Int ! Row =
     for
       row <- fromZIOTyped[Db & Log, AppErr, String, Row](load)
-      _   <- fromZIOTyped[Db & Log, AppErr, Unit, Row](info(row))
+      _ <- fromZIOTyped[Db & Log, AppErr, Unit, Row](info(row))
     yield row.length
 
   test("two ZIOs of their own environments and errors: one row, one ZIO of both") {
     val z: ZIO[Db & Log, AppErr, Int] = toZIOTyped(program)
-    Unsafe.unsafe { implicit u => Runtime.default.unsafe.runToFuture(z.provideEnvironment(ZEnvironment[Db, Log](db, log)).either) }
+    Unsafe.unsafe { implicit u =>
+      Runtime.default.unsafe.runToFuture(z.provideEnvironment(ZEnvironment[Db, Log](db, log)).either)
+    }
       .map(n => assertEquals((n, logged), (Right(5), List("row 7"))))
   }

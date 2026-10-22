@@ -30,7 +30,8 @@ abstract class Fs2StreamsChecks(val fx0: Runner) extends munit.FunSuite {
     assertEquals(toFs2Pure(iterate[Int, Pure](1)(_ * 2)).take(5).toList, List(1, 2, 4, 8, 16))
   }
   test("an fs2 stream as a stream: a chunk at a time, transformed here, as far as asked") {
-    val s = fromFs2(_root_.fs2.Stream.range(0, 1000).covary[IO].chunkN(7).unchunks.map(_ * 2)).filter(_ % 3 == 0).take(5)
+    val s =
+      fromFs2(_root_.fs2.Stream.range(0, 1000).covary[IO].chunkN(7).unchunks.map(_ * 2)).filter(_ % 3 == 0).take(5)
     lowered(s.toList).unsafeToFuture().map(xs => assertEquals(xs, List(0, 6, 12, 18, 24)))
   }
   test("an fs2 stream's effects and its failure") {

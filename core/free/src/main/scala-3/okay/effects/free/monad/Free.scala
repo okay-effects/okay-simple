@@ -42,11 +42,11 @@ object Free:
   @tailrec def run[A](p: Free[Pure, A]): A = p match
     case Return(a) => a
     case b: Bind[f, x, a] => b.m match
-      case Return(x) => run(b.f(x))
-      case m: Bind[f2, y, x2] => run(Bind(m.m, (y: y) => Bind(m.f(y), b.f)))
-      case d: Delay[f2, x2] => run(Bind(d.p(), b.f))
-      case i: Inject[f2, y, x2] => absurd(i.op)
-      case Perform(o) => absurd(o)
+        case Return(x) => run(b.f(x))
+        case m: Bind[f2, y, x2] => run(Bind(m.m, (y: y) => Bind(m.f(y), b.f)))
+        case d: Delay[f2, x2] => run(Bind(d.p(), b.f))
+        case i: Inject[f2, y, x2] => absurd(i.op)
+        case Perform(o) => absurd(o)
     case d: Delay[f, a] => run(d.p())
     case i: Inject[f, y, a] => absurd(i.op)
     case Perform(o) => absurd(o)
@@ -56,7 +56,7 @@ object Free:
     // `@unchecked`: the checker asks for `Absurd` here and calls it unreachable once written — no operation is at
     // the empty effect's place, its operation a `Void[X]`, of which there is none
     case pl: At.Placed[r, e, x] => (pl.at: @unchecked) match
-      case _: Place.Only[e2] => pl.op.absurd
+        case _: Place.Only[e2] => pl.op.absurd
 
   /** the program `p`, built when the run gets to it */
   inline def delay[A, R[_]](p: => A ! R): A ! R = Delay(() => p)
@@ -69,148 +69,153 @@ object Free:
   /** `E` handled from its place `in`, anywhere in `R`: each operation met there, `take`n — `E`'s own to the clause,
    * another passed on at its place in `Rest`. No `split`, no program renamed */
   inline def handleAt[E[_], R[_], Rest[_], A, B](p: A ! R, in: Place[E, R, Rest])(ret: A => B ! Rest,
-      eff: [X] => (E[X], X => B ! Rest) => B ! Rest): B ! Rest = handling(p, in, ret, eff)
+    eff: [X] => (E[X], X => B ! Rest) => B ! Rest): B ! Rest = handling(p, in, ret, eff)
 
   @tailrec private def handling[E[_], R[_], Rest[_], A, B](p: A ! R, in: Place[E, R, Rest], ret: A => B ! Rest,
-      eff: [X] => (E[X], X => B ! Rest) => B ! Rest): B ! Rest = p match
+    eff: [X] => (E[X], X => B ! Rest) => B ! Rest): B ! Rest = p match
     case Return(a) => ret(a)
     // an operation, the program's last: its rest the value's clause
     case Perform(op) => op match
-      case pl: At.Placed[R, e, A] @unchecked => take(in, pl.at) match
-        case _: Taken.Mine[e2, r2] => eff[A](pl.op, ret)
-        case t: Taken.Theirs[e2, e3, r2] => Inject(At.Placed(t.at, pl.op), ret)
+        case pl: At.Placed[R, e, A] @unchecked => take(in, pl.at) match
+            case _: Taken.Mine[e2, r2] => eff[A](pl.op, ret)
+            case t: Taken.Theirs[e2, e3, r2] => Inject(At.Placed(t.at, pl.op), ret)
     case j: Inject[f, y, a] =>
       type Y = y
       j.op match
         case pl: At.Placed[R, e, Y] @unchecked => take(in, pl.at) match
-          // the handler's: its clause, `k` a trampoline — the rest built when the run outside gets to it
-          case _: Taken.Mine[e2, r2] => eff[Y](pl.op, (x: Y) => Delay(() => handleAt(j.k(x), in)(ret, eff)))
-          // passed on, at its place outside: the rest under this handler, given back to the handler outside
-          case t: Taken.Theirs[e2, e3, r2] => Inject(At.Placed(t.at, pl.op), (x: Y) => handleAt(j.k(x), in)(ret, eff))
+            // the handler's: its clause, `k` a trampoline — the rest built when the run outside gets to it
+            case _: Taken.Mine[e2, r2] => eff[Y](pl.op, (x: Y) => Delay(() => handleAt(j.k(x), in)(ret, eff)))
+            // passed on, at its place outside: the rest under this handler, given back to the handler outside
+            case t: Taken.Theirs[e2, e3, r2] => Inject(At.Placed(t.at, pl.op), (x: Y) => handleAt(j.k(x), in)(ret, eff))
     case d: Delay[f, a] => handling(d.p(), in, ret, eff)
     case b: Bind[f, x, a] => b.m match
-      case Return(x) => handling(b.f(x), in, ret, eff)
-      case m: Bind[f2, y, x2] => handling(Bind(m.m, (y: y) => Bind(m.f(y), b.f)), in, ret, eff)
-      case d: Delay[f2, x2] => handling(Bind(d.p(), b.f), in, ret, eff)
-      case j: Inject[f2, y, x2] => handling(Inject(j.op, (y: y) => Bind(j.k(y), b.f)), in, ret, eff)
-      case Perform(op) =>
-        type X = x
-        op match
-          case pl: At.Placed[R, e, X] @unchecked => take(in, pl.at) match
-            case _: Taken.Mine[e2, r2] => eff[X](pl.op, (x: X) => Delay(() => handleAt(b.f(x), in)(ret, eff)))
-            case t: Taken.Theirs[e2, e3, r2] => Inject(At.Placed(t.at, pl.op), (x: X) => handleAt(b.f(x), in)(ret, eff))
-  
+        case Return(x) => handling(b.f(x), in, ret, eff)
+        case m: Bind[f2, y, x2] => handling(Bind(m.m, (y: y) => Bind(m.f(y), b.f)), in, ret, eff)
+        case d: Delay[f2, x2] => handling(Bind(d.p(), b.f), in, ret, eff)
+        case j: Inject[f2, y, x2] => handling(Inject(j.op, (y: y) => Bind(j.k(y), b.f)), in, ret, eff)
+        case Perform(op) =>
+          type X = x
+          op match
+            case pl: At.Placed[R, e, X] @unchecked => take(in, pl.at) match
+                case _: Taken.Mine[e2, r2] => eff[X](pl.op, (x: X) => Delay(() => handleAt(b.f(x), in)(ret, eff)))
+                case t: Taken.Theirs[e2, e3, r2] =>
+                  Inject(At.Placed(t.at, pl.op), (x: X) => handleAt(b.f(x), in)(ret, eff))
+
   /** the same with a state of its own, from `s`: each clause gets the state of its time, `k` resumed with the answer
    * and the state to go on from — each resumption its own */
   inline def handle[E[_], R[_], A, B, S](p: A ! (R + E), s: S)(ret: (S, A) => B ! R,
-      eff: [X] => (S, E[X], (X, S) => B ! R) => B ! R): B ! R = handleAt[E, R + E, R, A, B, S](p, Place.Last[R, E](), s)(ret, eff)
+    eff: [X] => (S, E[X], (X, S) => B ! R) => B ! R): B ! R =
+    handleAt[E, R + E, R, A, B, S](p, Place.Last[R, E](), s)(ret, eff)
 
   inline def handleAt[E[_], R[_], Rest[_], A, B, S](p: A ! R, in: Place[E, R, Rest], s: S)(ret: (S, A) => B ! Rest,
-      eff: [X] => (S, E[X], (X, S) => B ! Rest) => B ! Rest): B ! Rest = stating(p, in, s, ret, eff)
+    eff: [X] => (S, E[X], (X, S) => B ! Rest) => B ! Rest): B ! Rest = stating(p, in, s, ret, eff)
 
   @tailrec private def stating[E[_], R[_], Rest[_], A, B, S](p: A ! R, in: Place[E, R, Rest], s: S,
-      ret: (S, A) => B ! Rest, eff: [X] => (S, E[X], (X, S) => B ! Rest) => B ! Rest): B ! Rest = p match
+    ret: (S, A) => B ! Rest, eff: [X] => (S, E[X], (X, S) => B ! Rest) => B ! Rest): B ! Rest = p match
     case Return(a) => ret(s, a)
     case Perform(op) => op match
-      case pl: At.Placed[R, e, A] @unchecked => take(in, pl.at) match
-        case _: Taken.Mine[e2, r2] => eff[A](s, pl.op, (x: A, s1: S) => ret(s1, x))
-        case t: Taken.Theirs[e2, e3, r2] => Inject(At.Placed(t.at, pl.op), (x: A) => ret(s, x))
+        case pl: At.Placed[R, e, A] @unchecked => take(in, pl.at) match
+            case _: Taken.Mine[e2, r2] => eff[A](s, pl.op, (x: A, s1: S) => ret(s1, x))
+            case t: Taken.Theirs[e2, e3, r2] => Inject(At.Placed(t.at, pl.op), (x: A) => ret(s, x))
     case j: Inject[f, y, a] =>
       type Y = y
       j.op match
         case pl: At.Placed[R, e, Y] @unchecked => take(in, pl.at) match
-          case _: Taken.Mine[e2, r2] =>
-            eff[Y](s, pl.op, (x: Y, s1: S) => Delay(() => handleAt(j.k(x), in, s1)(ret, eff)))
-          case t: Taken.Theirs[e2, e3, r2] =>
-            Inject(At.Placed(t.at, pl.op), (x: Y) => handleAt(j.k(x), in, s)(ret, eff))
+            case _: Taken.Mine[e2, r2] =>
+              eff[Y](s, pl.op, (x: Y, s1: S) => Delay(() => handleAt(j.k(x), in, s1)(ret, eff)))
+            case t: Taken.Theirs[e2, e3, r2] =>
+              Inject(At.Placed(t.at, pl.op), (x: Y) => handleAt(j.k(x), in, s)(ret, eff))
     case d: Delay[f, a] => stating(d.p(), in, s, ret, eff)
     case b: Bind[f, x, a] => b.m match
-      case Return(x) => stating(b.f(x), in, s, ret, eff)
-      case m: Bind[f2, y, x2] => stating(Bind(m.m, (y: y) => Bind(m.f(y), b.f)), in, s, ret, eff)
-      case d: Delay[f2, x2] => stating(Bind(d.p(), b.f), in, s, ret, eff)
-      case j: Inject[f2, y, x2] => stating(Inject(j.op, (y: y) => Bind(j.k(y), b.f)), in, s, ret, eff)
-      case Perform(op) =>
-        type X = x
-        op match
-          case pl: At.Placed[R, e, X] @unchecked => take(in, pl.at) match
-            case _: Taken.Mine[e2, r2] =>
-              eff[X](s, pl.op, (x: X, s1: S) => Delay(() => handleAt(b.f(x), in, s1)(ret, eff)))
-            case t: Taken.Theirs[e2, e3, r2] =>
-              Inject(At.Placed(t.at, pl.op), (x: X) => handleAt(b.f(x), in, s)(ret, eff))
-  
+        case Return(x) => stating(b.f(x), in, s, ret, eff)
+        case m: Bind[f2, y, x2] => stating(Bind(m.m, (y: y) => Bind(m.f(y), b.f)), in, s, ret, eff)
+        case d: Delay[f2, x2] => stating(Bind(d.p(), b.f), in, s, ret, eff)
+        case j: Inject[f2, y, x2] => stating(Inject(j.op, (y: y) => Bind(j.k(y), b.f)), in, s, ret, eff)
+        case Perform(op) =>
+          type X = x
+          op match
+            case pl: At.Placed[R, e, X] @unchecked => take(in, pl.at) match
+                case _: Taken.Mine[e2, r2] =>
+                  eff[X](s, pl.op, (x: X, s1: S) => Delay(() => handleAt(b.f(x), in, s1)(ret, eff)))
+                case t: Taken.Theirs[e2, e3, r2] =>
+                  Inject(At.Placed(t.at, pl.op), (x: X) => handleAt(b.f(x), in, s)(ret, eff))
+
   /** `E`, the last of `R + E`, handled by a handler ANSWERING IN PLACE: each operation of `E`'s answered by `ans`,
    * the run going on at once with the answer — no `k`, no trampoline */
   inline def answer[E[_], R[_], A, B](p: A ! (R + E))(ret: A => B ! R, ans: [X] => E[X] => X): B ! R =
-    answerAt[E, R + E, R, A, B, Unit](p, Place.Last[R, E](), ())((_, a) => ret(a), [X] => (_: Cell[Unit], op: E[X]) => ans[X](op))
+    answerAt[E, R + E, R, A, B, Unit](p, Place.Last[R, E](), ())((_, a) => ret(a),
+      [X] => (_: Cell[Unit], op: E[X]) => ans[X](op))
 
   /** the same with a state of its own, from `s`, in a cell `ans` reads and writes */
   inline def answer[E[_], R[_], A, B, S](p: A ! (R + E), s: S)(ret: (S, A) => B ! R,
-      ans: [X] => (Cell[S], E[X]) => X): B ! R = answerAt[E, R + E, R, A, B, S](p, Place.Last[R, E](), s)(ret, ans)
+    ans: [X] => (Cell[S], E[X]) => X): B ! R = answerAt[E, R + E, R, A, B, S](p, Place.Last[R, E](), s)(ret, ans)
 
   /** `E` answered in place from its place `in`, anywhere in `R` */
   inline def answerAt[E[_], R[_], Rest[_], A, B](p: A ! R, in: Place[E, R, Rest])(ret: A => B ! Rest,
-      ans: [X] => E[X] => X): B ! Rest =
+    ans: [X] => E[X] => X): B ! Rest =
     answerAt[E, R, Rest, A, B, Unit](p, in, ())((_, a) => ret(a), [X] => (_: Cell[Unit], op: E[X]) => ans[X](op))
 
   /** the same with a state of its own, from `s`, in a cell: one cell a run of the handler, and where an operation is
    * passed on, the rest goes on from a cell of its own, of the state of its time */
   inline def answerAt[E[_], R[_], Rest[_], A, B, S](p: A ! R, in: Place[E, R, Rest], s: S)(ret: (S, A) => B ! Rest,
-      ans: [X] => (Cell[S], E[X]) => X): B ! Rest = answering(p, in, Cell.Var(s), ret, ans)
+    ans: [X] => (Cell[S], E[X]) => X): B ! Rest = answering(p, in, Cell.Var(s), ret, ans)
 
   @tailrec private def answering[E[_], R[_], Rest[_], A, B, S](p: A ! R, in: Place[E, R, Rest], cell: Cell.Var[S],
-      ret: (S, A) => B ! Rest, ans: [X] => (Cell[S], E[X]) => X): B ! Rest = p match
+    ret: (S, A) => B ! Rest, ans: [X] => (Cell[S], E[X]) => X): B ! Rest = p match
     case Return(a) => ret(cell.state, a)
     case Perform(op) => op match
-      case pl: At.Placed[R, e, A] @unchecked => take(in, pl.at) match
-        case _: Taken.Mine[e2, r2] => val x = ans[A](cell, pl.op); ret(cell.state, x)
-        case t: Taken.Theirs[e2, e3, r2] =>
-          val now = cell.state
-          Inject(At.Placed(t.at, pl.op), (x: A) => ret(now, x))
+        case pl: At.Placed[R, e, A] @unchecked => take(in, pl.at) match
+            case _: Taken.Mine[e2, r2] => val x = ans[A](cell, pl.op); ret(cell.state, x)
+            case t: Taken.Theirs[e2, e3, r2] =>
+              val now = cell.state
+              Inject(At.Placed(t.at, pl.op), (x: A) => ret(now, x))
     case j: Inject[f, y, a] =>
       type Y = y
       j.op match
         case pl: At.Placed[R, e, Y] @unchecked => take(in, pl.at) match
-          case _: Taken.Mine[e2, r2] => answering(j.k(ans[Y](cell, pl.op)), in, cell, ret, ans)
-          case t: Taken.Theirs[e2, e3, r2] =>
-            val now = cell.state
-            Inject(At.Placed(t.at, pl.op), (x: Y) => answerAt(j.k(x), in, now)(ret, ans))
-    case d: Delay[f, a] => answering(d.p(), in, cell, ret, ans)
-    case b: Bind[f, x, a] => b.m match
-      case Return(x) => answering(b.f(x), in, cell, ret, ans)
-      case m: Bind[f2, y, x2] => answering(Bind(m.m, (y: y) => Bind(m.f(y), b.f)), in, cell, ret, ans)
-      case d: Delay[f2, x2] => answering(Bind(d.p(), b.f), in, cell, ret, ans)
-      case j: Inject[f2, y, x2] => answering(Inject(j.op, (y: y) => Bind(j.k(y), b.f)), in, cell, ret, ans)
-      case Perform(op) =>
-        type X = x
-        op match
-          case pl: At.Placed[R, e, X] @unchecked => take(in, pl.at) match
-            case _: Taken.Mine[e2, r2] => answering(b.f(ans[X](cell, pl.op)), in, cell, ret, ans)
+            case _: Taken.Mine[e2, r2] => answering(j.k(ans[Y](cell, pl.op)), in, cell, ret, ans)
             case t: Taken.Theirs[e2, e3, r2] =>
               val now = cell.state
-              Inject(At.Placed(t.at, pl.op), (x: X) => answerAt(b.f(x), in, now)(ret, ans))
-  
+              Inject(At.Placed(t.at, pl.op), (x: Y) => answerAt(j.k(x), in, now)(ret, ans))
+    case d: Delay[f, a] => answering(d.p(), in, cell, ret, ans)
+    case b: Bind[f, x, a] => b.m match
+        case Return(x) => answering(b.f(x), in, cell, ret, ans)
+        case m: Bind[f2, y, x2] => answering(Bind(m.m, (y: y) => Bind(m.f(y), b.f)), in, cell, ret, ans)
+        case d: Delay[f2, x2] => answering(Bind(d.p(), b.f), in, cell, ret, ans)
+        case j: Inject[f2, y, x2] => answering(Inject(j.op, (y: y) => Bind(j.k(y), b.f)), in, cell, ret, ans)
+        case Perform(op) =>
+          type X = x
+          op match
+            case pl: At.Placed[R, e, X] @unchecked => take(in, pl.at) match
+                case _: Taken.Mine[e2, r2] => answering(b.f(ans[X](cell, pl.op)), in, cell, ret, ans)
+                case t: Taken.Theirs[e2, e3, r2] =>
+                  val now = cell.state
+                  Inject(At.Placed(t.at, pl.op), (x: X) => answerAt(b.f(x), in, now)(ret, ans))
+
   /** `p`'s places renamed from `R1`'s to `R2`'s */
   inline def remap[R1[_], R2[_], A](p: A ! R1, rename: Renaming[R1, R2]): A ! R2 = remapping(p, rename)
 
   @tailrec private def remapping[R1[_], R2[_], A](p: A ! R1, rename: Renaming[R1, R2]): A ! R2 = p match
     case Return(a) => Return(a)
     case Perform(op) => op match
-      case pl: At.Placed[R1, e, A] @unchecked => Perform(At.Placed(rename(pl.at), pl.op))
+        case pl: At.Placed[R1, e, A] @unchecked => Perform(At.Placed(rename(pl.at), pl.op))
     case j: Inject[f, y, a] =>
       type Y = y
       j.op match
-        case pl: At.Placed[R1, e, Y] @unchecked => Inject(At.Placed(rename(pl.at), pl.op), (x: Y) => remap(j.k(x), rename))
+        case pl: At.Placed[R1, e, Y] @unchecked =>
+          Inject(At.Placed(rename(pl.at), pl.op), (x: Y) => remap(j.k(x), rename))
     case d: Delay[f, a] => Delay(() => remap(d.p(), rename))
     case b: Bind[f, x, a] => b.m match
-      case Return(x) => remapping(b.f(x), rename)
-      case m: Bind[f2, y, x2] => remapping(Bind(m.m, (y: y) => Bind(m.f(y), b.f)), rename)
-      case d: Delay[f2, x2] => remapping(Bind(d.p(), b.f), rename)
-      case j: Inject[f2, y, x2] => remapping(Inject(j.op, (y: y) => Bind(j.k(y), b.f)), rename)
-      case Perform(op) =>
-        type X = x
-        op match
-          case pl: At.Placed[R1, e, X] @unchecked => Inject(At.Placed(rename(pl.at), pl.op), (x: X) => remap(b.f(x), rename))
-  
+        case Return(x) => remapping(b.f(x), rename)
+        case m: Bind[f2, y, x2] => remapping(Bind(m.m, (y: y) => Bind(m.f(y), b.f)), rename)
+        case d: Delay[f2, x2] => remapping(Bind(d.p(), b.f), rename)
+        case j: Inject[f2, y, x2] => remapping(Inject(j.op, (y: y) => Bind(j.k(y), b.f)), rename)
+        case Perform(op) =>
+          type X = x
+          op match
+            case pl: At.Placed[R1, e, X] @unchecked =>
+              Inject(At.Placed(rename(pl.at), pl.op), (x: X) => remap(b.f(x), rename))
+
 /** an operation of the row `R`: the operation of an effect `E`, and its place in `R` — the row is phantom, of no
  * operation of its own, so an operation says where in it it is */
 enum At[R[_], X]:
@@ -233,7 +238,8 @@ class OnFree extends Runner:
     Place.Init[E, R, G, Rest](s)
   implicit inline def subPure[S[_]]: Sub[Pure, S] = Places.subPure[S]
   implicit inline def subOne[E[_], S[_]](implicit e: In[E, S]): Sub[E, S] = Places.subOne(e)
-  implicit inline def subMore[R[_], E[_], S[_]](implicit r: Sub[R, S], e: In[E, S]): Sub[R + E, S] = Places.subMore(r, e)
+  implicit inline def subMore[R[_], E[_], S[_]](implicit r: Sub[R, S], e: In[E, S]): Sub[R + E, S] =
+    Places.subMore(r, e)
 
   inline def pure[A, R[_]](a: A): A ! R = Return(a)
   inline def flatMap[A, B, R[_]](p: A ! R)(f: A => B ! R): B ! R = p.flatMap(f)
@@ -249,26 +255,27 @@ class OnFree extends Runner:
 
   // a handler takes its effect from its place at once: no `split`, no program renamed
   override inline def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: Handler[E, Rest, A, B])(
-      implicit s: Split[E, R, Rest]): B ! Rest =
+    implicit s: Split[E, R, Rest]): B ! Rest =
     Free.delay(Free.handleAt(p, s)(h.ret, [X] => (op: E[X], k: X => B ! Rest) => h.op[X](op, k)))
   override inline def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: TailHandler[E, Rest, A, B])(
-      implicit s: Split[E, R, Rest]): B ! Rest =
+    implicit s: Split[E, R, Rest]): B ! Rest =
     Free.delay(Free.answerAt(p, s)(h.ret, [X] => (op: E[X]) => h.answer[X](op)))
   override inline def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: AbortHandler[E, Rest, A, B])(
-      implicit s: Split[E, R, Rest]): B ! Rest =
+    implicit s: Split[E, R, Rest]): B ! Rest =
     Free.delay(Free.handleAt(p, s)(h.ret, [X] => (op: E[X], k: X => B ! Rest) => h.abort[X](op)))
   override inline def handle[E[_], S, R[_], Rest[_], A, B](p: A ! R, s0: S, h: StatefulTailHandler[E, S, Rest, A, B])(
-      implicit s: Split[E, R, Rest]): B ! Rest =
+    implicit s: Split[E, R, Rest]): B ! Rest =
     Free.delay(Free.answerAt(p, s, s0)(h.ret, [X] => (cell: Cell[S], op: E[X]) => h.answer[X](cell, op)))
   override inline def handle[E[_], S, R[_], Rest[_], A, B](p: A ! R, s0: S, h: StatefulHandler[E, S, Rest, A, B])(
-      implicit s: Split[E, R, Rest]): B ! Rest =
+    implicit s: Split[E, R, Rest]): B ! Rest =
     Free.delay(Free.handleAt(p, s, s0)(h.ret, [X] => (st: S, op: E[X], k: (X, S) => B ! Rest) => h.op[X](st, op, k)))
 
   inline def handleLast[E[_], R[_], A, B](p: A ! (R + E), h: Handler[E, R, A, B]): B ! R =
     Free.delay(Free.handle(p)(h.ret, [X] => (op: E[X], k: X => B ! R) => h.op[X](op, k)))
   override inline def handleLast[E[_], R[_], A, B](p: A ! (R + E), h: TailHandler[E, R, A, B]): B ! R =
     Free.delay(Free.answer(p)(h.ret, [X] => (op: E[X]) => h.answer[X](op)))
-  override inline def handleLast[E[_], S, R[_], A, B](p: A ! (R + E), s0: S, h: StatefulTailHandler[E, S, R, A, B]): B ! R =
+  override inline def handleLast[E[_], S, R[_], A, B](p: A ! (R + E), s0: S, h: StatefulTailHandler[E, S, R, A, B])
+    : B ! R =
     Free.delay(Free.answer(p, s0)(h.ret, [X] => (cell: Cell[S], op: E[X]) => h.answer[X](cell, op)))
   override inline def handleLast[E[_], S, R[_], A, B](p: A ! (R + E), s0: S, h: StatefulHandler[E, S, R, A, B]): B ! R =
     Free.delay(Free.handle(p, s0)(h.ret, [X] => (s: S, op: E[X], k: (X, S) => B ! R) => h.op[X](s, op, k)))

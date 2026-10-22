@@ -13,20 +13,25 @@ trait ShapeDerivation:
     case p: Mirror.ProductOf[A] =>
       val names = constValueTuple[p.MirroredElemLabels].productIterator.map(_.toString).toList
       val shapes = ShapeDerivation.shapesOf[p.MirroredElemTypes]
-      Shape.fields[A](names.zip(shapes).map((n, s) => Shape.Field[Any](n, s.asInstanceOf[Shape[Any]])))(vs => p.fromProduct(Tuple.fromArray(vs.toArray)))(
-        a => a.asInstanceOf[Product].productIterator.toList)
+      Shape.fields[A](names.zip(shapes).map((n, s) => Shape.Field[Any](n, s.asInstanceOf[Shape[Any]])))(vs =>
+        p.fromProduct(Tuple.fromArray(vs.toArray)))(a => a.asInstanceOf[Product].productIterator.toList)
     case s: Mirror.SumOf[A] =>
       val names = constValueTuple[s.MirroredElemLabels].productIterator.map(n => Shape.caseName(n.toString)).toList
       val shapes = ShapeDerivation.shapesOf[s.MirroredElemTypes]
       Shape.OneOf[A](names.zip(shapes).zipWithIndex.map { case ((n, sh), i) =>
-        Shape.Case[A, Any](n, sh.asInstanceOf[Shape[Any]])(b => b.asInstanceOf[A])(a => if s.ordinal(a) == i then Some(a) else None) })
+        Shape.Case[A, Any](n, sh.asInstanceOf[Shape[Any]])(b => b.asInstanceOf[A])(a =>
+          if s.ordinal(a) == i then Some(a) else None)
+      })
 
   extension [P](shape: Shape[P])
-    /** a field by name, checked against the case class `P` and typed as the field: `shape.at("tags").check("one at least")(_.nonEmpty)` */
-    inline def at[N <: String & Singleton](name: N)(using m: Mirror.ProductOf[P]): Shape.At[P, ShapeDerivation.TypeOf[N, m.MirroredElemLabels, m.MirroredElemTypes]] =
+    /** a field by name, checked against the case class `P` and typed as the field: `shape.at("tags").check("one at
+     * least")(_.nonEmpty)` */
+    inline def at[N <: String & Singleton](name: N)(
+      using m: Mirror.ProductOf[P]): Shape.At[P, ShapeDerivation.TypeOf[N, m.MirroredElemLabels, m.MirroredElemTypes]] =
       inline if ShapeDerivation.has[N, m.MirroredElemLabels] then new Shape.At(shape, name)
       else error("no field '" + scala.compiletime.constValue[N] + "' in the type")
-    /** the same, the field selected: `shape.at(_.tags).check("one at least")(_.nonEmpty)` — the name read from the lambda, the type its own */
+    /** the same, the field selected: `shape.at(_.tags).check("one at least")(_.nonEmpty)` — the name read from the
+     * lambda, the type its own */
     transparent inline def at[T](inline sel: P => T): Shape.At[P, ?] = ${ Selectors.shapeAt[P, T]('shape, 'sel) }
 
 object ShapeDerivation:
@@ -34,7 +39,7 @@ object ShapeDerivation:
   type TypeOf[N, Ls <: Tuple, Ts <: Tuple] = (Ls, Ts) match
     case (N *: _, t *: _) => t
     case (_ *: ls, _ *: ts) => TypeOf[N, ls, ts]
-    case (EmptyTuple, EmptyTuple) => Nothing   // no such field: `at` says so, by name, before this is ever used
+    case (EmptyTuple, EmptyTuple) => Nothing // no such field: `at` says so, by name, before this is ever used
   inline def has[N, Ls <: Tuple]: Boolean = inline erasedValue[Ls] match
     case _: EmptyTuple => false
     case _: (N *: _) => true
@@ -47,10 +52,10 @@ object ShapeDerivation:
   inline def shapeOf[T]: Shape[T] = summonFrom {
     case s: Shape[T] => s
     case _ => inline erasedValue[T] match
-      case _: Option[t] => Shape.Optional(shapeOf[t]).asInstanceOf[Shape[T]]
-      case _: List[t] => Shape.Many(shapeOf[t]).asInstanceOf[Shape[T]]
-      case _: Vector[t] => Shape.Many(shapeOf[t]).map(_.toVector)(_.toList).asInstanceOf[Shape[T]]
-      case _ => summonFrom {
-        case m: Mirror.Of[T] => Shape.derived[T](using m)
-      }
+        case _: Option[t] => Shape.Optional(shapeOf[t]).asInstanceOf[Shape[T]]
+        case _: List[t] => Shape.Many(shapeOf[t]).asInstanceOf[Shape[T]]
+        case _: Vector[t] => Shape.Many(shapeOf[t]).map(_.toVector)(_.toList).asInstanceOf[Shape[T]]
+        case _ => summonFrom {
+            case m: Mirror.Of[T] => Shape.derived[T](using m)
+          }
   }

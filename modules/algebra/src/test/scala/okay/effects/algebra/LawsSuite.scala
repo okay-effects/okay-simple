@@ -1,6 +1,9 @@
 package okay.effects.algebra.checks
 
-import okay.effects.algebra.{Algebra, Arrow, Comonad, Const, Fold, FoldUntil, Foldable, FreeAp, Id, Monad, MonadPlus, Monoid, ParaMonad, Profunctor, TailRecM, Validated, ~>}
+import okay.effects.algebra.{
+  Algebra, Arrow, Comonad, Const, Fold, FoldUntil, Foldable, FreeAp, Id, Monad, MonadPlus, Monoid, ParaMonad,
+  Profunctor, TailRecM, Validated, ~>
+}
 import okay.effects.algebra.syntax.{loop, replicateA, sequence, traverse, ArrowSyntax, FoldableSyntax, SemigroupSyntax}
 import okay.effects.{Runner, Std, Sum, Void}
 import okay.effects.machine.Machine
@@ -32,7 +35,8 @@ abstract class Laws[F[_]](name: String)(implicit M: Monad[F]) extends munit.FunS
   }
   test(s"$name: selective skips the branch not taken") {
     var ran = false
-    val skipped: F[Int] = M.select(M.fmap(some(3), (n: Int) => Right(n): Either[Int, Int]), { ran = true; M.pure((n: Int) => n * 100) })
+    val skipped: F[Int] = M.select(M.fmap(some(3), (n: Int) => Right(n): Either[Int, Int]),
+      { ran = true; M.pure((n: Int) => n * 100) })
     eq(skipped, some(3))
     assert(!ran)
     eq(M.select(M.fmap(some(3), (n: Int) => Left(n): Either[Int, Int]), M.pure((n: Int) => n * 100)), some(300))
@@ -40,7 +44,8 @@ abstract class Laws[F[_]](name: String)(implicit M: Monad[F]) extends munit.FunS
   }
   test(s"$name: traverse and sequence") {
     eq(M.fmap(traverse(List(1, 2, 3))(kf), (v: Vector[Int]) => v.sum), M.pure(9))
-    eq(M.fmap(sequence(List(some(1), some(2))), (v: Vector[Int]) => v.toList), M.fmap(some(1), (a: Int) => List(a, a + 1)))
+    eq(M.fmap(sequence(List(some(1), some(2))), (v: Vector[Int]) => v.toList),
+      M.fmap(some(1), (a: Int) => List(a, a + 1)))
     eq(M.fmap(replicateA(3)(some(2)), (v: Vector[Int]) => v.size), M.pure(3))
   }
 }
@@ -63,7 +68,8 @@ class ListLaws extends Laws[List]("List") {
     val P = MonadPlus[List]
     assertEquals(P.append(List(1), List(2)), List(1, 2))
     assertEquals(P.flatMap(List(1, 2, 3))(n => P.flatMap(P.guard(n % 2 == 1))(_ => P.pure(n))), List(1, 3))
-    assertEquals(loop[List, Int, Int](0)(n => if (n < 3) List(Left(n + 1), Right(n)) else List(Right(n))), List(3, 2, 1, 0))
+    assertEquals(loop[List, Int, Int](0)(n => if (n < 3) List(Left(n + 1), Right(n)) else List(Right(n))),
+      List(3, 2, 1, 0))
   }
 }
 class LazyListLaws extends Laws[LazyList]("LazyList") {
@@ -101,12 +107,15 @@ abstract class ProgramLaws(val fx0: Runner, name: String) extends munit.FunSuite
   pureLaws.munitTests().foreach(t => test(t.name)(t.body()))
 
   test(s"$name: tailRecM over programs is a loop, a hundred thousand deep") {
-    assertEquals(alg.fx.run(alg.loop[Int, Int, Void](0)(n => if (n < 100000) pure[Either[Int, Int], Void](Left(n + 1)) else pure[Either[Int, Int], Void](Right(n)))), 100000)
+    assertEquals(alg.fx.run(alg.loop[Int, Int, Void](0)(n =>
+          if (n < 100000) pure[Either[Int, Int], Void](Left(n + 1)) else pure[Either[Int, Int], Void](Right(n)))),
+      100000)
   }
   test(s"$name: MonadPlus over a row with Choose: append is a choice, empty fails") {
     val both: Int ! P = plus.append(pure[Int, P](1), pure[Int, P](2))
     assertEquals(alg.fx.run(first(both)), Some(1))
-    assertEquals(alg.fx.run(first(plus.flatMap(plus.append(pure[Int, P](1), pure[Int, P](2)))(n => plus.flatMap(plus.guard(n > 1))(_ => plus.pure(n))))), Some(2))
+    assertEquals(alg.fx.run(first(plus.flatMap(plus.append(pure[Int, P](1), pure[Int, P](2)))(n =>
+            plus.flatMap(plus.guard(n > 1))(_ => plus.pure(n))))), Some(2))
     assertEquals(alg.fx.run(first(plus.empty[Int])), None)
   }
   test(s"$name: the words shaped for programs, the implementation abstract") {
@@ -123,7 +132,9 @@ abstract class ProgramLaws(val fx0: Runner, name: String) extends munit.FunSuite
     val m = ParaMonad.diagonal[({ type L[A, S, T] = d.Cps[A, S, T, Void] })#L, Int](pm)
     assertEquals(alg.fx.run(d.reset[Int, Int, Void](m.flatMap(m.pure(3))(n => m.pure(n * 2)))), 6)
     // the answer type changed: a shift that returns a string where an int was expected
-    val changed: d.Cps[Int, Int, String, Void] = pm.flatMap[Int, Int, Int, Int, String](d.shift[Int, Int, String, Void](k => k(1).map(n => s"got $n")))(n => pm.pure[Int, Int](n + 1))
+    val changed: d.Cps[Int, Int, String, Void] =
+      pm.flatMap[Int, Int, Int, Int, String](d.shift[Int, Int, String, Void](k => k(1).map(n => s"got $n")))(n =>
+        pm.pure[Int, Int](n + 1))
     assertEquals(alg.fx.run(d.reset[Int, String, Void](changed)), "got 2")
   }
 }
@@ -150,22 +161,34 @@ class StructuresSuite extends munit.FunSuite {
     assertEquals(List(1, 2, 3).foldWith(Fold.last[Int]), Some(3))
   }
   test("FreeAp: run in an applicative, inspected without running") {
-    sealed trait Field[A]; final case class Text(name: String) extends Field[String]; final case class Number(name: String) extends Field[Int]
+    sealed trait Field[A]; final case class Text(name: String) extends Field[String];
+    final case class Number(name: String) extends Field[Int]
     final case class Person(name: String, age: Int)
-    val person: FreeAp[Field, Person] = FreeAp.Ap(FreeAp.Ap(FreeAp.pure[Field, String => Int => Person](n => a => Person(n, a)), FreeAp.lift(Text("name"))), FreeAp.lift(Number("age")))
-    assertEquals(person.analyze(new Const[Field, List[String]] { def apply[A](f: Field[A]) = f match { case Text(n) => List(n); case Number(n) => List(n) } }), List("name", "age"))
+    val person: FreeAp[Field, Person] =
+      FreeAp.Ap(FreeAp.Ap(FreeAp.pure[Field, String => Int => Person](n => a => Person(n, a)),
+          FreeAp.lift(Text("name"))), FreeAp.lift(Number("age")))
+    assertEquals(person.analyze(new Const[Field, List[String]] {
+        def apply[A](f: Field[A]) = f match { case Text(n) => List(n); case Number(n) => List(n) }
+      }), List("name", "age"))
     val values = Map("name" -> "Ann", "age" -> "41")
     type V[A] = Validated[List[String], A]
     val read = new (Field ~> V) {
       def apply[A](f: Field[A]): V[A] = f match {
         case Text(n) => values.get(n).fold[V[A]](Validated.Invalid(List(s"$n missing")))(Validated.Valid(_))
-        case Number(n) => values.get(n).flatMap(_.toIntOption).fold[V[A]](Validated.Invalid(List(s"$n not a number")))(Validated.Valid(_))
+        case Number(n) => values.get(n).flatMap(_.toIntOption).fold[V[A]](Validated.Invalid(List(s"$n not a number")))(
+            Validated.Valid(_))
       }
     }
     assertEquals(person.foldMap[V](read), Validated.Valid(Person("Ann", 41)))
-    val empty = new (Field ~> V) { def apply[A](f: Field[A]): V[A] = f match { case Text(n) => Validated.Invalid(List(s"$n missing")); case Number(n) => Validated.Invalid(List(s"$n missing")) } }
+    val empty = new (Field ~> V) {
+      def apply[A](f: Field[A]): V[A] = f match {
+        case Text(n) => Validated.Invalid(List(s"$n missing")); case Number(n) => Validated.Invalid(List(s"$n missing"))
+      }
+    }
     assertEquals(person.foldMap[V](empty), Validated.Invalid(List("name missing", "age missing")))
-    assertEquals(person.foldMap[Option](new (Field ~> Option) { def apply[A](f: Field[A]): Option[A] = f match { case Text(_) => Some("x"); case Number(_) => Some(1) } }), Some(Person("x", 1)))
+    assertEquals(person.foldMap[Option](new (Field ~> Option) {
+        def apply[A](f: Field[A]): Option[A] = f match { case Text(_) => Some("x"); case Number(_) => Some(1) }
+      }), Some(Person("x", 1)))
   }
   test("Arrow: functions and Kleisli, the laws that matter and the operators") {
     val f: Int => Int = _ + 1; val g: Int => String = _.toString
@@ -187,7 +210,7 @@ class StructuresSuite extends munit.FunSuite {
     val lengths: Fold[String, String] = Profunctor[Fold].dimap(sum)((s: String) => s.length)((n: Int) => s"$n chars")
     assertEquals(Foldable[List].fold(List("ab", "cde"))(lengths), "5 chars")
     assertEquals(lengths.run(List("a")), "1 chars")
-    assertEquals(lengths.run(List("bb")), "2 chars")   // no state kept between runs
+    assertEquals(lengths.run(List("bb")), "2 chars") // no state kept between runs
   }
   test("Fold: two folds in one pass, an Applicative") {
     val F = Fold.applicative[Int]

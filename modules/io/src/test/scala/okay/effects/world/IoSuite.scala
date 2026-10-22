@@ -1,6 +1,5 @@
 package okay.effects.worldchecks.checks
 
-
 import okay.effects.world.{Clock, Console, Env, Io}
 
 import okay.effects.{Runner, Sum, Void}
@@ -19,9 +18,10 @@ abstract class IoChecks(val fx0: Runner) extends munit.FunSuite {
   def greet: Int ! App =
     getEnv[App]("GREETING").flatMap { g =>
       printLine[App]("name?").flatMap(_ => readLine[App]).flatMap { name =>
-        now[App].flatMap(t0 => now[App].flatMap { t1 =>
-          printLine[App](s"${g.getOrElse("hi")}, ${name.getOrElse("nobody")}").as((t1 - t0).toInt)
-        })
+        now[App].flatMap(t0 =>
+          now[App].flatMap { t1 =>
+            printLine[App](s"${g.getOrElse("hi")}, ${name.getOrElse("nobody")}").as((t1 - t0).toInt)
+          })
       }
     }
 

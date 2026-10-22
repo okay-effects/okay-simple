@@ -19,8 +19,10 @@ abstract class LogicChecks(val fx0: Runner) extends munit.FunSuite {
   def appendo(l: Term, s: Term, out: Term): Unit ! L =
     either[Unit, L](
       unify[L](l, Term.empty).flatMap(_ => unify[L](s, out)),
-      variable[L].flatMap(h => variable[L].flatMap(t => variable[L].flatMap(res =>
-        unify[L](l, Pair(h, t)).flatMap(_ => unify[L](out, Pair(h, res))).flatMap(_ => appendo(t, s, res))))))
+      variable[L].flatMap(h =>
+        variable[L].flatMap(t =>
+          variable[L].flatMap(res =>
+            unify[L](l, Pair(h, t)).flatMap(_ => unify[L](out, Pair(h, res))).flatMap(_ => appendo(t, s, res))))))
 
   val one = Atom("1"); val two = Atom("2"); val three = Atom("3")
 
@@ -29,11 +31,13 @@ abstract class LogicChecks(val fx0: Runner) extends munit.FunSuite {
     assertEquals(lg.fx.run(solutions(q)), List(list(one, two, three)))
   }
   test("backwards: every way to split a list in two") {
-    val q = variable[L].flatMap(l => variable[L].flatMap(s =>
-      appendo(l, s, list(one, two, three)).flatMap(_ => resolved[L](Pair(l, s)))))
-    assertEquals(lg.fx.run(solutions(q)), List(
-      Pair(Term.empty, list(one, two, three)), Pair(list(one), list(two, three)),
-      Pair(list(one, two), list(three)), Pair(list(one, two, three), Term.empty)))
+    val q = variable[L].flatMap(l =>
+      variable[L].flatMap(s =>
+        appendo(l, s, list(one, two, three)).flatMap(_ => resolved[L](Pair(l, s)))))
+    assertEquals(lg.fx.run(solutions(q)),
+      List(
+        Pair(Term.empty, list(one, two, three)), Pair(list(one), list(two, three)),
+        Pair(list(one, two), list(three)), Pair(list(one, two, three), Term.empty)))
   }
   test("no answer where the terms cannot be the same") {
     assertEquals(lg.fx.run(solutions(unify[L](one, two))), Nil)

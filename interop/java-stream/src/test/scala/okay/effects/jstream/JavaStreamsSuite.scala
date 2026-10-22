@@ -28,7 +28,8 @@ abstract class JavaStreamsChecks(val fx0: Runner) extends munit.FunSuite {
   }
   type St[X] = State[Int, X]
   test("a Java stream's elements in a stream of effects") {
-    val p = fromJava[Int, St](JStream.of(1, 2, 3)).evalMap(n => modify[Int, St](_ + n).flatMap(_ => get[Int, St])).toList
+    val p =
+      fromJava[Int, St](JStream.of(1, 2, 3)).evalMap(n => modify[Int, St](_ + n).flatMap(_ => get[Int, St])).toList
     assertEquals(run(state(0)(p)), (6, List(1, 3, 6)))
   }
   test("a stream as a Java stream: lazy, an endless one limited on Java's side, collected") {

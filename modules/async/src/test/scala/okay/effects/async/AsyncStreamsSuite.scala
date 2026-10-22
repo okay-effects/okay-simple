@@ -29,7 +29,8 @@ abstract class AsyncStreamsChecks(val fx0: Runner) extends munit.FunSuite {
       assertEquals(xs.sorted, List(1, 2, 10)))
   }
   test("streams with no wait: every element, each stream's in its order") {
-    toFuture(mergeAsync(List(emits[Int, Async](List(1, 2, 3)), emits[Int, Async](List(10, 20)), empty[Int, Async])).toList).map { xs =>
+    toFuture(mergeAsync(List(emits[Int, Async](List(1, 2, 3)), emits[Int, Async](List(10, 20)),
+          empty[Int, Async])).toList).map { xs =>
       assertEquals(xs.sorted, List(1, 2, 3, 10, 20))
       assertEquals(xs.filter(_ < 10), List(1, 2, 3))
       assertEquals(xs.filter(_ >= 10), List(10, 20))

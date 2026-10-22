@@ -27,7 +27,8 @@ object Search {
  * breadth-first, so a search with ways that never end still finds what the others give.
  */
 class Logic[F <: Effects with Singleton](implicit implementation: F) {
-  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
+  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation
+   * to the code it is imported into */
   val fx: F = implementation
   import fx._
   import fx.std._
@@ -62,10 +63,11 @@ class Logic[F <: Effects with Singleton](implicit implementation: F) {
   }
   /** `a` and `b` made the same, or this way fails */
   def unify[R[_]](a: Term, b: Term)(implicit st: In[Bindings, R], c: In[Choose, R]): Unit ! R =
-    get[Subst, R].flatMap(s => unifyIn(a, b, s) match {
-      case Some(s1) => put[Subst, R](s1)
-      case None => fail[Unit, R]
-    })
+    get[Subst, R].flatMap(s =>
+      unifyIn(a, b, s) match {
+        case Some(s1) => put[Subst, R](s1)
+        case None => fail[Unit, R]
+      })
   /** one way or the other */
   def either[A, R[_]](p: => A ! R, q: => A ! R)(implicit c: In[Choose, R]): A ! R =
     among[Boolean, R](List(true, false)).flatMap(b => if (b) p else q)
@@ -74,7 +76,7 @@ class Logic[F <: Effects with Singleton](implicit implementation: F) {
 
   /** every answer of `p`, depth-first, fresh variables from 0 */
   def solutions[R[_], R1[_], R2[_], Rest[_], A](p: A ! R)(implicit b: Split[Bindings, R, R1], f: Split[Fresh, R1, R2],
-      c: Split[Choose, R2, Rest]): List[A] ! Rest =
+    c: Split[Choose, R2, Rest]): List[A] ! Rest =
     all(freshFrom(0)(state[Subst](Map.empty)(p))).map(_.map(_._2))
 
   /** the first `n` values of `p`'s ways, tried breadth-first: a choice's ways each one step on in turn */
@@ -83,20 +85,21 @@ class Logic[F <: Effects with Singleton](implicit implementation: F) {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): List[A] ! Rest = {
       type M[x] = x ! Rest
       type S = Search[A, M]
-      val tree: S ! Rest = handle[Choose, R, Rest, A, S](p, new Handler[Choose, Rest, A, S] {
-        def ret(a: A) = pure(Search.Found[A, M](a))
-        def op[X](op: Choose[X], k: X => S ! Rest) = op match {
-          case Std.Choose.Among(xs) => pure(Search.Ways[A, M](xs.map(x => () => k(x))))
-        }
-      })
+      val tree: S ! Rest = handle[Choose, R, Rest, A, S](p,
+        new Handler[Choose, Rest, A, S] {
+          def ret(a: A) = pure(Search.Found[A, M](a))
+          def op[X](op: Choose[X], k: X => S ! Rest) = op match {
+            case Std.Choose.Among(xs) => pure(Search.Ways[A, M](xs.map(x => () => k(x))))
+          }
+        })
       def loop(queue: Queue[() => S ! Rest], found: List[A], left: Int): List[A] ! Rest =
         if (left == 0) pure(found.reverse)
         else queue.dequeueOption match {
           case None => pure(found.reverse)
           case Some((next, rest)) => next().flatMap {
-            case Search.Found(a) => loop(rest, a :: found, left - 1)
-            case Search.Ways(ways) => loop(rest ++ ways, found, left)
-          }
+              case Search.Found(a) => loop(rest, a :: found, left - 1)
+              case Search.Ways(ways) => loop(rest ++ ways, found, left)
+            }
         }
       loop(Queue(() => tree), Nil, n)
     }

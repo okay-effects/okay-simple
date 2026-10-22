@@ -15,7 +15,8 @@ object Basics3:
 
 /**
  * THE BASICS, SCALA 3, over any implementation `fx`: a row of type constructors (`Reader % String + State % Int`),
- * its requirements as context bounds, an effect of one's own an `enum` whose clauses GADT inference types, handlers of each shape.
+ * its requirements as context bounds, an effect of one's own an `enum` whose clauses GADT inference types, handlers of
+ * each shape.
  */
 class Basics3(using val fx: Runner):
   import fx.*
@@ -42,25 +43,27 @@ class Basics3(using val fx: Runner):
 
   /** its handler, answering in place with a state of its own, in a cell: no `k` */
   def counting[R[_], Rest[_], A](p: A ! R)(using Split[Counter, R, Rest]): (Int, A) ! Rest =
-    handle(p, 0, new StatefulTailHandler[Counter, Int, Rest, A, (Int, A)]:
-      def ret(n: Int, a: A) = pure((n, a))
-      def answer[X](cell: Cell[Int], op: Counter[X]): X = op match
-        case Counter.Tick => cell.set(cell.get + 1)
-        case Counter.Peek => cell.get)
+    handle(p, 0,
+      new StatefulTailHandler[Counter, Int, Rest, A, (Int, A)]:
+        def ret(n: Int, a: A) = pure((n, a))
+        def answer[X](cell: Cell[Int], op: Counter[X]): X = op match
+          case Counter.Tick => cell.set(cell.get + 1)
+          case Counter.Peek => cell.get)
 
   /** the same effect beside a standard one: ticks and a state, one row */
   type Ticking[X] = (Counter + State % Int)[X]
   def counted: (Int, (Int, Int)) =
     run(state(100)(counting(tick[Ticking].andThen(tick[Ticking]).andThen(peek[Ticking])
-      .flatMap(n => modify[Int, Ticking](_ + n).as(n)))))
+            .flatMap(n => modify[Int, Ticking](_ + n).as(n)))))
 
   /** A GENERAL HANDLER, its clause given `k`: here `k` resumed twice — every way the program can go */
   def flip[R[_]: Has[Coin]]: Boolean ! R = perform[Coin](Coin.Flip)
 
   def outcomes[R[_], Rest[_], A](p: A ! R)(using Split[Coin, R, Rest]): List[A] ! Rest =
-    handle(p, new Handler[Coin, Rest, A, List[A]]:
-      def ret(a: A) = pure(List(a))
-      def op[X](op: Coin[X], k: X => List[A] ! Rest) = op match
-        case Coin.Flip => k(true).flatMap(t => k(false).map(t ++ _)))
+    handle(p,
+      new Handler[Coin, Rest, A, List[A]]:
+        def ret(a: A) = pure(List(a))
+        def op[X](op: Coin[X], k: X => List[A] ! Rest) = op match
+          case Coin.Flip => k(true).flatMap(t => k(false).map(t ++ _)))
 
   def twoFlips: List[(Boolean, Boolean)] = run(outcomes(for a <- flip[Coin]; b <- flip[Coin] yield (a, b)))

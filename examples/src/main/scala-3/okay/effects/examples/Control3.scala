@@ -3,7 +3,8 @@ package okay.effects.examples
 import okay.effects.Runner
 
 /**
- * CONTROL, SCALA 3, over any implementation `fx`: generators (`Yield`), a search (`Choose`'s `first`), errors recovered, delimited control —
+ * CONTROL, SCALA 3, over any implementation `fx`: generators (`Yield`), a search (`Choose`'s `first`), errors
+ * recovered, delimited control —
  * `shift`/`reset` with the answer type fixed (an effect of `std`), and with the answer type changed (`delimited`).
  */
 class Control3(using val fx: Runner):
@@ -36,7 +37,8 @@ class Control3(using val fx: Runner):
   def half[R[_]: Has[Error % String]](n: Int): Int ! R =
     if n % 2 == 0 then pure(n / 2) else raise[String, R, Int](s"$n is odd")
   def halves: (Int, Int) =
-    (run(recover[String](half[Error % String](10))(_ => pure(-1))), run(recover[String](half[Error % String](7))(e => pure(e.length))))
+    (run(recover[String](half[Error % String](10))(_ => pure(-1))),
+      run(recover[String](half[Error % String](7))(e => pure(e.length))))
 
   /** SHIFT AND RESET, the answer type fixed: `k` the rest up to the `reset`, resumed twice — 1 + (1 + 10) */
   type C[X] = (Control % (Int ! Pure))[X]
@@ -46,5 +48,6 @@ class Control3(using val fx: Runner):
   def greeting: String =
     val d = fx.delimited
     val f = d.reset[String, String => String ! Pure, Pure](
-      d.map(d.shift[String, String, String => String ! Pure, Pure](k => pure((name: String) => k(name))))("hello, " + _))
+      d.map(d.shift[String, String, String => String ! Pure, Pure](k => pure((name: String) => k(name))))(
+        "hello, " + _))
     run(f.flatMap(g => g("Ann")))

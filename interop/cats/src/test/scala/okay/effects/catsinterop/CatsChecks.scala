@@ -28,7 +28,8 @@ abstract class CatsChecks(val fx0: Runner) extends munit.FunSuite {
     assertEquals(run(state(0)(p)), (6, List(10, 20, 30)))
   }
   test("cats' tailRecM in constant stack: 100 000 steps") {
-    val p = stMonad.tailRecM(0)(i => if (i == 100000) pure[Either[Int, Int], St](Right(i)) else modify[Int, St](_ + 1).as(Left(i + 1)))
+    val p = stMonad.tailRecM(0)(i =>
+      if (i == 100000) pure[Either[Int, Int], St](Right(i)) else modify[Int, St](_ + 1).as(Left(i + 1)))
     assertEquals(run(state(0)(p)), (100000, 100000))
   }
 

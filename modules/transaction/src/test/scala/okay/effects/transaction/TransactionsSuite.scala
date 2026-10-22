@@ -20,16 +20,20 @@ abstract class TransactionsChecks(val fx0: Runner) extends munit.FunSuite {
 
   def balance(who: String): Int ! T = read[String, Int, T](who).map(_.getOrElse(0))
   def transfer(from: String, to: String, n: Int): Unit ! T =
-    balance(from).flatMap(a => write[String, Int, T](from, a - n).flatMap(_ => balance(to)).flatMap(b => write[String, Int, T](to, b + n))
-      .flatMap(_ => balance(from)).flatMap(left => if (left < 0) raise[String, T, Unit]("insufficient") else pure[Unit, T](())))
+    balance(from).flatMap(a =>
+      write[String, Int, T](from, a - n).flatMap(_ => balance(to)).flatMap(b => write[String, Int, T](to, b + n))
+        .flatMap(_ => balance(from)).flatMap(left =>
+          if (left < 0) raise[String, T, Unit]("insufficient") else pure[Unit, T](())))
 
   val start = Map("ann" -> 10, "bob" -> 0)
   test("committed: the writes in the store at the end") {
-    assertEquals(t.fx.run(store[String, Int](start)(attempt[String](atomically[String, Int](transfer("ann", "bob", 7))))),
+    assertEquals(t.fx.run(store[String, Int](start)(attempt[String](atomically[String, Int](transfer("ann", "bob",
+                7))))),
       (Map("ann" -> 3, "bob" -> 7), Right(())))
   }
   test("rolled back: an error raised inside, nothing written") {
-    assertEquals(t.fx.run(store[String, Int](start)(attempt[String](atomically[String, Int](transfer("ann", "bob", 20))))),
+    assertEquals(t.fx.run(store[String, Int](start)(attempt[String](atomically[String, Int](transfer("ann", "bob",
+                20))))),
       (start, Left("insufficient")))
   }
 }

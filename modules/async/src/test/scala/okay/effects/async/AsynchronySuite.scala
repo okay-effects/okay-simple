@@ -26,7 +26,8 @@ abstract class AsynchronyChecks(val fx0: Runner) extends munit.FunSuite {
   type St[X] = State[Int, X]
   type SA[X] = Sum[Async, St, X]
   test("another effect handled first, the row then Async alone") {
-    def tick(n: Int): Unit ! SA = if (n == 0) pure[Unit, SA](()) else sleep[SA](1).flatMap(_ => modify[Int, SA](_ + 1)).flatMap(_ => tick(n - 1))
+    def tick(n: Int): Unit ! SA =
+      if (n == 0) pure[Unit, SA](()) else sleep[SA](1).flatMap(_ => modify[Int, SA](_ + 1)).flatMap(_ => tick(n - 1))
     toFuture(state(0)(tick(5))).map(v => assertEquals(v, (5, ())))
   }
   test("both at once, a race, a timeout") {
@@ -66,7 +67,8 @@ abstract class AsynchronyChecks(val fx0: Runner) extends munit.FunSuite {
     } yield assertEquals(t, None)
   }
   test("10 000 waits in turn, in constant stack") {
-    def loop(n: Int, acc: Int): Int ! Async = if (n == 0) pure[Int, Async](acc) else fromFuture[Int, Async](Future.successful(1)).flatMap(x => loop(n - 1, acc + x))
+    def loop(n: Int, acc: Int): Int ! Async = if (n == 0) pure[Int, Async](acc)
+    else fromFuture[Int, Async](Future.successful(1)).flatMap(x => loop(n - 1, acc + x))
     toFuture(loop(10000, 0)).map(v => assertEquals(v, 10000))
   }
 }

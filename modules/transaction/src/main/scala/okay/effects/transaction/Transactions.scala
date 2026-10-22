@@ -16,7 +16,8 @@ object Tx {
  * `atomically` is a transaction that rolls back on `E`.
  */
 class Transactions[F <: Effects with Singleton](implicit implementation: F) {
-  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
+  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation
+   * to the code it is imported into */
   val fx: F = implementation
   import fx._
   import fx.std._
@@ -29,16 +30,16 @@ class Transactions[F <: Effects with Singleton](implicit implementation: F) {
   def atomically[K, V]: Atomically[K, V] = new Atomically[K, V]
   final class Atomically[K, V] {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Tx[K, V, x] })#L, R, Rest],
-        st: In[({ type L[x] = Std.Store[K, V, x] })#L, Rest]): A ! Rest =
+      st: In[({ type L[x] = Std.Store[K, V, x] })#L, Rest]): A ! Rest =
       handle[({ type L[x] = Tx[K, V, x] })#L, Map[K, V], R, Rest, A, A](p, Map.empty[K, V],
         new StatefulHandler[({ type L[x] = Tx[K, V, x] })#L, Map[K, V], Rest, A, A] {
           def ret(log: Map[K, V], a: A) =
             log.foldLeft(pure[Unit, Rest](())) { case (q, (k, v)) => q.flatMap(_ => save[K, V, Rest](k, v)) }.as(a)
           def op[X](log: Map[K, V], op: Tx[K, V, X], k: (X, Map[K, V]) => A ! Rest) = op match {
             case Tx.Read(key, answer) => log.get(key) match {
-              case Some(v) => k(answer(Some(v)), log)
-              case None => load[K, V, Rest](key).flatMap(v => k(answer(v), log))
-            }
+                case Some(v) => k(answer(Some(v)), log)
+                case None => load[K, V, Rest](key).flatMap(v => k(answer(v), log))
+              }
             case Tx.Write(key, v, answer) => k(answer(()), log.updated(key, v))
           }
         })

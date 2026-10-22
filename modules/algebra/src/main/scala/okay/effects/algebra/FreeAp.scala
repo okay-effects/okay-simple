@@ -47,10 +47,11 @@ object FreeAp {
   def pure[F[_], A](a: A): FreeAp[F, A] = Pure(a)
   def lift[F[_], A](fa: F[A]): FreeAp[F, A] = Lift(fa)
   /** `FreeAp[F, *]` is itself an Applicative */
-  implicit def applicative[F[_]]: Applicative[({ type L[A] = FreeAp[F, A] })#L] = new Applicative[({ type L[A] = FreeAp[F, A] })#L] {
-    def pure[A](a: A): FreeAp[F, A] = Pure(a)
-    def app[A, B](f: FreeAp[F, A => B], a: FreeAp[F, A]): FreeAp[F, B] = Ap(f, a)
-  }
+  implicit def applicative[F[_]]: Applicative[({ type L[A] = FreeAp[F, A] })#L] =
+    new Applicative[({ type L[A] = FreeAp[F, A] })#L] {
+      def pure[A](a: A): FreeAp[F, A] = Pure(a)
+      def app[A, B](f: FreeAp[F, A => B], a: FreeAp[F, A]): FreeAp[F, B] = Ap(f, a)
+    }
 }
 
 /** a value `A` or problems `E`, every problem kept: the Applicative that validates a form */

@@ -45,24 +45,25 @@ class ZioSteps[F <: Runner with Singleton](using implementation: F):
         type Err = Err0
         def run[A](p: A ! ZioStep[Env0, Err0]): ZIO[Env0, Err0, A] =
           fx.run(fx.handle[ZioStep[Env0, Err0], ZioStep[Env0, Err0], Pure, A, ZIO[Env0, Err0, A]](p,
-            new Clauses[ZioStep[Env0, Err0], A, ZIO[Env0, Err0, A] ! Pure]:
-              def ret(a: A) = fx.pure[ZIO[Env0, Err0, A], Pure](ZIO.succeed(a))
-              def op[X](z: ZIO[Env0, Err0, X], k: X => ZIO[Env0, Err0, A] ! Pure) =
-                fx.pure[ZIO[Env0, Err0, A], Pure](z.flatMap(x => fx.run(k(x))))
-          )(using fx.splitOne[ZioStep[Env0, Err0]]))
+              new Clauses[ZioStep[Env0, Err0], A, ZIO[Env0, Err0, A] ! Pure]:
+                def ret(a: A) = fx.pure[ZIO[Env0, Err0, A], Pure](ZIO.succeed(a))
+                def op[X](z: ZIO[Env0, Err0, X], k: X => ZIO[Env0, Err0, A] ! Pure) =
+                  fx.pure[ZIO[Env0, Err0, A], Pure](z.flatMap(x => fx.run(k(x))))
+            )(using fx.splitOne[ZioStep[Env0, Err0]]))
 
     given more[G[_], Env1, Err1](using g: Members[G]): (Members[[X] =>> Sum[G, ZioStep[Env1, Err1], X]] {
-        type Env = g.Env & Env1; type Err = g.Err | Err1 }) =
+      type Env = g.Env & Env1; type Err = g.Err | Err1
+    }) =
       new Members[[X] =>> Sum[G, ZioStep[Env1, Err1], X]]:
         type Env = g.Env & Env1
         type Err = g.Err | Err1
         def run[A](p: A ! ([X] =>> Sum[G, ZioStep[Env1, Err1], X])): ZIO[Env, Err, A] =
           g.run(fx.handleLast[ZioStep[Env1, Err1], G, A, ZIO[Env, Err, A]](p,
-            new Clauses[ZioStep[Env1, Err1], A, ZIO[Env, Err, A] ! G]:
-              def ret(a: A) = fx.pure[ZIO[Env, Err, A], G](ZIO.succeed(a))
-              def op[X](z: ZIO[Env1, Err1, X], k: X => ZIO[Env, Err, A] ! G) =
-                fx.pure[ZIO[Env, Err, A], G](z.flatMap(x => g.run(k(x)).flatten))
-          )).flatten
+              new Clauses[ZioStep[Env1, Err1], A, ZIO[Env, Err, A] ! G]:
+                def ret(a: A) = fx.pure[ZIO[Env, Err, A], G](ZIO.succeed(a))
+                def op[X](z: ZIO[Env1, Err1, X], k: X => ZIO[Env, Err, A] ! G) =
+                  fx.pure[ZIO[Env, Err, A], G](z.flatMap(x => g.run(k(x)).flatten))
+            )).flatten
 
   extension [A, R[_]](p: A ! R)
     /** the program's ZIO steps as ONE ZIO, of the members' environments met and errors joined */

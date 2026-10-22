@@ -75,7 +75,7 @@ private[machine] object Engine {
 
   /** the levels the program at the row `R` runs in, from the value `V` of the nearest one's body to the run's `Z` */
   sealed abstract class Meta[R[_], V, Z](kind: Int, outer: Level0, rename: Int => Int)
-      extends Level0(kind, outer, rename) {
+    extends Level0(kind, outer, rename) {
     /** the body's value given back through this level: where the run goes on, or its end */
     def returned(v: V): Next[Z]
     /** this level crossed by an operation: `pre` with it after, and the levels outside it */
@@ -94,15 +94,17 @@ private[machine] object Engine {
 
   /** a handler of `E`'s level: the program inside at `T + E`, its body's value `A`; the frames outside it from `B` to
    * `W` at `T`, the levels outside them */
-  sealed abstract class HandlerLevel[E[_], T[_], A, B, W, Z](final val outside: Frames[T, B, W], final val m: Meta[T, W, Z])
-      extends Meta[Plus[T, E]#L, A, Z](HandlerKind, m, null) {
+  sealed abstract class HandlerLevel[E[_], T[_], A, B, W, Z](final val outside: Frames[T, B, W],
+    final val m: Meta[T, W, Z])
+    extends Meta[Plus[T, E]#L, A, Z](HandlerKind, m, null) {
     /** `pre` with this level after it, as it is now: what a `k` taken past it puts back */
     def crossed[R0[_], V0](pre: Prefix[R0, V0, Plus[T, E]#L, A]): Prefix[R0, V0, T, W]
     final def stepOut[R0[_], V0](pre: Prefix[R0, V0, Plus[T, E]#L, A]): Out[R0, V0, Z] = out(crossed(pre), m)
   }
 
   final class GeneralLevel[E[_], T[_], A, B, W, Z](h: Clauses[E, A, Prog[T, B]], outside: Frames[T, B, W],
-      m: Meta[T, W, Z]) extends HandlerLevel[E, T, A, B, W, Z](outside, m) {
+    m: Meta[T, W, Z])
+    extends HandlerLevel[E, T, A, B, W, Z](outside, m) {
     def returned(v: A): Next[Z] = go[T, B, W, Z](h.ret(v), outside, m)
     def crossed[R0[_], V0](pre: Prefix[R0, V0, Plus[T, E]#L, A]): Prefix[R0, V0, T, W] = new Prefix[R0, V0, T, W] {
       def put[Z2](m2: Meta[T, W, Z2]): Meta[R0, V0, Z2] = pre.put(new GeneralLevel(h, outside, m2))
@@ -119,7 +121,8 @@ private[machine] object Engine {
 
   /** a general handler's level with a state of its own: the state of its time; `k` put back with the state given */
   final class StateKLevel[E[_], S, T[_], A, B, W, Z](h: StatefulClauses[E, S, A, Prog[T, B]], state: S,
-      outside: Frames[T, B, W], m: Meta[T, W, Z]) extends HandlerLevel[E, T, A, B, W, Z](outside, m) {
+    outside: Frames[T, B, W], m: Meta[T, W, Z])
+    extends HandlerLevel[E, T, A, B, W, Z](outside, m) {
     def returned(v: A): Next[Z] = go[T, B, W, Z](h.ret(state, v), outside, m)
     def crossed[R0[_], V0](pre: Prefix[R0, V0, Plus[T, E]#L, A]): Prefix[R0, V0, T, W] = new Prefix[R0, V0, T, W] {
       def put[Z2](m2: Meta[T, W, Z2]): Meta[R0, V0, Z2] = pre.put(new StateKLevel(h, state, outside, m2))
@@ -135,7 +138,8 @@ private[machine] object Engine {
 
   /** a handler never resuming `k`: an operation found here leaves at once with the clause's result */
   final class AbortLevel[E[_], T[_], A, B, W, Z](h: AbortClauses[E, A, Prog[T, B]], outside: Frames[T, B, W],
-      m: Meta[T, W, Z]) extends HandlerLevel[E, T, A, B, W, Z](outside, m) {
+    m: Meta[T, W, Z])
+    extends HandlerLevel[E, T, A, B, W, Z](outside, m) {
     def returned(v: A): Next[Z] = go[T, B, W, Z](h.ret(v), outside, m)
     def crossed[R0[_], V0](pre: Prefix[R0, V0, Plus[T, E]#L, A]): Prefix[R0, V0, T, W] = new Prefix[R0, V0, T, W] {
       def put[Z2](m2: Meta[T, W, Z2]): Meta[R0, V0, Z2] = pre.put(new AbortLevel(h, outside, m2))
@@ -146,7 +150,8 @@ private[machine] object Engine {
 
   /** answering in place: found by the walk, answered there, the levels crossed put back */
   final class TailLevel[E[_], T[_], A, B, W, Z](h: TailClauses[E, A, Prog[T, B]], outside: Frames[T, B, W],
-      m: Meta[T, W, Z]) extends HandlerLevel[E, T, A, B, W, Z](outside, m) with Answering {
+    m: Meta[T, W, Z])
+    extends HandlerLevel[E, T, A, B, W, Z](outside, m) with Answering {
     def returned(v: A): Next[Z] = go[T, B, W, Z](h.ret(v), outside, m)
     def answerAny(op: Any): Any = h.answer[Any](opAs[E, Any](op))
     def crossed[R0[_], V0](pre: Prefix[R0, V0, Plus[T, E]#L, A]): Prefix[R0, V0, T, W] = new Prefix[R0, V0, T, W] {
@@ -158,8 +163,8 @@ private[machine] object Engine {
 
   /** a stateful handler's level answering in place: its state the cell its clauses write */
   final class StateLevel[E[_], S, T[_], A, B, W, Z](h: StatefulTailClauses[E, S, A, Prog[T, B]], var state: S,
-      outside: Frames[T, B, W], m: Meta[T, W, Z]) extends HandlerLevel[E, T, A, B, W, Z](outside, m)
-      with Answering with Cell[S] {
+    outside: Frames[T, B, W], m: Meta[T, W, Z])
+    extends HandlerLevel[E, T, A, B, W, Z](outside, m) with Answering with Cell[S] {
     def get: S = state
     def set(s: S): Unit = state = s
     def returned(v: A): Next[Z] = go[T, B, W, Z](h.ret(state, v), outside, m)
@@ -167,7 +172,9 @@ private[machine] object Engine {
     /** put back with the state it has now, each time */
     def crossed[R0[_], V0](pre: Prefix[R0, V0, Plus[T, E]#L, A]): Prefix[R0, V0, T, W] = {
       val now = state
-      new Prefix[R0, V0, T, W] { def put[Z2](m2: Meta[T, W, Z2]): Meta[R0, V0, Z2] = pre.put(new StateLevel(h, now, outside, m2)) }
+      new Prefix[R0, V0, T, W] {
+        def put[Z2](m2: Meta[T, W, Z2]): Meta[R0, V0, Z2] = pre.put(new StateLevel(h, now, outside, m2))
+      }
     }
     def found[R0[_], X, V0](op: Any, inner: Frames[R0, X, V0], pre: Prefix[R0, V0, Plus[T, E]#L, A]): Go[Z] =
       go[R0, X, V0, Z](Done(h.answer[X](this, opAs[E, X](op))), inner, pre.put(this))
@@ -175,7 +182,8 @@ private[machine] object Engine {
 
   /** a remapping's level: the program inside at `R1`, its places renamed by `rename` to `R2`'s outside it */
   final class RemapLevel[R1[_], R2[_], A, W, Z](rename: Int => Int, final val outside: Frames[R2, A, W],
-      final val m: Meta[R2, W, Z]) extends Meta[R1, A, Z](RemapKind, m, rename) {
+    final val m: Meta[R2, W, Z])
+    extends Meta[R1, A, Z](RemapKind, m, rename) {
     def returned(v: A): Next[Z] = go[R2, A, W, Z](Done(v), outside, m)
     def crossed[R0[_], V0](pre: Prefix[R0, V0, R1, A]): Prefix[R0, V0, R2, W] = new Prefix[R0, V0, R2, W] {
       def put[Z2](m2: Meta[R2, W, Z2]): Meta[R0, V0, Z2] = pre.put(new RemapLevel(rename, outside, m2))
@@ -197,12 +205,13 @@ private[machine] object Engine {
     val pre: Prefix[R0, V0, R, V]
     val m: Meta[R, V, Z]
   }
-  def out[R0[_], V0, R1[_], V1, Z](p: Prefix[R0, V0, R1, V1], m1: Meta[R1, V1, Z]): Out[R0, V0, Z] = new Out[R0, V0, Z] {
-    type R[x] = R1[x]
-    type V = V1
-    val pre = p
-    val m = m1
-  }
+  def out[R0[_], V0, R1[_], V1, Z](p: Prefix[R0, V0, R1, V1], m1: Meta[R1, V1, Z]): Out[R0, V0, Z] =
+    new Out[R0, V0, Z] {
+      type R[x] = R1[x]
+      type V = V1
+      val pre = p
+      val m = m1
+    }
 
   /** `k`: resumed at the row `T` with an `X`, where the frames from `B` and the levels are */
   trait K[T[_], X, B] { def at[W, Z](x: X, fs: Frames[T, B, W], m: Meta[T, W, Z]): Go[Z] }
@@ -231,13 +240,13 @@ private[machine] object Engine {
 
   @tailrec def loop[R[_], X, V, Z](c: Prog[R, X], fs: Frames[R, X, V], m: Meta[R, V, Z]): Z = c match {
     case d: Done[r, x] => fs match {
-      case t: Then[r2, a, y, v] => loop[R, y, V, Z](t.f(d.a), t.rest, m)
-      case t: Mapped[r2, a, y, v] => loop[R, y, V, Z](Done(t.f(d.a)), t.rest, m)
-      case l: Last[r2, v] => m.returned(l.last(d.a)) match {
-        case g: Go[Z @unchecked] => loop[g.R, g.X, g.V, Z](g.c, g.fs, g.m)
-        case e: End[Z @unchecked] => e.z
+        case t: Then[r2, a, y, v] => loop[R, y, V, Z](t.f(d.a), t.rest, m)
+        case t: Mapped[r2, a, y, v] => loop[R, y, V, Z](Done(t.f(d.a)), t.rest, m)
+        case l: Last[r2, v] => m.returned(l.last(d.a)) match {
+            case g: Go[Z @unchecked] => loop[g.R, g.X, g.V, Z](g.c, g.fs, g.m)
+            case e: End[Z @unchecked] => e.z
+          }
       }
-    }
     case b: Bind[r, y, x] => loop[R, y, V, Z](b.p, new Then[R, y, x, V](b.f, fs), m)
     case b: Mapping[r, y, x] => loop[R, y, V, Z](b.p, new Mapped[R, y, x, V](b.f, fs), m)
     case p: Perf[r, x] =>
@@ -284,7 +293,7 @@ private[machine] object Engine {
 
   /** an operation to its handler: the levels it crosses taken onto `pre`, each step the level's own, typed */
   @tailrec def walk[R0[_], X, V0, R[_], V, Z](n: Int, op: Any, inner: Frames[R0, X, V0], pre: Prefix[R0, V0, R, V],
-      m: Meta[R, V, Z]): Go[Z] =
+    m: Meta[R, V, Z]): Go[Z] =
     if (m.kind == RemapKind) {
       val o = m.stepOut(pre)
       walk[R0, X, V0, o.R, o.V, Z](m.rename(n), op, inner, o.pre, o.m)
@@ -335,24 +344,31 @@ private[machine] class Engine extends Runner {
   }
 
   def handleLast[E[_], R[_], A, B](p: Prog[Plus[R, E]#L, A], h: Handler[E, R, A, B]): Prog[R, B] =
-    Handle(p, new Install[E, R, A, B] {
-      def apply[W, Z](o: Frames[R, B, W], m: Meta[R, W, Z]) = new GeneralLevel(h, o, m)
-    })
+    Handle(p,
+      new Install[E, R, A, B] {
+        def apply[W, Z](o: Frames[R, B, W], m: Meta[R, W, Z]) = new GeneralLevel(h, o, m)
+      })
   override def handleLast[E[_], R[_], A, B](p: Prog[Plus[R, E]#L, A], h: TailHandler[E, R, A, B]): Prog[R, B] =
-    Handle(p, new Install[E, R, A, B] {
-      def apply[W, Z](o: Frames[R, B, W], m: Meta[R, W, Z]) = new TailLevel(h, o, m)
-    })
+    Handle(p,
+      new Install[E, R, A, B] {
+        def apply[W, Z](o: Frames[R, B, W], m: Meta[R, W, Z]) = new TailLevel(h, o, m)
+      })
   override def handleLast[E[_], R[_], A, B](p: Prog[Plus[R, E]#L, A], h: AbortHandler[E, R, A, B]): Prog[R, B] =
-    Handle(p, new Install[E, R, A, B] {
-      def apply[W, Z](o: Frames[R, B, W], m: Meta[R, W, Z]) = new AbortLevel(h, o, m)
-    })
-  override def handleLast[E[_], S, R[_], A, B](p: Prog[Plus[R, E]#L, A], s0: S, h: StatefulTailHandler[E, S, R, A, B]): Prog[R, B] =
-    Handle(p, new Install[E, R, A, B] {
-      def apply[W, Z](o: Frames[R, B, W], m: Meta[R, W, Z]) = new StateLevel(h, s0, o, m)
-    })
-  override def handleLast[E[_], S, R[_], A, B](p: Prog[Plus[R, E]#L, A], s0: S, h: StatefulHandler[E, S, R, A, B]): Prog[R, B] =
-    Handle(p, new Install[E, R, A, B] {
-      def apply[W, Z](o: Frames[R, B, W], m: Meta[R, W, Z]) = new StateKLevel(h, s0, o, m)
-    })
+    Handle(p,
+      new Install[E, R, A, B] {
+        def apply[W, Z](o: Frames[R, B, W], m: Meta[R, W, Z]) = new AbortLevel(h, o, m)
+      })
+  override def handleLast[E[_], S, R[_], A, B](p: Prog[Plus[R, E]#L, A], s0: S, h: StatefulTailHandler[E, S, R, A, B])
+    : Prog[R, B] =
+    Handle(p,
+      new Install[E, R, A, B] {
+        def apply[W, Z](o: Frames[R, B, W], m: Meta[R, W, Z]) = new StateLevel(h, s0, o, m)
+      })
+  override def handleLast[E[_], S, R[_], A, B](p: Prog[Plus[R, E]#L, A], s0: S, h: StatefulHandler[E, S, R, A, B])
+    : Prog[R, B] =
+    Handle(p,
+      new Install[E, R, A, B] {
+        def apply[W, Z](o: Frames[R, B, W], m: Meta[R, W, Z]) = new StateKLevel(h, s0, o, m)
+      })
   def run[A](p: Prog[PureRow, A]): A = Engine.run(p)
 }

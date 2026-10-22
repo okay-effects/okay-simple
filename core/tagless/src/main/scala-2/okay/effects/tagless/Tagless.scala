@@ -1,6 +1,8 @@
 package okay.effects.tagless
 
-import okay.effects.{AbortClauses, Clauses, Effects, Runner, StatefulClauses, StatefulTailClauses, Std, Sum, TailClauses, Void}
+import okay.effects.{
+  AbortClauses, Clauses, Effects, Runner, StatefulClauses, StatefulTailClauses, Std, Sum, TailClauses, Void
+}
 
 /** A PROGRAM OF NO IMPLEMENTATION: made, when it is run, on the implementation given — `on(fx)`, `fx`'s own program.
  * A value: made once, run on any implementation */
@@ -25,7 +27,8 @@ object Program {
   }
   final class Mapped[X, A, R[_]](p: Program[X, R], f: X => A) extends Program[A, R] {
     def on(fx: Effects): fx.![A, R] = onAt(fx, 0)
-    override private[tagless] def onAt(fx: Effects, depth: Int): fx.![A, R] = fx.map[X, A, R](before[X, R](fx, p, depth))(f)
+    override private[tagless] def onAt(fx: Effects, depth: Int): fx.![A, R] =
+      fx.map[X, A, R](before[X, R](fx, p, depth))(f)
   }
   /** the program before a bind or a map, made on `fx`: one deeper, or at `Deepest` `delay`ed and from 0 again */
   @inline private def before[X, R[_]](fx: Effects, p: Program[X, R], depth: Int): fx.![X, R] =
@@ -49,8 +52,8 @@ object InRow {
     new SplitRow[E, ({ type L[x] = Sum[R, E, x] })#L, R] {
       def on(fx: Effects): fx.Split[E, ({ type L[x] = Sum[R, E, x] })#L, R] = fx.splitLast[R, E]
     }
-  def splitInit[E[_], R[_], G[_], Rest[_]](implicit s: SplitRow[E, R, Rest]):
-      SplitRow[E, ({ type L[x] = Sum[R, G, x] })#L, ({ type L[x] = Sum[Rest, G, x] })#L] =
+  def splitInit[E[_], R[_], G[_], Rest[_]](implicit s: SplitRow[E, R, Rest])
+    : SplitRow[E, ({ type L[x] = Sum[R, G, x] })#L, ({ type L[x] = Sum[Rest, G, x] })#L] =
     new SplitRow[E, ({ type L[x] = Sum[R, G, x] })#L, ({ type L[x] = Sum[Rest, G, x] })#L] {
       def on(fx: Effects): fx.Split[E, ({ type L[x] = Sum[R, G, x] })#L, ({ type L[x] = Sum[Rest, G, x] })#L] =
         fx.splitInit[E, R, G, Rest](s.on(fx))
@@ -93,8 +96,9 @@ object Tagless extends Effects {
 
   implicit def splitOne[E[_]]: Split[E, E, Pure] = InRow.splitOne[E]
   implicit def splitLast[R[_], E[_]]: Split[E, ({ type L[x] = Sum[R, E, x] })#L, R] = InRow.splitLast[R, E]
-  implicit def splitInit[E[_], R[_], G[_], Rest[_]](implicit s: Split[E, R, Rest]):
-      Split[E, ({ type L[x] = Sum[R, G, x] })#L, ({ type L[x] = Sum[Rest, G, x] })#L] = InRow.splitInit[E, R, G, Rest](s)
+  implicit def splitInit[E[_], R[_], G[_], Rest[_]](
+    implicit s: Split[E, R, Rest]): Split[E, ({ type L[x] = Sum[R, G, x] })#L, ({ type L[x] = Sum[Rest, G, x] })#L] =
+    InRow.splitInit[E, R, G, Rest](s)
   implicit def subPure[S[_]]: Sub[Pure, S] = SubRow.subPure[S]
   implicit def subOne[E[_], S[_]](implicit e: In[E, S]): Sub[E, S] = SubRow.subOne[E, S](e)
   implicit def subMore[R[_], E[_], S[_]](implicit r: Sub[R, S], e: In[E, S]): Sub[({ type L[x] = Sum[R, E, x] })#L, S] =
@@ -120,7 +124,8 @@ object Tagless extends Effects {
     def on(fx: Effects): fx.![A, S] = fx.embed[R, S, A](p.on(fx))(s.on(fx))
   }
 
-  protected[effects] def interposed[E[_], R[_], A](p: A ! R)(implicit in: In[E, R]): A ! ({ type L[x] = Sum[R, E, x] })#L =
+  protected[effects] def interposed[E[_], R[_], A](p: A ! R)(
+    implicit in: In[E, R]): A ! ({ type L[x] = Sum[R, E, x] })#L =
     new Program[A, ({ type L[x] = Sum[R, E, x] })#L] {
       def on(fx: Effects): fx.![A, ({ type L[x] = Sum[R, E, x] })#L] = fx.interposed[E, R, A](p.on(fx))(in.on(fx))
     }
@@ -133,7 +138,6 @@ object Tagless extends Effects {
   /** a program whose one effect is `Lift[G, *]` as a `G[A]`, on the implementation in the implicit context */
   def lower[G[_], A](p: A ! ({ type L[x] = Std.Lift[G, x] })#L)(implicit G: Std.Lowering[G], fx: Runner): G[A] =
     fx.lower[G, A](p.on(fx))
-
 
   /** THE TRUSTED STEP: `fx`'s own program, a `k`'s, as a `Program` — its run on `fx`, the one it was made on. On
    * another implementation it cannot be run: a `k` kept past its handler's run and run on another */
@@ -159,13 +163,14 @@ object Tagless extends Effects {
       def ret(a: A): fx.![B, R] = h.ret(a).on(fx)
       def abort[X](op: E[X]): fx.![B, R] = h.abort[X](op).on(fx)
     }
-  private def statefulTail[E[_], S, R[_], A, B](fx: Effects)(h: StatefulTailHandler[E, S, R, A, B]):
-      fx.StatefulTailHandler[E, S, R, A, B] =
+  private def statefulTail[E[_], S, R[_], A, B](fx: Effects)(
+    h: StatefulTailHandler[E, S, R, A, B]): fx.StatefulTailHandler[E, S, R, A, B] =
     new StatefulTailClauses[E, S, A, fx.![B, R]] {
       def ret(s: S, a: A): fx.![B, R] = h.ret(s, a).on(fx)
       def answer[X](cell: okay.effects.Cell[S], op: E[X]): X = h.answer[X](cell, op)
     }
-  private def stateful[E[_], S, R[_], A, B](fx: Effects)(h: StatefulHandler[E, S, R, A, B]): fx.StatefulHandler[E, S, R, A, B] =
+  private def stateful[E[_], S, R[_], A, B](fx: Effects)(
+    h: StatefulHandler[E, S, R, A, B]): fx.StatefulHandler[E, S, R, A, B] =
     new StatefulClauses[E, S, A, fx.![B, R]] {
       def ret(s: S, a: A): fx.![B, R] = h.ret(s, a).on(fx)
       def op[X](s: S, op: E[X], k: (X, S) => fx.![B, R]): fx.![B, R] =
@@ -174,26 +179,31 @@ object Tagless extends Effects {
 
   /** `E` handled from wherever it is in the row, by a handler of any of the five shapes: the implementation's
    * `handle` of that shape */
-  override def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: Handler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
+  override def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: Handler[E, Rest, A, B])(
+    implicit s: Split[E, R, Rest]): B ! Rest =
     new Program[B, Rest] {
-      def on(fx: Effects): fx.![B, Rest] = fx.handle[E, R, Rest, A, B](p.on(fx), general[E, Rest, A, B](fx)(h))(s.on(fx))
+      def on(fx: Effects): fx.![B, Rest] =
+        fx.handle[E, R, Rest, A, B](p.on(fx), general[E, Rest, A, B](fx)(h))(s.on(fx))
     }
-  override def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: TailHandler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
+  override def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: TailHandler[E, Rest, A, B])(
+    implicit s: Split[E, R, Rest]): B ! Rest =
     new Program[B, Rest] {
       def on(fx: Effects): fx.![B, Rest] = fx.handle[E, R, Rest, A, B](p.on(fx), tail[E, Rest, A, B](fx)(h))(s.on(fx))
     }
-  override def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: AbortHandler[E, Rest, A, B])(implicit s: Split[E, R, Rest]): B ! Rest =
+  override def handle[E[_], R[_], Rest[_], A, B](p: A ! R, h: AbortHandler[E, Rest, A, B])(
+    implicit s: Split[E, R, Rest]): B ! Rest =
     new Program[B, Rest] {
-      def on(fx: Effects): fx.![B, Rest] = fx.handle[E, R, Rest, A, B](p.on(fx), aborting[E, Rest, A, B](fx)(h))(s.on(fx))
+      def on(fx: Effects): fx.![B, Rest] =
+        fx.handle[E, R, Rest, A, B](p.on(fx), aborting[E, Rest, A, B](fx)(h))(s.on(fx))
     }
   override def handle[E[_], S, R[_], Rest[_], A, B](p: A ! R, s0: S, h: StatefulTailHandler[E, S, Rest, A, B])(
-      implicit s: Split[E, R, Rest]): B ! Rest =
+    implicit s: Split[E, R, Rest]): B ! Rest =
     new Program[B, Rest] {
       def on(fx: Effects): fx.![B, Rest] =
         fx.handle[E, S, R, Rest, A, B](p.on(fx), s0, statefulTail[E, S, Rest, A, B](fx)(h))(s.on(fx))
     }
   override def handle[E[_], S, R[_], Rest[_], A, B](p: A ! R, s0: S, h: StatefulHandler[E, S, Rest, A, B])(
-      implicit s: Split[E, R, Rest]): B ! Rest =
+    implicit s: Split[E, R, Rest]): B ! Rest =
     new Program[B, Rest] {
       def on(fx: Effects): fx.![B, Rest] =
         fx.handle[E, S, R, Rest, A, B](p.on(fx), s0, stateful[E, S, Rest, A, B](fx)(h))(s.on(fx))

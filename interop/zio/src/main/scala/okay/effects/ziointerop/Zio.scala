@@ -24,7 +24,8 @@ import zio.{Exit, Runtime, Tag, Task, Unsafe, ZEnvironment, ZIO, ZLayer}
  * `import okay.effects.ziointerop._`, the machine's; on another implementation `ZioEffects()`.
  */
 class ZioEffects[F <: Runner with Singleton](implicit implementation: F) {
-  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
+  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation
+   * to the code it is imported into */
   val fx: F = implementation
   import fx._
 
@@ -45,26 +46,32 @@ class ZioEffects[F <: Runner with Singleton](implicit implementation: F) {
   val asynchrony: Asynchrony[fx.type] = new Asynchrony[fx.type]
 
   /** the row of a ZIO of environment `Env` and error `Err`: `Async + Error % Err + Reader % ZEnvironment[Env]` */
-  type ZioRow[Env, Err] = { type L[X] = Sum[({ type M[Y] = Sum[Async, ({ type E[Z] = Std.Error[Err, Z] })#E, Y] })#M,
-    ({ type N[Y] = Std.Reader[ZEnvironment[Env], Y] })#N, X] }
+  type ZioRow[Env, Err] = {
+    type L[X] = Sum[({ type M[Y] = Sum[Async, ({ type E[Z] = Std.Error[Err, Z] })#E, Y] })#M,
+      ({ type N[Y] = Std.Reader[ZEnvironment[Env], Y] })#N, X]
+  }
 
   /** a ZIO run on `runtime` as an `Async`: its exit the callback's — its value, or a failure or defect as a throwable;
    * the wait cancelled, its fiber interrupted */
-  def fromTaskAsync[A, R[_]](z: ZIO[Any, Nothing, A], runtime: Runtime[Any] = Runtime.default)(implicit as: In[Async, R]): A ! R =
-    asynchrony.cancellable[A, R](cb => Unsafe.unsafe { implicit u =>
-      val fiber = runtime.unsafe.fork(z)
-      fiber.unsafe.addObserver {
-        case Exit.Success(a) => cb(Right(a))
-        case Exit.Failure(cause) => cb(Left(cause.squashTrace))
-      }
-      () => { runtime.unsafe.fork(fiber.interrupt); () }
-    })
+  def fromTaskAsync[A, R[_]](z: ZIO[Any, Nothing, A], runtime: Runtime[Any] = Runtime.default)(
+    implicit as: In[Async, R]): A ! R =
+    asynchrony.cancellable[A, R](cb =>
+      Unsafe.unsafe { implicit u =>
+        val fiber = runtime.unsafe.fork(z)
+        fiber.unsafe.addObserver {
+          case Exit.Success(a) => cb(Right(a))
+          case Exit.Failure(cause) => cb(Left(cause.squashTrace))
+        }
+        () => { runtime.unsafe.fork(fiber.interrupt); () }
+      })
 
   /** a ZIO in the effects: its environment asked, its typed error raised, its run an `Async` */
   def fromZIOTyped[Env, Err, A, R[_]](z: ZIO[Env, Err, A], runtime: Runtime[Any] = Runtime.default)(
-      implicit env: In[({ type N[Y] = Std.Reader[ZEnvironment[Env], Y] })#N, R], err: In[({ type E[Z] = Std.Error[Err, Z] })#E, R],
-      as: In[Async, R]): A ! R =
-    std.ask[ZEnvironment[Env], R].flatMap(e => fromTaskAsync[Either[Err, A], R](z.provideEnvironment(e).either, runtime)).flatMap {
+    implicit env: In[({ type N[Y] = Std.Reader[ZEnvironment[Env], Y] })#N, R],
+    err: In[({ type E[Z] = Std.Error[Err, Z] })#E, R],
+    as: In[Async, R]): A ! R =
+    std.ask[ZEnvironment[Env], R].flatMap(e =>
+      fromTaskAsync[Either[Err, A], R](z.provideEnvironment(e).either, runtime)).flatMap {
       case Right(a) => pure[A, R](a)
       case Left(e) => std.raise[Err, R, A](e)
     }
@@ -87,12 +94,14 @@ class ZioEffects[F <: Runner with Singleton](implicit implementation: F) {
   /** LAYERS. The program's environment built by `layer` for its run, released after: its `Reader % ZEnvironment[Env]`
    * answered, the row of the layer's input `In0` asked instead */
   def provideLayer[In0, Err, Env, A, R[_]](layer: ZLayer[In0, Err, Env])(p: A ! ZioRow[Env, Err]#L)(
-      implicit env: In[({ type N[Y] = Std.Reader[ZEnvironment[In0], Y] })#N, R], err: In[({ type E[Z] = Std.Error[Err, Z] })#E, R],
-      as: In[Async, R]): A ! R =
+    implicit env: In[({ type N[Y] = Std.Reader[ZEnvironment[In0], Y] })#N, R],
+    err: In[({ type E[Z] = Std.Error[Err, Z] })#E, R],
+    as: In[Async, R]): A ! R =
     fromZIOTyped[In0, Err, A, R](toZIOTyped[Env, Err, A](p).provideLayer(layer))
 
   /** a program making a service as a layer: its row's environment the layer's input */
-  def layer[In0, Err, A](p: A ! ZioRow[In0, Err]#L)(implicit tag: Tag[A]): ZLayer[In0, Err, A] = ZLayer(toZIOTyped[In0, Err, A](p))
+  def layer[In0, Err, A](p: A ! ZioRow[In0, Err]#L)(implicit tag: Tag[A]): ZLayer[In0, Err, A] =
+    ZLayer(toZIOTyped[In0, Err, A](p))
 }
 
 object ZioEffects {

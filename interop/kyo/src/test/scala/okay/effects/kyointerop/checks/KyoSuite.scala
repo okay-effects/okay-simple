@@ -13,7 +13,8 @@ abstract class KyoChecks(val fx0: Runner) extends munit.FunSuite:
 
   type V = Kyos[Var[Int]]#L
   test("kyo's Var inside a program; the program lowered to kyo, kyo's handler runs it") {
-    val p: Int ! V = fromKyo[Int, Var[Int], V](Var.update[Int](_ + 1)).flatMap(a => fromKyo[Int, Var[Int], V](Var.update[Int](_ * 10)).map(_ + a))
+    val p: Int ! V = fromKyo[Int, Var[Int], V](Var.update[Int](_ + 1)).flatMap(a =>
+      fromKyo[Int, Var[Int], V](Var.update[Int](_ * 10)).map(_ + a))
     assertEquals(Var.run(1)(toKyo(p)).eval, 22)
   }
   type E = Kyos[Abort[String]]#L
@@ -22,7 +23,8 @@ abstract class KyoChecks(val fx0: Runner) extends munit.FunSuite:
     assertEquals(Abort.run[String](toKyo(p)).eval.toString, "Failure(boom)")
   }
   test("10 000 kyo computations in turn, in constant stack") {
-    def loop(n: Int, acc: Int): Int ! V = if n == 0 then pure(acc) else fromKyo[Int, Var[Int], V](Var.update[Int](_ + 1)).flatMap(_ => loop(n - 1, acc + 1))
+    def loop(n: Int, acc: Int): Int ! V =
+      if n == 0 then pure(acc) else fromKyo[Int, Var[Int], V](Var.update[Int](_ + 1)).flatMap(_ => loop(n - 1, acc + 1))
     assertEquals(Var.run(0)(toKyo(loop(10000, 0))).eval, 10000)
   }
   test("a stream of kyo's computations a kyo Stream, and back") {

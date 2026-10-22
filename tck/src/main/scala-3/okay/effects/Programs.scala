@@ -1,6 +1,5 @@
 package okay.effects
 
-
 /** programs written on the interface, Scala 3's: whatever implementation `fx` is */
 class Programs(val fx: Runner):
   import fx.*
@@ -45,11 +44,11 @@ class Programs(val fx: Runner):
   type RS[X] = (Reader % String + State % Int)[X]
   def asked: Int ! RS = ask[String, RS].flatMap(n => get[Int, RS].map(_ + n.length))
   def splitThenHandle = run(state(1)(handleLast(split[Reader % String, RS, Pure + State % Int, Int](asked),
-    new Handler[Reader % String, Pure + State % Int, Int, Int]:
-      def ret(a: Int) = pure(a * 10)
-      def op[X](op: Reader[String, X], k: X => Int ! (Pure + State % Int)) = op match
-        case Reader.Ask(answer) => k(answer("abc"))
-  )))
+        new Handler[Reader % String, Pure + State % Int, Int, Int]:
+          def ret(a: Int) = pure(a * 10)
+          def op[X](op: Reader[String, X], k: X => Int ! (Pure + State % Int)) = op match
+            case Reader.Ask(answer) => k(answer("abc"))
+      )))
 
   /** constant stack: n operations under two handlers, n binds */
   def loop(n: Int): Unit ! Row =

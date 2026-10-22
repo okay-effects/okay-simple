@@ -11,11 +11,12 @@ trait Runner extends Effects {
    * `G`'s bind — a program of effects run in `IO`, a ZIO task, an `Option` */
   def lower[G[_], A](p: A ! ({ type L[x] = Std.Lift[G, x] })#L)(implicit G: Std.Lowering[G]): G[A] = {
     type L[x] = Std.Lift[G, x]
-    run(handle[L, L, Pure, A, G[A]](p, new Handler[L, Pure, A, G[A]] {
-      def ret(a: A) = pure[G[A], Pure](G.pure(a))
-      def op[X](op: Std.Lift[G, X], k: X => G[A] ! Pure) = op match {
-        case Std.Lift.Of(ga) => pure[G[A], Pure](G.flatMap(ga)(x => run(k(x))))
-      }
-    }))
+    run(handle[L, L, Pure, A, G[A]](p,
+        new Handler[L, Pure, A, G[A]] {
+          def ret(a: A) = pure[G[A], Pure](G.pure(a))
+          def op[X](op: Std.Lift[G, X], k: X => G[A] ! Pure) = op match {
+            case Std.Lift.Of(ga) => pure[G[A], Pure](G.flatMap(ga)(x => run(k(x))))
+          }
+        }))
   }
 }

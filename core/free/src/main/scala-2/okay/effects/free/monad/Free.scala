@@ -51,18 +51,19 @@ object Free {
   @tailrec def run[A](p: A ! okay.effects.Void): A = {
     type F[x] = At[okay.effects.Void, x]
     p match {
-    case Return(a) => a
-    case b: Bind[F, Any, A] @unchecked => b.m match {
-      case Return(x) => run(b.f(x))
-      case m: Bind[F, Any, Any] @unchecked => run(Bind(m.m, (y: Any) => Bind(m.f(y), b.f)))
-      case d: Delay[F, Any] @unchecked => run(Bind(d.p(), b.f))
-      case i: Inject[F, Any, Any] @unchecked => throw new IllegalStateException(s"an operation no handler took: ${i.op}")
+      case Return(a) => a
+      case b: Bind[F, Any, A] @unchecked => b.m match {
+          case Return(x) => run(b.f(x))
+          case m: Bind[F, Any, Any] @unchecked => run(Bind(m.m, (y: Any) => Bind(m.f(y), b.f)))
+          case d: Delay[F, Any] @unchecked => run(Bind(d.p(), b.f))
+          case i: Inject[F, Any, Any] @unchecked =>
+            throw new IllegalStateException(s"an operation no handler took: ${i.op}")
+          case Perform(o) => throw new IllegalStateException(s"an operation no handler took: $o")
+        }
+      case d: Delay[F, A] @unchecked => run(d.p())
+      case i: Inject[F, Any, A] @unchecked => throw new IllegalStateException(s"an operation no handler took: ${i.op}")
       case Perform(o) => throw new IllegalStateException(s"an operation no handler took: $o")
     }
-    case d: Delay[F, A] @unchecked => run(d.p())
-    case i: Inject[F, Any, A] @unchecked => throw new IllegalStateException(s"an operation no handler took: ${i.op}")
-    case Perform(o) => throw new IllegalStateException(s"an operation no handler took: $o")
-  }
   }
 
   /** the program `p`, built when the run gets to it */
@@ -73,21 +74,21 @@ object Free {
     handling(p, ret, eff)
 
   @tailrec private def handling[E[_], R[_], A, B](p: A ! ({ type L[x] = Sum[R, E, x] })#L, ret: A => B ! R,
-      eff: Clause[E, B ! R]): B ! R = {
+    eff: Clause[E, B ! R]): B ! R = {
     type F[x] = At[({ type L[y] = Sum[R, E, y] })#L, x]
     p match {
-    case Return(a) => ret(a)
-    case Perform(o) => on[E, R, Any, B](o, ret.asInstanceOf[Any => B ! R], eff)
-    case j: Inject[F, Any, A] @unchecked => on[E, R, Any, B](j.op, (x: Any) => delay(handle(j.k(x))(ret, eff)), eff)
-    case d: Delay[F, A] @unchecked => handling(d.p(), ret, eff)
-    case b: Bind[F, Any, A] @unchecked => b.m match {
-      case Return(x) => handling(b.f(x), ret, eff)
-      case m: Bind[F, Any, Any] @unchecked => handling(Bind(m.m, (y: Any) => Bind(m.f(y), b.f)), ret, eff)
-      case d: Delay[F, Any] @unchecked => handling(Bind(d.p(), b.f), ret, eff)
-      case j: Inject[F, Any, Any] @unchecked => handling(Inject(j.op, (y: Any) => Bind(j.k(y), b.f)), ret, eff)
-      case Perform(o) => on[E, R, Any, B](o, (v: Any) => delay(handle(b.f(v))(ret, eff)), eff)
+      case Return(a) => ret(a)
+      case Perform(o) => on[E, R, Any, B](o, ret.asInstanceOf[Any => B ! R], eff)
+      case j: Inject[F, Any, A] @unchecked => on[E, R, Any, B](j.op, (x: Any) => delay(handle(j.k(x))(ret, eff)), eff)
+      case d: Delay[F, A] @unchecked => handling(d.p(), ret, eff)
+      case b: Bind[F, Any, A] @unchecked => b.m match {
+          case Return(x) => handling(b.f(x), ret, eff)
+          case m: Bind[F, Any, Any] @unchecked => handling(Bind(m.m, (y: Any) => Bind(m.f(y), b.f)), ret, eff)
+          case d: Delay[F, Any] @unchecked => handling(Bind(d.p(), b.f), ret, eff)
+          case j: Inject[F, Any, Any] @unchecked => handling(Inject(j.op, (y: Any) => Bind(j.k(y), b.f)), ret, eff)
+          case Perform(o) => on[E, R, Any, B](o, (v: Any) => delay(handle(b.f(v))(ret, eff)), eff)
+        }
     }
-  }
   }
 
   /** an operation at `R + E`: at 0 `E`'s, to the clause; any other passed on, one place nearer */
@@ -99,24 +100,25 @@ object Free {
 
   /** the same with a state of its own, from `s` */
   def handle[E[_], R[_], A, B, S](p: A ! ({ type L[x] = Sum[R, E, x] })#L, s: S)(ret: (S, A) => B ! R,
-      eff: StateClause[E, S, B ! R]): B ! R = stating(p, s, ret, eff)
+    eff: StateClause[E, S, B ! R]): B ! R = stating(p, s, ret, eff)
 
   @tailrec private def stating[E[_], R[_], A, B, S](p: A ! ({ type L[x] = Sum[R, E, x] })#L, s: S, ret: (S, A) => B ! R,
-      eff: StateClause[E, S, B ! R]): B ! R = {
+    eff: StateClause[E, S, B ! R]): B ! R = {
     type F[x] = At[({ type L[y] = Sum[R, E, y] })#L, x]
     p match {
-    case Return(a) => ret(s, a)
-    case Perform(o) => onWith[E, R, Any, B, S](o, s, (x: Any, s1: S) => ret(s1, x.asInstanceOf[A]), eff)
-    case j: Inject[F, Any, A] @unchecked => onWith[E, R, Any, B, S](j.op, s, (x: Any, s1: S) => delay(handle(j.k(x), s1)(ret, eff)), eff)
-    case d: Delay[F, A] @unchecked => stating(d.p(), s, ret, eff)
-    case b: Bind[F, Any, A] @unchecked => b.m match {
-      case Return(x) => stating(b.f(x), s, ret, eff)
-      case m: Bind[F, Any, Any] @unchecked => stating(Bind(m.m, (y: Any) => Bind(m.f(y), b.f)), s, ret, eff)
-      case d: Delay[F, Any] @unchecked => stating(Bind(d.p(), b.f), s, ret, eff)
-      case j: Inject[F, Any, Any] @unchecked => stating(Inject(j.op, (y: Any) => Bind(j.k(y), b.f)), s, ret, eff)
-      case Perform(o) => onWith[E, R, Any, B, S](o, s, (v: Any, s1: S) => delay(handle(b.f(v), s1)(ret, eff)), eff)
+      case Return(a) => ret(s, a)
+      case Perform(o) => onWith[E, R, Any, B, S](o, s, (x: Any, s1: S) => ret(s1, x.asInstanceOf[A]), eff)
+      case j: Inject[F, Any, A] @unchecked =>
+        onWith[E, R, Any, B, S](j.op, s, (x: Any, s1: S) => delay(handle(j.k(x), s1)(ret, eff)), eff)
+      case d: Delay[F, A] @unchecked => stating(d.p(), s, ret, eff)
+      case b: Bind[F, Any, A] @unchecked => b.m match {
+          case Return(x) => stating(b.f(x), s, ret, eff)
+          case m: Bind[F, Any, Any] @unchecked => stating(Bind(m.m, (y: Any) => Bind(m.f(y), b.f)), s, ret, eff)
+          case d: Delay[F, Any] @unchecked => stating(Bind(d.p(), b.f), s, ret, eff)
+          case j: Inject[F, Any, Any] @unchecked => stating(Inject(j.op, (y: Any) => Bind(j.k(y), b.f)), s, ret, eff)
+          case Perform(o) => onWith[E, R, Any, B, S](o, s, (v: Any, s1: S) => delay(handle(b.f(v), s1)(ret, eff)), eff)
+        }
     }
-  }
   }
 
   private def onWith[E[_], R[_], X, B, S](o: Any, s: S, k: (X, S) => B ! R, eff: StateClause[E, S, B ! R]): B ! R = {
@@ -129,30 +131,32 @@ object Free {
    * at once with the answer; where an operation is passed on, the rest from a cell of its own, of the state of its
    * time */
   def answer[E[_], R[_], A, B, S](p: A ! ({ type L[x] = Sum[R, E, x] })#L, s: S)(ret: (S, A) => B ! R,
-      ans: Answer[E, S]): B ! R = answering(p, new Cell.Var(s), ret, ans)
+    ans: Answer[E, S]): B ! R = answering(p, new Cell.Var(s), ret, ans)
 
   @tailrec private def answering[E[_], R[_], A, B, S](p: A ! ({ type L[x] = Sum[R, E, x] })#L, cell: Cell.Var[S],
-      ret: (S, A) => B ! R, ans: Answer[E, S]): B ! R = {
+    ret: (S, A) => B ! R, ans: Answer[E, S]): B ! R = {
     type F[x] = At[({ type L[y] = Sum[R, E, y] })#L, x]
     p match {
-    case Return(a) => ret(cell.state, a)
-    case Perform(o) => answering(Inject(o, (a: A) => Return(a)), cell, ret, ans)
-    case j: Inject[F, Any, A] @unchecked =>
-      val pl = j.op.asInstanceOf[At[Any, Any]]
-      if (pl.at == 0) answering(j.k(ans[Any](cell, opOf[E, Any](pl.op))), cell, ret, ans)
-      else {
-        val now = cell.state
-        Inject[({ type L[x] = At[R, x] })#L, Any, B](At[R, Any](pl.at - 1, pl.op), (x: Any) => answer(j.k(x), now)(ret, ans))
-      }
-    case d: Delay[F, A] @unchecked => answering(d.p(), cell, ret, ans)
-    case b: Bind[F, Any, A] @unchecked => b.m match {
-      case Return(x) => answering(b.f(x), cell, ret, ans)
-      case m: Bind[F, Any, Any] @unchecked => answering(Bind(m.m, (y: Any) => Bind(m.f(y), b.f)), cell, ret, ans)
-      case d: Delay[F, Any] @unchecked => answering(Bind(d.p(), b.f), cell, ret, ans)
-      case j: Inject[F, Any, Any] @unchecked => answering(Inject(j.op, (y: Any) => Bind(j.k(y), b.f)), cell, ret, ans)
-      case Perform(o) => answering(Inject(o, b.f), cell, ret, ans)
+      case Return(a) => ret(cell.state, a)
+      case Perform(o) => answering(Inject(o, (a: A) => Return(a)), cell, ret, ans)
+      case j: Inject[F, Any, A] @unchecked =>
+        val pl = j.op.asInstanceOf[At[Any, Any]]
+        if (pl.at == 0) answering(j.k(ans[Any](cell, opOf[E, Any](pl.op))), cell, ret, ans)
+        else {
+          val now = cell.state
+          Inject[({ type L[x] = At[R, x] })#L, Any, B](At[R, Any](pl.at - 1, pl.op),
+            (x: Any) => answer(j.k(x), now)(ret, ans))
+        }
+      case d: Delay[F, A] @unchecked => answering(d.p(), cell, ret, ans)
+      case b: Bind[F, Any, A] @unchecked => b.m match {
+          case Return(x) => answering(b.f(x), cell, ret, ans)
+          case m: Bind[F, Any, Any] @unchecked => answering(Bind(m.m, (y: Any) => Bind(m.f(y), b.f)), cell, ret, ans)
+          case d: Delay[F, Any] @unchecked => answering(Bind(d.p(), b.f), cell, ret, ans)
+          case j: Inject[F, Any, Any] @unchecked =>
+            answering(Inject(j.op, (y: Any) => Bind(j.k(y), b.f)), cell, ret, ans)
+          case Perform(o) => answering(Inject(o, b.f), cell, ret, ans)
+        }
     }
-  }
   }
 
   /** `p`'s places renamed by `rename` */
@@ -161,20 +165,22 @@ object Free {
   @tailrec private def remapping[R1[_], R2[_], A](p: A ! R1, rename: Int => Int): A ! R2 = {
     type F[x] = At[R1, x]
     p match {
-    case Return(a) => Return(a)
-    case Perform(o) => remapping[R1, R2, A](Inject(o, (a: A) => Return(a)), rename)
-    case j: Inject[F, Any, A] @unchecked =>
-      val pl = j.op.asInstanceOf[At[Any, Any]]
-      Inject[({ type L[x] = At[R2, x] })#L, Any, A](At[R2, Any](rename(pl.at), pl.op), (x: Any) => remap[R1, R2, A](j.k(x), rename))
-    case d: Delay[F, A] @unchecked => Delay[({ type L[x] = At[R2, x] })#L, A](() => remap[R1, R2, A](d.p(), rename))
-    case b: Bind[F, Any, A] @unchecked => b.m match {
-      case Return(x) => remapping[R1, R2, A](b.f(x), rename)
-      case m: Bind[F, Any, Any] @unchecked => remapping[R1, R2, A](Bind(m.m, (y: Any) => Bind(m.f(y), b.f)), rename)
-      case d: Delay[F, Any] @unchecked => remapping[R1, R2, A](Bind(d.p(), b.f), rename)
-      case j: Inject[F, Any, Any] @unchecked => remapping[R1, R2, A](Inject(j.op, (y: Any) => Bind(j.k(y), b.f)), rename)
-      case Perform(o) => remapping[R1, R2, A](Inject(o, b.f), rename)
+      case Return(a) => Return(a)
+      case Perform(o) => remapping[R1, R2, A](Inject(o, (a: A) => Return(a)), rename)
+      case j: Inject[F, Any, A] @unchecked =>
+        val pl = j.op.asInstanceOf[At[Any, Any]]
+        Inject[({ type L[x] = At[R2, x] })#L, Any, A](At[R2, Any](rename(pl.at), pl.op),
+          (x: Any) => remap[R1, R2, A](j.k(x), rename))
+      case d: Delay[F, A] @unchecked => Delay[({ type L[x] = At[R2, x] })#L, A](() => remap[R1, R2, A](d.p(), rename))
+      case b: Bind[F, Any, A] @unchecked => b.m match {
+          case Return(x) => remapping[R1, R2, A](b.f(x), rename)
+          case m: Bind[F, Any, Any] @unchecked => remapping[R1, R2, A](Bind(m.m, (y: Any) => Bind(m.f(y), b.f)), rename)
+          case d: Delay[F, Any] @unchecked => remapping[R1, R2, A](Bind(d.p(), b.f), rename)
+          case j: Inject[F, Any, Any] @unchecked =>
+            remapping[R1, R2, A](Inject(j.op, (y: Any) => Bind(j.k(y), b.f)), rename)
+          case Perform(o) => remapping[R1, R2, A](Inject(o, b.f), rename)
+        }
     }
-  }
   }
 }
 
@@ -212,28 +218,34 @@ class OnFree extends Runner {
   }
   def embed[R[_], S[_], A](p: A ! R)(implicit s: Vector[Int]): A ! S = Free.delay(Free.remap(p, s))
   /** `E`'s place to the new last, 0, the others one further in */
-  protected[effects] def interposed[E[_], R[_], A](p: A ! R)(implicit in: Place): A ! ({ type L[x] = Sum[R, E, x] })#L = {
+  protected[effects] def interposed[E[_], R[_], A](p: A ! R)(
+    implicit in: Place): A ! ({ type L[x] = Sum[R, E, x] })#L = {
     val at = in.n
     Free.delay(Free.remap[R, ({ type L[x] = Sum[R, E, x] })#L, A](p, i => if (i == at) 0 else i + 1))
   }
 
   def handleLast[E[_], R[_], A, B](p: A ! ({ type L[x] = Sum[R, E, x] })#L, h: Handler[E, R, A, B]): B ! R =
-    Free.delay(Free.handle(p)((a: A) => h.ret(a), new Free.Clause[E, B ! R] {
-      def apply[X](op: E[X], k: X => B ! R): B ! R = h.op[X](op, k)
-    }))
-  override def handleLast[E[_], R[_], A, B](p: A ! ({ type L[x] = Sum[R, E, x] })#L, h: TailHandler[E, R, A, B]): B ! R =
-    Free.delay(Free.answer(p, ())((_: Unit, a: A) => h.ret(a), new Free.Answer[E, Unit] {
-      def apply[X](cell: okay.effects.Cell[Unit], op: E[X]): X = h.answer[X](op)
-    }))
+    Free.delay(Free.handle(p)((a: A) => h.ret(a),
+        new Free.Clause[E, B ! R] {
+          def apply[X](op: E[X], k: X => B ! R): B ! R = h.op[X](op, k)
+        }))
+  override def handleLast[E[_], R[_], A, B](p: A ! ({ type L[x] = Sum[R, E, x] })#L, h: TailHandler[E, R, A, B])
+    : B ! R =
+    Free.delay(Free.answer(p, ())((_: Unit, a: A) => h.ret(a),
+        new Free.Answer[E, Unit] {
+          def apply[X](cell: okay.effects.Cell[Unit], op: E[X]): X = h.answer[X](op)
+        }))
   override def handleLast[E[_], S, R[_], A, B](p: A ! ({ type L[x] = Sum[R, E, x] })#L, s0: S,
-      h: StatefulTailHandler[E, S, R, A, B]): B ! R =
-    Free.delay(Free.answer(p, s0)((s: S, a: A) => h.ret(s, a), new Free.Answer[E, S] {
-      def apply[X](cell: okay.effects.Cell[S], op: E[X]): X = h.answer[X](cell, op)
-    }))
+    h: StatefulTailHandler[E, S, R, A, B]): B ! R =
+    Free.delay(Free.answer(p, s0)((s: S, a: A) => h.ret(s, a),
+        new Free.Answer[E, S] {
+          def apply[X](cell: okay.effects.Cell[S], op: E[X]): X = h.answer[X](cell, op)
+        }))
   override def handleLast[E[_], S, R[_], A, B](p: A ! ({ type L[x] = Sum[R, E, x] })#L, s0: S,
-      h: StatefulHandler[E, S, R, A, B]): B ! R =
-    Free.delay(Free.handle(p, s0)((s: S, a: A) => h.ret(s, a), new Free.StateClause[E, S, B ! R] {
-      def apply[X](s: S, op: E[X], k: (X, S) => B ! R): B ! R = h.op[X](s, op, k)
-    }))
+    h: StatefulHandler[E, S, R, A, B]): B ! R =
+    Free.delay(Free.handle(p, s0)((s: S, a: A) => h.ret(s, a),
+        new Free.StateClause[E, S, B ! R] {
+          def apply[X](s: S, op: E[X], k: (X, S) => B ! R): B ! R = h.op[X](s, op, k)
+        }))
   def run[A](p: A ! Pure): A = Free.run(p)
 }

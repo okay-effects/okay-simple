@@ -18,7 +18,8 @@ object Scope {
  * the scope ends it twice: each end runs the finalizers deferred before it, so for programs that resume once.
  */
 class Resources[F <: Effects with Singleton](implicit implementation: F) {
-  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
+  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation
+   * to the code it is imported into */
   val fx: F = implementation
   import fx._
 
@@ -28,14 +29,16 @@ class Resources[F <: Effects with Singleton](implicit implementation: F) {
 
   /** acquired, its release deferred, used */
   def bracket[A, B, Rest[_], R[_]](acquire: A ! R)(release: A => Unit ! Rest)(use: A => B ! R)(
-      implicit in: In[({ type L[x] = Scope[Unit ! Rest, x] })#L, R]): B ! R =
+    implicit in: In[({ type L[x] = Scope[Unit ! Rest, x] })#L, R]): B ! R =
     acquire.flatMap(a => defer[Rest, R](release(a)).flatMap(_ => use(a)))
 
   /** `p`, then its finalizers, the last deferred first */
-  def scoped[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Scope[Unit ! Rest, x] })#L, R, Rest]): A ! Rest =
+  def scoped[R[_], Rest[_], A](p: A ! R)(
+    implicit sp: Split[({ type L[x] = Scope[Unit ! Rest, x] })#L, R, Rest]): A ! Rest =
     handle[({ type L[x] = Scope[Unit ! Rest, x] })#L, List[Unit ! Rest], R, Rest, A, A](p, Nil,
       new StatefulTailHandler[({ type L[x] = Scope[Unit ! Rest, x] })#L, List[Unit ! Rest], Rest, A, A] {
-        def ret(fins: List[Unit ! Rest], a: A) = fins.foldLeft(pure[Unit, Rest](()))((p, fin) => p.flatMap(_ => fin)).as(a)
+        def ret(fins: List[Unit ! Rest], a: A) =
+          fins.foldLeft(pure[Unit, Rest](()))((p, fin) => p.flatMap(_ => fin)).as(a)
         def answer[X](cell: Cell[List[Unit ! Rest]], op: Scope[Unit ! Rest, X]): X = op match {
           case Scope.Defer(fin, answer) => cell.set(fin :: cell.get); answer(())
         }

@@ -18,8 +18,9 @@ object Async {
 sealed abstract class Waiting[A, M[_]]
 object Waiting {
   final case class Done[A, M[_]](a: A) extends Waiting[A, M]
-  final case class Suspended[A, M[_], X](register: (Either[Throwable, X] => Unit) => (() => Unit), k: X => M[Waiting[A, M]])
-      extends Waiting[A, M]
+  final case class Suspended[A, M[_], X](register: (Either[Throwable, X] => Unit) => (() => Unit),
+    k: X => M[Waiting[A, M]])
+    extends Waiting[A, M]
 }
 
 /** a program running: its value to come, and how to cancel it — the wait it is in cancelled, the rest never run, the
@@ -43,7 +44,8 @@ final class Cancelled extends RuntimeException("cancelled")
  * fails.
  */
 class Asynchrony[F <: Runner with Singleton](implicit implementation: F, ec: ExecutionContext) {
-  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
+  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation
+   * to the code it is imported into */
   val fx: F = implementation
   import fx._
 
@@ -57,16 +59,18 @@ class Asynchrony[F <: Runner with Singleton](implicit implementation: F, ec: Exe
   def fromFuture[X, R[_]](f: => Future[X])(implicit in: In[Async, R]): X ! R =
     async[X, R](cb => f.onComplete { case Success(x) => cb(Right(x)); case Failure(e) => cb(Left(e)) })
   /** `ms` milliseconds later */
-  def sleep[R[_]](ms: Long)(implicit in: In[Async, R]): Unit ! R = cancellable[Unit, R](cb => Timers.after(ms)(() => cb(Right(()))))
+  def sleep[R[_]](ms: Long)(implicit in: In[Async, R]): Unit ! R =
+    cancellable[Unit, R](cb => Timers.after(ms)(() => cb(Right(()))))
 
   private type M[x] = x ! Pure
   private def coroutine[A](p: A ! Async): Waiting[A, M] ! Pure =
-    handle[Async, Async, Pure, A, Waiting[A, M]](p, new Handler[Async, Pure, A, Waiting[A, M]] {
-      def ret(a: A) = pure(Waiting.Done[A, M](a))
-      def op[X](op: Async[X], k: X => Waiting[A, M] ! Pure) = op match {
-        case Async.Suspend(register) => pure(Waiting.Suspended[A, M, X](register, k))
-      }
-    })
+    handle[Async, Async, Pure, A, Waiting[A, M]](p,
+      new Handler[Async, Pure, A, Waiting[A, M]] {
+        def ret(a: A) = pure(Waiting.Done[A, M](a))
+        def op[X](op: Async[X], k: X => Waiting[A, M] ! Pure) = op match {
+          case Async.Suspend(register) => pure(Waiting.Suspended[A, M, X](register, k))
+        }
+      })
 
   /** the program driven to its end: its value, a `Future` */
   def toFuture[A](p: A ! Async): Future[A] = start(p).future
@@ -99,28 +103,29 @@ class Asynchrony[F <: Runner with Singleton](implicit implementation: F, ec: Exe
   private def drive[A](p: Waiting[A, M] ! Pure, done: Promise[A], run: Run): Unit = {
     var next: Option[Waiting[A, M] ! Pure] = Some(p)
     try while (next.isDefined && !run.cancelled) {
-      val now = next.get
-      next = None
-      fx.run(now) match {
-        case Waiting.Done(a) => done.trySuccess(a)
-        case s: Waiting.Suspended[A, M, x] @unchecked =>
-          val slot = new AtomicReference[Either[Throwable, x]](null)
-          val cancel = s.register { r =>
-            if (!slot.compareAndSet(null, r) && !run.cancelled) {
-              run.waiting.set(Asynchrony.noCancel)
-              r match {
-                case Right(x) => ec.execute(() => drive(s.k(x), done, run))
-                case Left(e) => done.tryFailure(e)
+        val now = next.get
+        next = None
+        fx.run(now) match {
+          case Waiting.Done(a) => done.trySuccess(a)
+          case s: Waiting.Suspended[A, M, x] @unchecked =>
+            val slot = new AtomicReference[Either[Throwable, x]](null)
+            val cancel = s.register { r =>
+              if (!slot.compareAndSet(null, r) && !run.cancelled) {
+                run.waiting.set(Asynchrony.noCancel)
+                r match {
+                  case Right(x) => ec.execute(() => drive(s.k(x), done, run))
+                  case Left(e) => done.tryFailure(e)
+                }
               }
             }
-          }
-          if (slot.compareAndSet(null, later)) run.waitingOn(cancel)
-          else slot.get match {
-            case Right(x) => next = Some(s.k(x))
-            case Left(e) => done.tryFailure(e)
-          }
+            if (slot.compareAndSet(null, later)) run.waitingOn(cancel)
+            else slot.get match {
+              case Right(x) => next = Some(s.k(x))
+              case Left(e) => done.tryFailure(e)
+            }
+        }
       }
-    } catch { case NonFatal(e) => done.tryFailure(e) }
+    catch { case NonFatal(e) => done.tryFailure(e) }
   }
   /** the slot's mark: `register` returned before its callback was called */
   private object Later extends RuntimeException("later", null, false, false)

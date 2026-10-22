@@ -9,7 +9,8 @@ import okay.effects.Effects
  * `sequence`, `replicateA` — over any instance.
  */
 class Algebra[F <: Effects with Singleton](implicit implementation: F) {
-  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation to the code it is imported into */
+  /** the implementation — a value, not an implicit: a package of this module's on the machine gives no implementation
+   * to the code it is imported into */
   val fx: F = implementation
   import fx._
   import fx.std._
@@ -28,13 +29,15 @@ class Algebra[F <: Effects with Singleton](implicit implementation: F) {
     }
 
   /** programs of a row with `Choose`: `empty` fails, `append` is a choice between the two */
-  def monadPlus[R[_]](implicit c: In[Choose, R]): MonadPlus[({ type L[A] = A ! R })#L] with TailRecM[({ type L[A] = A ! R })#L] =
+  def monadPlus[R[_]](
+    implicit c: In[Choose, R]): MonadPlus[({ type L[A] = A ! R })#L] with TailRecM[({ type L[A] = A ! R })#L] =
     new MonadPlus[({ type L[A] = A ! R })#L] with TailRecM[({ type L[A] = A ! R })#L] {
       def pure[A](a: A): A ! R = fx.pure[A, R](a)
       def flatMap[A, B](p: A ! R)(f: A => B ! R): B ! R = fx.flatMap[A, B, R](p)(f)
       override def fmap[A, B](p: A ! R, f: A => B): B ! R = fx.map[A, B, R](p)(f)
       def empty[A]: A ! R = among[A, R](Nil)
-      def append[A](x: A ! R, y: => A ! R): A ! R = fx.flatMap[Boolean, A, R](among[Boolean, R](List(true, false)))(first => if (first) x else y)
+      def append[A](x: A ! R, y: => A ! R): A ! R =
+        fx.flatMap[Boolean, A, R](among[Boolean, R](List(true, false)))(first => if (first) x else y)
       def tailRecM[A, B](a: A)(f: A => Either[A, B] ! R): B ! R =
         fx.flatMap[Either[A, B], B, R](f(a)) {
           case Left(next) => tailRecM(next)(f)
@@ -45,10 +48,13 @@ class Algebra[F <: Effects with Singleton](implicit implementation: F) {
   // ---- THE WORDS SHAPED FOR PROGRAMS. `A ! R` is `![A, R]`, and partial unification abstracts the LAST parameter, so
   // against an implementation left abstract the generic `traverse[F, A, B]` reads `F` as `[R] =>> A ! R` — reversed.
   // These take the row and need no inference; on a concrete implementation the generic words work too
-  def traverse[A, B, R[_]](xs: Seq[A])(f: A => B ! R): Vector[B] ! R = syntax.traverse[({ type L[X] = X ! R })#L, A, B](xs)(f)(monad[R])
+  def traverse[A, B, R[_]](xs: Seq[A])(f: A => B ! R): Vector[B] ! R =
+    syntax.traverse[({ type L[X] = X ! R })#L, A, B](xs)(f)(monad[R])
   def sequence[A, R[_]](xs: Seq[A ! R]): Vector[A] ! R = syntax.sequence[({ type L[X] = X ! R })#L, A](xs)(monad[R])
-  def replicateA[A, R[_]](n: Int)(p: A ! R): Vector[A] ! R = syntax.replicateA[({ type L[X] = X ! R })#L, A](n)(p)(monad[R])
-  /** a loop over programs: from `a`, on from a `Left`, done at a `Right`; constant stack, the implementation's run is a loop */
+  def replicateA[A, R[_]](n: Int)(p: A ! R): Vector[A] ! R =
+    syntax.replicateA[({ type L[X] = X ! R })#L, A](n)(p)(monad[R])
+  /** a loop over programs: from `a`, on from a `Left`, done at a `Right`; constant stack, the implementation's run is a
+   * loop */
   def loop[A, B, R[_]](a: A)(f: A => Either[A, B] ! R): B ! R = monad[R].tailRecM(a)(f)
   /** the applicative operators on programs */
   implicit final class ProgramOps[A, R[_]](p: A ! R) {
@@ -60,11 +66,13 @@ class Algebra[F <: Effects with Singleton](implicit implementation: F) {
     def void: Unit ! R = fx.map[A, Unit, R](p)((_: A) => ())
   }
 
-  /** delimited control with answer-type modification, `Cps[A, B, C, R]`, as a parameterised monad: the answer `B` to `C` */
+  /** delimited control with answer-type modification, `Cps[A, B, C, R]`, as a parameterised monad: the answer `B` to
+   * `C` */
   def paraMonad[R[_]]: ParaMonad[({ type L[A, S, T] = fx.delimited.Cps[A, S, T, R] })#L] =
     new ParaMonad[({ type L[A, S, T] = fx.delimited.Cps[A, S, T, R] })#L] {
       def pure[A, S](a: A): fx.delimited.Cps[A, S, S, R] = fx.delimited.pure[A, S, R](a)
-      def flatMap[A, B, S, S2, T](m: fx.delimited.Cps[A, S, T, R])(f: A => fx.delimited.Cps[B, S2, S, R]): fx.delimited.Cps[B, S2, T, R] =
+      def flatMap[A, B, S, S2, T](m: fx.delimited.Cps[A, S, T, R])(
+        f: A => fx.delimited.Cps[B, S2, S, R]): fx.delimited.Cps[B, S2, T, R] =
         fx.delimited.flatMap[A, B, S, T, S2, R](m)(f)
     }
 }

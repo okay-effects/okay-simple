@@ -28,16 +28,20 @@ class JsonSchemaSuite extends munit.FunSuite {
     assertEquals(Json.print(JsonSchema.node(Schema.Choice(List("a", "b")))), """{"type":"string","enum":["a","b"]}""")
     assertEquals(Json.print(JsonSchema.node(Schema.Many(Schema.Integer(List(Constraint.Min(0))), 1, Some(5)))),
       """{"type":"array","items":{"type":"integer","minimum":0},"minItems":1,"maxItems":5}""")
-    assertEquals(Json.print(JsonSchema.node(Schema.Optional(Schema.Bool))), """{"anyOf":[{"type":"boolean"},{"type":"null"}]}""")
+    assertEquals(Json.print(JsonSchema.node(Schema.Optional(Schema.Bool))),
+      """{"anyOf":[{"type":"boolean"},{"type":"null"}]}""")
     assertEquals(Json.print(JsonSchema.node(Schema.Described(Schema.Number(Nil), "Price", Some("in euros")))),
       """{"type":"number","title":"Price","description":"in euros"}""")
     assertEquals(Json.print(JsonSchema.node(Schema.Any)), "{}")
   }
   test("a sum is oneOf with a type tag") {
-    val s = Schema.OneOf(Vector("dog" -> Schema.Record(Vector(Schema.Field("name", Schema.Text(Nil), None, None, false, None))), "n" -> Schema.Integer(Nil)))
+    val s = Schema.OneOf(Vector("dog" -> Schema.Record(Vector(Schema.Field("name", Schema.Text(Nil), None, None, false,
+              None))), "n" -> Schema.Integer(Nil)))
     assertEquals(Json.print(JsonSchema.node(s)),
-      """{"oneOf":[{"type":"object","properties":{"type":{"type":"string","enum":["dog"]},"name":{"type":"string"}},"required":["type","name"]},""" +
-        """{"type":"object","properties":{"type":{"const":"n"},"value":{"type":"integer"}},"required":["type","value"]}]}""")
+      """{"oneOf":[{"type":"object","properties":{"type":{"type":"string","enum":["dog"]},""" +
+        """"name":{"type":"string"}},"required":["type","name"]},""" +
+        """{"type":"object","properties":{"type":{"const":"n"},"value":{"type":"integer"}},""" +
+        """"required":["type","value"]}]}""")
   }
   test("refs and defs: the meta-schema's own JSON Schema is finite and refers to itself") {
     val v = JsonSchema.of(Schema.shape.erased, Schema.defs)

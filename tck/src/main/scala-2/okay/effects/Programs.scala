@@ -1,6 +1,5 @@
 package okay.effects
 
-
 /** programs written on the interface, as Scala 2 writes them: whatever implementation `fx` is. A row by names,
  * taken as its constructor, `#L`; one precedence for all infix types, each `%` in parentheses */
 class Programs(val fx: Runner) {
@@ -8,7 +7,8 @@ class Programs(val fx: Runner) {
   import fx.std._
 
   /** row-polymorphic: in any row that has these, at any place */
-  def greet[R[_]](implicit r: In[(Reader % String)#L, R], w: In[(Writer % String)#L, R], s: In[(State % Int)#L, R]): Int ! R =
+  def greet[R[_]](implicit r: In[(Reader % String)#L, R], w: In[(Writer % String)#L, R], s: In[(State % Int)#L, R])
+    : Int ! R =
     for {
       name <- ask[String, R]
       _ <- tell[String, R](s"hello, $name")
@@ -47,10 +47,11 @@ class Programs(val fx: Runner) {
   type S1[X] = (*[Pure] + (State % Int))#L[X]
   def asked: Int ! RS = ask[String, RS].flatMap(n => get[Int, RS].map(_ + n.length))
   def splitThenHandle = run(state(1)(handleLast(split[(Reader % String)#L, RS, S1, Int](asked),
-    new Handler[(Reader % String)#L, S1, Int, Int] {
-      def ret(a: Int) = pure(a * 10)
-      def op[X](op: Reader[String, X], k: X => Int ! S1) = op match { case Std.Reader.Ask(answer) => k(answer("abc")) }
-    })))
+        new Handler[(Reader % String)#L, S1, Int, Int] {
+          def ret(a: Int) = pure(a * 10)
+          def op[X](op: Reader[String, X], k: X => Int ! S1) =
+            op match { case Std.Reader.Ask(answer) => k(answer("abc")) }
+        })))
 
   /** constant stack: n operations under two handlers, n binds */
   def loop(n: Int): Unit ! Row =

@@ -25,7 +25,8 @@ object Descent {
     def isHex(c: Char): Boolean = isDigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
     def ws(): Unit = while (i < s.length && isSpace(s.charAt(i))) i += 1
     def peek: Int = if (i < s.length) s.charAt(i) else -1
-    def word(w: String, v: Json): Json = if (s.startsWith(w, i)) { i += w.length; v } else fail(s"'$w'")
+    def word(w: String, v: Json): Json = if (s.startsWith(w, i)) { i += w.length; v }
+    else fail(s"'$w'")
     def value(depth: Int): Json = {
       ws()
       val v: Json = peek match {
@@ -99,15 +100,21 @@ object Descent {
       case 't' => i += 1; b.append('\t')
       case 'u' =>
         i += 1; var code = 0; var n = 0
-        while (n < 4) { val c = peek; if (c < 0 || !isHex(c.toChar)) fail("a hex digit"); code = code * 16 + Character.digit(c.toChar, 16); i += 1; n += 1 }
+        while (n < 4) {
+          val c = peek; if (c < 0 || !isHex(c.toChar)) fail("a hex digit");
+          code = code * 16 + Character.digit(c.toChar, 16); i += 1; n += 1
+        }
         b.append(code.toChar)
       case _ => fail("an escape: \\\" \\\\ \\/ \\b \\f \\n \\r \\t \\uXXXX")
     }
-    def digits(what: String): Unit = { val start = i; while (i < s.length && isDigit(s.charAt(i))) i += 1; if (i == start) fail(what) }
+    def digits(what: String): Unit = {
+      val start = i; while (i < s.length && isDigit(s.charAt(i))) i += 1; if (i == start) fail(what)
+    }
     def number(): Json = {
       val start = i
       if (peek == '-') i += 1
-      if (peek == '0') { i += 1; if (peek >= 0 && isDigit(peek.toChar)) fail("no leading zero") } else digits("a digit")
+      if (peek == '0') { i += 1; if (peek >= 0 && isDigit(peek.toChar)) fail("no leading zero") }
+      else digits("a digit")
       if (peek == '.') { i += 1; digits("a digit after the point") }
       if (peek == 'e' || peek == 'E') {
         i += 1; if (peek == '+' || peek == '-') i += 1
