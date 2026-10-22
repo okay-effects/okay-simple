@@ -122,9 +122,15 @@ private[machine] object Engine:
    * the operation of `Void`, which `walk` finds absurd */
   @tailrec private def found[E[_], R[_], V, Z](at: Place[E, R, ?], m: Meta[R, V, Z]): Level[E, ?, ?, ?] | Null =
     m match
-      case l: Meta.Handler[e, r, rest, a, b, w, z] => take(l.at, at) match
-        case _: Taken.Mine[e2, r2] => l.lv
-        case t: Taken.Theirs[e2, e3, r2] => found[E, rest, w, Z](t.at, l.m)
+      // a handler at the last place, nearly every one: the two places matched here, nothing made; another, `take`
+      case l: Meta.Handler[e, r, rest, a, b, w, z] => (l.at: @unchecked) match
+        case _: Place.Last[r1, e1] => (at: @unchecked) match
+          case _: Place.Last[r2, e2] => l.lv
+          case ip: Place.Init[e2, r2, g, rest2] => found[E, rest, w, Z](ip.s, l.m)
+          case _: Place.Absurd[r2] => null
+        case _ => take(l.at, at) match
+          case _: Taken.Mine[e2, r2] => l.lv
+          case t: Taken.Theirs[e2, e3, r2] => found[E, rest, w, Z](t.at, l.m)
       case r: Meta.Remapped[r1, r2, a, w, z] => found[E, r2, w, Z](r.rename(at), r.m)
       case _: Meta.Top[z] => null
 
@@ -189,28 +195,38 @@ private[machine] object Engine:
   /** an operation to its general handler: the levels it crosses taken onto `pre`, `k` made, the clause run outside */
   @tailrec private def walk[E[_], R0[_], X, V0, R[_], V, Z](at: Place[E, R, ?], op: E[X], inner: Frames[R0, X, V0],
       pre: Prefix[R0, V0, R, V], m: Meta[R, V, Z]): Go[?, ?, ?, Z] = m match
-    case l: Meta.Handler[e, r, rest, a, b, w, z] => take(l.at, at) match
-      case _: Taken.Mine[e2, r2] => l.lv match
-        case g: Level.General[e3, t3, a3, b3] =>
-          Go[rest, b, w, Z](g.h.op[X](op, (x: X) => Prog.Resume[rest, X, b, R0, V0, E, R, a](inner, pre, l.at, g, x)),
-            l.outside, l.m)
-        case g: Level.StateK[e3, t3, a3, b3, s] =>
-          val k = (x: X, s1: s) => Prog.Resume[rest, X, b, R0, V0, E, R, a](inner, pre, l.at, Level.StateK(g.h, s1), x)
-          Go[rest, b, w, Z](g.h.op[X](g.state, op, k), l.outside, l.m)
-        case g: Level.Abort[e3, t3, a3, b3] =>
-          // the rest dropped: the frames inside and the levels crossed left behind, no `k`
-          Go[rest, b, w, Z](g.h.abort[X](op), l.outside, l.m)
-        // answered in place: on where the operation is, with the levels crossed put back
-        case t: Level.Tail[e3, t3, a3, b3] => Go[R0, X, V0, Z](Prog.Done(t.h.answer[X](op)), inner, put(pre, m))
-        case s: Level.State[e3, t3, a3, b3, st] =>
-          Go[R0, X, V0, Z](Prog.Done(s.h.answer[X](s.cell, op)), inner, put(pre, m))
-      case t: Taken.Theirs[e2, e3, r2] =>
-        walk[E, R0, X, V0, rest, w, Z](t.at, op, inner, Prefix.Handler(pre, l.at, fresh(l.lv), l.outside), l.m)
+    // a handler at the last place, nearly every one: the two places matched here, nothing made; another, `take`
+    case l: Meta.Handler[e, r, rest, a, b, w, z] => (l.at: @unchecked) match
+      case _: Place.Last[r1, e1] => (at: @unchecked) match
+        case _: Place.Last[r2, e2] => here[E, R0, X, V0, R, rest, a, b, w, Z](l, op, inner, pre)
+        case ip: Place.Init[e2, r2, g, rest2] =>
+          walk[E, R0, X, V0, rest, w, Z](ip.s, op, inner, Prefix.Handler(pre, l.at, fresh(l.lv), l.outside), l.m)
+        case _: Place.Absurd[r2] => op.absurd
+      case _ => take(l.at, at) match
+        case _: Taken.Mine[e2, r2] => here[E, R0, X, V0, R, rest, a, b, w, Z](l, op, inner, pre)
+        case t: Taken.Theirs[e2, e3, r2] =>
+          walk[E, R0, X, V0, rest, w, Z](t.at, op, inner, Prefix.Handler(pre, l.at, fresh(l.lv), l.outside), l.m)
     case r: Meta.Remapped[r1, r2, a, w, z] =>
       walk[E, R0, X, V0, r2, w, Z](r.rename(at), op, inner, Prefix.Remapped(pre, r.rename, r.outside), r.m)
     case _: Meta.Top[z] => (at: @unchecked) match
       case _: Place.Only[e2] => op.absurd
       case _: Place.Absurd[r] => op.absurd
+
+  /** an operation at its own handler's level `l`: the clause run outside it, `k` made — or none, aborting — or
+   * answered in place, on where the operation is with the levels crossed put back */
+  private def here[E[_], R0[_], X, V0, R[_], Rest[_], A, B, W, Z](l: Meta.Handler[E, R, Rest, A, B, W, Z], op: E[X],
+      inner: Frames[R0, X, V0], pre: Prefix[R0, V0, R, A]): Go[?, ?, ?, Z] = l.lv match
+    case g: Level.General[e3, t3, a3, b3] =>
+      Go[Rest, B, W, Z](g.h.op[X](op, (x: X) => Prog.Resume[Rest, X, B, R0, V0, E, R, A](inner, pre, l.at, g, x)),
+        l.outside, l.m)
+    case g: Level.StateK[e3, t3, a3, b3, s] =>
+      val k = (x: X, s1: s) => Prog.Resume[Rest, X, B, R0, V0, E, R, A](inner, pre, l.at, Level.StateK(g.h, s1), x)
+      Go[Rest, B, W, Z](g.h.op[X](g.state, op, k), l.outside, l.m)
+    case g: Level.Abort[e3, t3, a3, b3] =>
+      // the rest dropped: the frames inside and the levels crossed left behind, no `k`
+      Go[Rest, B, W, Z](g.h.abort[X](op), l.outside, l.m)
+    case t: Level.Tail[e3, t3, a3, b3] => Go[R0, X, V0, Z](Prog.Done(t.h.answer[X](op)), inner, put(pre, l))
+    case s: Level.State[e3, t3, a3, b3, st] => Go[R0, X, V0, Z](Prog.Done(s.h.answer[X](s.cell, op)), inner, put(pre, l))
 
   inline def run[A](p: Prog[PureRow, A]): A = loop[PureRow, A, A, A](p, Frames.End(), Meta.Top())
 
