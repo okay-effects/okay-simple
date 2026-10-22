@@ -344,3 +344,30 @@ addCommandAlias("testAll", "; ++3.3.8 suite/test ; suiteFree/test ; tagless/test
 addCommandAlias("publishPages", "; ++3.3.8 publish ; ++2.13.18 publish ; ++3.9.0 interopKyo/publish" +
   (if (platformsAsked("js")) " ; interopKyoJS/publish" else "") + (if (platformsAsked("native")) " ; interopKyoNative/publish" else "") +
   " ; ++3.3.8")
+
+/** THE INTERFACE ON OKAY-DIRECT (github.com/okay-effects/okay-direct, its release on GitHub Pages): programs run by
+ * okay-direct's handlers, on Loom's continuations, threads, or Espresso's (multi-shot). Not in the root's aggregate */
+val okayDirect = "0.1.0"
+val okayDirectRepository = "okay-direct" at "https://okay-effects.github.io/okay-direct/maven"
+lazy val direct = (project in file("core/direct")).dependsOn(effects.jvm)
+  .settings(name := "okay-effects-direct", crossScalaVersions := Seq(scala3, scala2), resolvers += okayDirectRepository,
+    scalacOptions ++= (if (scalaVersion.value.startsWith("3")) Seq("-deprecation", "-feature") else Seq("-deprecation", "-feature", "-Xlint")),
+    libraryDependencies += "io.github.okay-effects" % "okay-direct-api" % okayDirect)
+/** the interface's suite on okay-direct's one-shot implementations, Loom's and threads': the multi-shot tests refused */
+lazy val suiteDirect = (project in file("suite-direct")).dependsOn(direct, tck.jvm)
+  .settings(crossScalaVersions := Seq(scala3, scala2), publish / skip := true, resolvers += okayDirectRepository,
+    libraryDependencies ++= Seq(munit, "io.github.okay-effects" % "okay-direct-loom" % okayDirect % Test,
+      "io.github.okay-effects" % "okay-direct-threads" % okayDirect % Test),
+    Test / fork := true,
+    Test / javaOptions ++= Seq("-Xss8m", "--add-exports=java.base/jdk.internal.vm=ALL-UNNAMED",
+      "--add-exports=java.base/jdk.internal.access=ALL-UNNAMED", "--add-opens=java.base/java.lang=ALL-UNNAMED"))
+/** the interface's suite on okay-direct's multi-shot implementation, on Espresso (Java on Truffle) itself: where it
+ * is installed, ~/.local/espresso-java25-25.0.0-macos-aarch64 or -Dokay.espresso=... */
+val espressoHome = file(sys.props.getOrElse("okay.espresso", sys.props("user.home") + "/.local/espresso-java25-25.0.0-macos-aarch64"))
+lazy val suiteDirectEspresso = (project in file("suite-direct-espresso")).dependsOn(direct, tck.jvm)
+  .settings(crossScalaVersions := Seq(scala3, scala2), publish / skip := true, resolvers += okayDirectRepository,
+    libraryDependencies ++= Seq(munit, "io.github.okay-effects" % "okay-direct-espresso" % okayDirect % Test),
+    Test / fork := true,
+    Test / javaHome := Some(espressoHome),
+    Test / javaOptions ++= Seq("-Xss8m", "--experimental-options", "--java.Continuum=true",
+      "--add-exports=java.base/jdk.internal.access=ALL-UNNAMED", "--add-opens=java.base/java.lang=ALL-UNNAMED"))
