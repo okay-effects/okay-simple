@@ -22,7 +22,7 @@ measurements before and after are in docs/modules/json.md ("Measured") and bench
 - DONE 2026-10-22: the stream input remembers what it pulled (`StreamInput.remembered`): a rolled-back alternative
   reads the chunks already pulled, so the source need not remember; what is kept is what a live choice point reaches.
 
-## parsing: a committed choice that frees its alternatives (kind: perf) — found 2026-10-22
+## parsing: a committed choice that frees its alternatives (kind: perf) — found 2026-10-22, DONE 2026-10-22
 
 `orCommitted` and `manyCommitted` keep the other branch on the choice's stack until the parse ends; the commitment
 is checked when that branch runs, and it then fails at once. parsec drops the branch and runs `many` in constant
@@ -32,6 +32,18 @@ the input. The shape of a fix: a `cut` in `Choose` (drop the alternatives made s
 commits; or a committed choice handled by its own handler. Expected: flat time per term for `manyCommitted`.
 Disqualifying: if the per-term rise stays after the alternatives are dropped, the retention is elsewhere (the `map`
 chain of `many`'s results).
+DONE: `Choose` got `Mark`/`Cut` and `once`; `first` and `all` keep the pending alternatives as an explicit stack and
+resume in tail position; `orCommitted` cuts once `p` succeeds; `manyCommitted` is a loop of item-wise committed
+choices. Time per term on the machine 304 -> 381 ns from 2000 to 32000 terms (was 266 -> 734); bench.d/2026-10-22_cut.txt.
+
+## the machine's `first` as a stateful handler: 15% slower in backtracking search (kind: perf) — found 2026-10-22
+
+`first` on an explicit stack (for the cut) threads its state through every resume: on the machine, `firstSearch`
+(65 536 ways) 4307 -> 4958 us, `firstChain` 1524 -> 1626 us; on `Free` 21% faster, and `all` 2.2-3.5x faster on both
+(bench.d/2026-10-22_cut.txt). Where to look: the machine's path for a StatefulHandler against a Handler — the state
+boxed per resume, the clause called through the pair. Expected: `firstSearch` back to ~4300 us. Disqualifying: if a
+Handler-shaped `first` keeping its stack in the answer type (`B = Pending => Option[A] ! Rest`) is no faster, the
+cost is the stack's allocation, not the stateful path.
 
 ## shape: derived from a type, Scala 3 first
 

@@ -143,21 +143,33 @@ class Parsing[F <: Effects with Singleton](implicit implementation: F) {
   // ---- committed alternatives: parsec's `p <|> q`
   /** `p`, or else `q` — but `q` ONLY if `p` failed having taken nothing. Once `p` went past where it started and
    * failed, the parse fails there, with `p`'s error: what was expected where the input stopped making sense, not
-   * the last alternative's at the start. Once `p` succeeded, a failure after it does not come back to `q`.
-   * `orElse` is parsec's `try p <|> q`, backtracking always; this is `p <|> q`. `p`'s own alternatives are as `p`
-   * makes them */
+   * the last alternative's at the start. Once `p` succeeded, a failure after it does not come back to `q`, nor into
+   * `p`: their alternatives are CUT (`Choose`'s cut), so a parse of committed choices keeps none behind it.
+   * `orElse` is parsec's `try p <|> q`, backtracking always; this is `p <|> q`. Under a choice handler that does not
+   * cut (a fair search) the alternatives stay, and the attempt's record makes `q` fail at once all the same */
   def orCommitted[A, R[_]](p: => A ! R, q: => A ! R)(
     implicit i: In[Input, R], e: In[Expect, R], c: In[Choose, R]): A ! R =
     offset[R].flatMap(start =>
       perform[Expect].apply[R, Long](Expect.Open[Long](start, id => id)).flatMap(id =>
-        among[Boolean, R](List(true, false)).flatMap { first =>
-          if (first) p.flatMap(a => perform[Expect].apply[R, Unit](Expect.Close[Unit](id, u => u)).as(a))
-          else perform[Expect].apply[R, Boolean](Expect.Committed[Boolean](id, b => b)).flatMap(committed =>
-            if (committed) among[A, R](Nil) else q)
-        }))
-  /** `p` as many times as it parses, committed: a `p` that went past its start and failed is the parse's error */
-  def manyCommitted[A, R[_]](p: => A ! R)(implicit i: In[Input, R], e: In[Expect, R], c: In[Choose, R]): List[A] ! R =
-    orCommitted[List[A], R](p.flatMap(a => manyCommitted[A, R](p).map(a :: _)), pure[List[A], R](Nil))
+        mark[R].flatMap(m =>
+          among[Boolean, R](List(true, false)).flatMap { first =>
+            if (first) p.flatMap(a =>
+              cut[R](m).flatMap(_ => perform[Expect].apply[R, Unit](Expect.Close[Unit](id, u => u))).as(a))
+            else perform[Expect].apply[R, Boolean](Expect.Committed[Boolean](id, b => b)).flatMap(committed =>
+              if (committed) among[A, R](Nil) else q)
+          })))
+  /** `p` as many times as it parses, committed: a `p` that went past its start and failed is the parse's error. An
+   * item at a time, each committed and cut as it is taken, the items gathered in a loop: what it keeps behind does
+   * not grow with the number of items */
+  def manyCommitted[A, R[_]](p: => A ! R)(implicit i: In[Input, R], e: In[Expect, R], c: In[Choose, R])
+    : List[A] ! R = {
+    def loop(acc: List[A]): List[A] ! R =
+      orCommitted[Option[A], R](p.map(a => Some(a): Option[A]), pure[Option[A], R](None)).flatMap {
+        case Some(a) => loop(a :: acc)
+        case None => pure[List[A], R](acc.reverse)
+      }
+    loop(Nil)
+  }
 
   // ---- running
   /** the input from a text in memory: an index into it, answered in place, no copy of the text */

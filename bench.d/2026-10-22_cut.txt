@@ -1,0 +1,113 @@
+The cut in Choose (Mark, Cut, once), first and all on an explicit stack of pending alternatives, the committed choice cutting, manyCommitted a loop.
+2026-10-22, JDK 26, Apple silicon, host load 6-9 (other sessions); before = eabcc87, after = the working tree of the commit after it.
+
+1. Alternating A/B, 3 rounds, -f 1 -wi 3 -i 5 -w 1 -r 1:
+1 before load=7.29 ChoiceBenchmark.allWays      machine  avgt    5   907.406 ±  67.305  us/op
+1 before load=7.29 ChoiceBenchmark.allWays         free  avgt    5   519.696 ±  15.030  us/op
+1 before load=7.29 ChoiceBenchmark.firstChain   machine  avgt    5  1506.735 ±  46.486  us/op
+1 before load=7.29 ChoiceBenchmark.firstChain      free  avgt    5  1388.643 ±  21.983  us/op
+1 before load=7.29 ChoiceBenchmark.firstSearch  machine  avgt    5  4221.519 ±  40.358  us/op
+1 before load=7.29 ChoiceBenchmark.firstSearch     free  avgt    5  4363.920 ± 138.964  us/op
+1 before load=7.29 ParsingScaleBenchmark.grammarJson  machine  4000  avgt    5  16179.622 ± 2309.230  us/op
+1 before load=7.29 ParsingScaleBenchmark.termsOrElse  machine  8000  avgt    5  1610.238 ± 292.132  us/op
+1 after load=9.01 ChoiceBenchmark.allWays      machine  avgt    5   259.672 ±   5.407  us/op
+1 after load=9.01 ChoiceBenchmark.allWays         free  avgt    5   230.575 ±  18.713  us/op
+1 after load=9.01 ChoiceBenchmark.firstChain   machine  avgt    5  1611.823 ±  56.643  us/op
+1 after load=9.01 ChoiceBenchmark.firstChain      free  avgt    5  1397.766 ±  62.101  us/op
+1 after load=9.01 ChoiceBenchmark.firstSearch  machine  avgt    5  5016.213 ± 267.175  us/op
+1 after load=9.01 ChoiceBenchmark.firstSearch     free  avgt    5  3431.444 ± 263.642  us/op
+1 after load=9.01 ParsingScaleBenchmark.grammarJson  machine  4000  avgt    5  16750.450 ± 3389.715  us/op
+1 after load=9.01 ParsingScaleBenchmark.termsOrElse  machine  8000  avgt    5  1518.557 ± 191.239  us/op
+2 before load=8.65 ChoiceBenchmark.allWays      machine  avgt    5   952.775 ±  485.516  us/op
+2 before load=8.65 ChoiceBenchmark.allWays         free  avgt    5   511.613 ±   11.611  us/op
+2 before load=8.65 ChoiceBenchmark.firstChain   machine  avgt    5  1822.141 ±  985.212  us/op
+2 before load=8.65 ChoiceBenchmark.firstChain      free  avgt    5  1380.520 ±   33.903  us/op
+2 before load=8.65 ChoiceBenchmark.firstSearch  machine  avgt    5  4527.896 ± 1206.134  us/op
+2 before load=8.65 ChoiceBenchmark.firstSearch     free  avgt    5  4322.711 ±  175.975  us/op
+2 before load=8.65 ParsingScaleBenchmark.grammarJson  machine  4000  avgt    5  17171.336 ± 3056.626  us/op
+2 before load=8.65 ParsingScaleBenchmark.termsOrElse  machine  8000  avgt    5  1824.577 ± 381.216  us/op
+2 after load=8.24 ChoiceBenchmark.allWays      machine  avgt    5   272.614 ±  20.057  us/op
+2 after load=8.24 ChoiceBenchmark.allWays         free  avgt    5   238.710 ±  13.035  us/op
+2 after load=8.24 ChoiceBenchmark.firstChain   machine  avgt    5  1631.615 ±  53.944  us/op
+2 after load=8.24 ChoiceBenchmark.firstChain      free  avgt    5  1380.334 ±  34.556  us/op
+2 after load=8.24 ChoiceBenchmark.firstSearch  machine  avgt    5  4958.103 ± 363.570  us/op
+2 after load=8.24 ChoiceBenchmark.firstSearch     free  avgt    5  3273.975 ±  55.568  us/op
+2 after load=8.24 ParsingScaleBenchmark.grammarJson  machine  4000  avgt    5  16366.093 ± 2563.987  us/op
+2 after load=8.24 ParsingScaleBenchmark.termsOrElse  machine  8000  avgt    5  1539.457 ± 296.842  us/op
+3 before load=6.39 ChoiceBenchmark.allWays      machine  avgt    5   911.641 ±  50.862  us/op
+3 before load=6.39 ChoiceBenchmark.allWays         free  avgt    5   519.419 ±  15.634  us/op
+3 before load=6.39 ChoiceBenchmark.firstChain   machine  avgt    5  1523.868 ± 252.916  us/op
+3 before load=6.39 ChoiceBenchmark.firstChain      free  avgt    5  1408.374 ±  65.970  us/op
+3 before load=6.39 ChoiceBenchmark.firstSearch  machine  avgt    5  4306.749 ±  51.203  us/op
+3 before load=6.39 ChoiceBenchmark.firstSearch     free  avgt    5  4337.978 ±  47.699  us/op
+3 before load=6.39 ParsingScaleBenchmark.grammarJson  machine  4000  avgt    5  15667.717 ± 817.450  us/op
+3 before load=6.39 ParsingScaleBenchmark.termsOrElse  machine  8000  avgt    5  1686.753 ± 84.524  us/op
+3 after load=6.06 ChoiceBenchmark.allWays      machine  avgt    5   262.903 ±   14.608  us/op
+3 after load=6.06 ChoiceBenchmark.allWays         free  avgt    5   241.038 ±   19.616  us/op
+3 after load=6.06 ChoiceBenchmark.firstChain   machine  avgt    5  1626.231 ±   33.344  us/op
+3 after load=6.06 ChoiceBenchmark.firstChain      free  avgt    5  1425.626 ±   72.355  us/op
+3 after load=6.06 ChoiceBenchmark.firstSearch  machine  avgt    5  4881.047 ±   62.747  us/op
+3 after load=6.06 ChoiceBenchmark.firstSearch     free  avgt    5  3462.451 ± 1000.084  us/op
+3 after load=6.06 ParsingScaleBenchmark.grammarJson  machine  4000  avgt    5  15827.175 ± 1006.208  us/op
+3 after load=6.06 ParsingScaleBenchmark.termsOrElse  machine  8000  avgt    5  1502.982 ± 145.566  us/op
+
+Medians (us/op):                 before    after
+  allWays      machine              912      263   3.5x faster  (the fold of nested maps gone)
+  allWays      free                 519      239   2.2x faster
+  firstSearch  machine             4307     4958   15% SLOWER   (consistent in all three rounds)
+  firstSearch  free                4338     3431   21% faster
+  firstChain   machine             1524     1626    7% slower
+  firstChain   free                1389     1398   same
+  grammarJson  machine n=4000     16180    16366   same (noise)
+  termsOrElse  machine n=8000      1687     1519   10% faster
+The machine's `first` pays for being a stateful handler: the state threaded through every resume. Recorded in BACKLOG.
+
+2. manyCommitted after, -f 2 -wi 3 -i 5 -prof gc, n 2000..32000 (load 6):
+ParsingScaleBenchmark.termsCommitted                     machine   2000  avgt   10        607.964 ±   27.318   us/op
+ParsingScaleBenchmark.termsCommitted:gc.alloc.rate.norm  machine   2000  avgt   10    7276446.186 ±   37.872    B/op
+ParsingScaleBenchmark.termsCommitted                     machine   4000  avgt   10       1294.792 ±   46.290   us/op
+ParsingScaleBenchmark.termsCommitted:gc.alloc.rate.norm  machine   4000  avgt   10   14556485.330 ±   12.110    B/op
+ParsingScaleBenchmark.termsCommitted                     machine   8000  avgt   10       2677.340 ±  163.531   us/op
+ParsingScaleBenchmark.termsCommitted:gc.alloc.rate.norm  machine   8000  avgt   10   29116498.788 ±    1.130    B/op
+ParsingScaleBenchmark.termsCommitted                     machine  16000  avgt   10       5664.590 ±   46.882   us/op
+ParsingScaleBenchmark.termsCommitted:gc.alloc.rate.norm  machine  16000  avgt   10   58236519.600 ±    0.395    B/op
+ParsingScaleBenchmark.termsCommitted                     machine  32000  avgt   10      12195.933 ±  434.525   us/op
+ParsingScaleBenchmark.termsCommitted:gc.alloc.rate.norm  machine  32000  avgt   10  116476564.962 ±    2.767    B/op
+ParsingScaleBenchmark.termsCommitted                        free   2000  avgt   10        859.344 ±   13.798   us/op
+ParsingScaleBenchmark.termsCommitted:gc.alloc.rate.norm     free   2000  avgt   10    8941340.055 ±   36.585    B/op
+ParsingScaleBenchmark.termsCommitted                        free   4000  avgt   10       1766.965 ±   36.568   us/op
+ParsingScaleBenchmark.termsCommitted:gc.alloc.rate.norm     free   4000  avgt   10   17885372.560 ±    0.379    B/op
+ParsingScaleBenchmark.termsCommitted                        free   8000  avgt   10       3729.252 ±  105.852   us/op
+ParsingScaleBenchmark.termsCommitted:gc.alloc.rate.norm     free   8000  avgt   10   35773386.092 ±    0.792    B/op
+ParsingScaleBenchmark.termsCommitted                        free  16000  avgt   10       7795.105 ±  160.663   us/op
+ParsingScaleBenchmark.termsCommitted:gc.alloc.rate.norm     free  16000  avgt   10   71293398.514 ±    1.421    B/op
+ParsingScaleBenchmark.termsCommitted                        free  32000  avgt   10      15877.305 ±  275.905   us/op
+ParsingScaleBenchmark.termsCommitted:gc.alloc.rate.norm     free  32000  avgt   10  142589454.506 ±    2.169    B/op
+ParsingScaleBenchmark.termsOrElse                        machine   2000  avgt   10        321.172 ±    8.673   us/op
+ParsingScaleBenchmark.termsOrElse:gc.alloc.rate.norm     machine   2000  avgt   10    3807580.467 ±    7.160    B/op
+ParsingScaleBenchmark.termsOrElse                        machine   4000  avgt   10        680.230 ±   10.134   us/op
+ParsingScaleBenchmark.termsOrElse:gc.alloc.rate.norm     machine   4000  avgt   10    7615631.940 ±   65.372    B/op
+ParsingScaleBenchmark.termsOrElse                        machine   8000  avgt   10       1448.940 ±   20.375   us/op
+ParsingScaleBenchmark.termsOrElse:gc.alloc.rate.norm     machine   8000  avgt   10   15231690.222 ±    0.166    B/op
+ParsingScaleBenchmark.termsOrElse                        machine  16000  avgt   10       3290.726 ±  132.885   us/op
+ParsingScaleBenchmark.termsOrElse:gc.alloc.rate.norm     machine  16000  avgt   10   30463703.055 ±    0.884    B/op
+ParsingScaleBenchmark.termsOrElse                        machine  32000  avgt   10       9256.451 ± 4636.539   us/op
+ParsingScaleBenchmark.termsOrElse:gc.alloc.rate.norm     machine  32000  avgt   10   60927744.617 ±   32.322    B/op
+ParsingScaleBenchmark.termsOrElse                           free   2000  avgt   10        425.301 ±    9.163   us/op
+ParsingScaleBenchmark.termsOrElse:gc.alloc.rate.norm        free   2000  avgt   10    4687944.835 ±   49.395    B/op
+ParsingScaleBenchmark.termsOrElse                           free   4000  avgt   10        894.753 ±   17.993   us/op
+ParsingScaleBenchmark.termsOrElse:gc.alloc.rate.norm        free   4000  avgt   10    9376021.322 ±   64.039    B/op
+ParsingScaleBenchmark.termsOrElse                           free   8000  avgt   10       1894.600 ±   40.004   us/op
+ParsingScaleBenchmark.termsOrElse:gc.alloc.rate.norm        free   8000  avgt   10   18752069.517 ±    0.493    B/op
+ParsingScaleBenchmark.termsOrElse                           free  16000  avgt   10       4127.753 ±   79.002   us/op
+ParsingScaleBenchmark.termsOrElse:gc.alloc.rate.norm        free  16000  avgt   10   37248068.895 ±    0.556    B/op
+ParsingScaleBenchmark.termsOrElse                           free  32000  avgt   10       9812.242 ± 2375.955   us/op
+ParsingScaleBenchmark.termsOrElse:gc.alloc.rate.norm        free  32000  avgt   10   74496108.454 ±   16.555    B/op
+
+Time per term, machine:   before (bench.d/2026-10-22_f16fee9_parsing-scale.txt) 266 321 389 560 734 ns
+                          after                                                   304 324 335 354 381 ns
+                Free:     after 430 442 466 487 496 ns
+Bytes per term: flat (machine 3638-3640, Free 4456-4472; before 2670-2752 on the machine) — more operations per
+term (the mark, the cut), but nothing kept behind: the rise over 16x the input fell from 2.8x to 1.25x, what is left
+being the parse's own result, the list of n terms. Predicted in BACKLOG: flat — met, but for the result list.
+termsOrElse unchanged in shape (161 -> 289 ns): the backtracking `many` keeps its alternatives by meaning.

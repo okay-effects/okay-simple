@@ -90,6 +90,9 @@ class Logic[F <: Effects with Singleton](implicit implementation: F) {
           def ret(a: A) = pure(Search.Found[A, M](a))
           def op[X](op: Choose[X], k: X => S ! Rest) = op match {
             case Std.Choose.Among(xs) => pure(Search.Ways[A, M](xs.map(x => () => k(x))))
+            // a fair search has no order to cut in: every way is kept, a cut is passed by
+            case Std.Choose.Mark(answer) => k(answer(0))
+            case Std.Choose.Cut(_, answer) => k(answer(()))
           }
         })
       def loop(queue: Queue[() => S ! Rest], found: List[A], left: Int): List[A] ! Rest =

@@ -26,10 +26,16 @@ object Std {
     final case class Raise[E, X](e: E) extends Error[E, X]
   }
 
-  /** an effect of no parameter: `Choose` in a Scala 3 row, `*[Choose]#L` in a Scala 2 one */
+  /** an effect of no parameter: `Choose` in a Scala 3 row, `*[Choose]#L` in a Scala 2 one. `Among` the choice;
+   * `Mark` and `Cut` a CUT, Prolog's: `Mark` says how many alternatives are pending, `Cut(m)` drops those made since
+   * — the ways not yet tried. `first` and `all` drop them; a fair search, which has no order to cut in, keeps them */
   sealed trait Choose[X]
   object Choose {
     final case class Among[X](xs: List[X]) extends Choose[X]
+    /** the alternatives pending: a mark to cut back to */
+    final case class Mark[X](answer: Int => X) extends Choose[X]
+    /** the alternatives made since the mark dropped */
+    final case class Cut[X](mark: Int, answer: Unit => X) extends Choose[X]
   }
 
   /** A PROGRAM OF ANOTHER MONAD'S, as an effect: `Of(ga)`, a `G[X]` performed as it is, its value the answer — `IO`,
@@ -153,6 +159,7 @@ class Std[F <: Effects with Singleton](val fx: F) {
       Std.this.raise[E, R, Nothing](e)
     def among[X](xs: List[X])(implicit in: In[Choose, R]): X ! R = Std.this.among[X, R](xs)
     def fail(implicit in: In[Choose, R]): Nothing ! R = Std.this.fail[Nothing, R]
+    def once[A](p: => A ! R)(implicit in: In[Choose, R]): A ! R = Std.this.once[A, R](p)
   }
   /** the words of the row `R`: `val words = std.on[Service]; import words.*` */
   def on[R[_]]: On[R] = new On[R]
@@ -171,6 +178,15 @@ class Std[F <: Effects with Singleton](val fx: F) {
     perform[({ type L[x] = Error[E, x] })#L].apply[R, X](Std.Error.Raise(e))
   def among[X, R[_]](xs: List[X])(implicit in: In[Choose, R]): X ! R = perform[Choose].apply[R, X](Std.Choose.Among(xs))
   def fail[X, R[_]](implicit in: In[Choose, R]): X ! R = among[X, R](Nil)
+  /** the alternatives pending, to cut back to */
+  def mark[R[_]](implicit in: In[Choose, R]): Int ! R = perform[Choose].apply[R, Int](Std.Choose.Mark[Int](m => m))
+  /** the alternatives made since `m` dropped: the ways not yet tried there are not tried */
+  def cut[R[_]](m: Int)(implicit in: In[Choose, R]): Unit ! R =
+    perform[Choose].apply[R, Unit](Std.Choose.Cut[Unit](m, u => u))
+  /** `p`'s first way, its other ways dropped once it has one — Prolog's `once/1`: a choice inside `p` is not come
+   * back to by a failure after it */
+  def once[A, R[_]](p: => A ! R)(implicit in: In[Choose, R]): A ! R =
+    mark[R].flatMap(m => p.flatMap(a => cut[R](m).map(_ => a)))
   def lift[G[_], X, R[_]](ga: G[X])(implicit in: In[({ type L[x] = Lift[G, x] })#L, R]): X ! R =
     perform[({ type L[x] = Lift[G, x] })#L].apply[R, X](Std.Lift.Of(ga))
   def emit[O, R[_]](o: O)(implicit in: In[({ type L[x] = Yield[O, x] })#L, R]): Unit ! R =
@@ -420,40 +436,64 @@ class Std[F <: Effects with Singleton](val fx: F) {
         })
   }
 
-  /** the first way the program goes with no `fail`: the choices tried in order, the rest not tried */
-  def first[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): Option[A] ! Rest =
-    handle[Choose, R, Rest, A, Option[A]](p,
-      new Handler[Choose, Rest, A, Option[A]] {
-        def ret(a: A) = pure(Some(a))
-        def op[X](op: Choose[X], k: X => Option[A] ! Rest) = op match {
-          case Std.Choose.Among(xs) =>
-            def go(ys: List[X]): Option[A] ! Rest = ys match {
-              case Nil => pure[Option[A], Rest](None)
-              // the last choice in tail position: no frame kept per choice point when there is one choice
-              case y :: t if t.isEmpty => k(y)
-              case y :: t => k(y).flatMap {
-                  case None => go(t)
-                  case found => pure[Option[A], Rest](found)
-                }
-            }
-            go(xs)
-        }
-      })
+  /** THE ALTERNATIVES NOT YET TRIED, as data: each a way on from its choice point, given the stack below it; `depth`
+   * their number, the mark a cut goes back to. A choice is resumed in tail position and its other ways pushed here,
+   * so nothing waits on a frame: a cut drops them and they are gone, and a chain of choice points is as long in
+   * memory as the alternatives still pending */
+  final class Pending[B](val stack: List[Pending[B] => B], val depth: Int) {
+    def push(alt: Pending[B] => B): Pending[B] = new Pending[B](alt :: stack, depth + 1)
+    def cutTo(m: Int): Pending[B] = if (m >= depth) this else new Pending[B](stack.drop(depth - m), m)
+  }
+  object Pending { def empty[B]: Pending[B] = new Pending[B](Nil, 0) }
 
-  /** every way the program can go: `k` resumed once for each choice */
-  def all[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): List[A] ! Rest =
-    handle[Choose, R, Rest, A, List[A]](p,
-      new Handler[Choose, Rest, A, List[A]] {
-        def ret(a: A) = pure(List(a))
-        def op[X](op: Choose[X], k: X => List[A] ! Rest) = op match {
-          // one choice: its ways, in tail position — no frame kept per choice point, so a chain of them is constant
-          // in memory
-          // (`isEmpty`, not a `Nil` pattern: that is an `equals` call per choice point)
-          case Std.Choose.Among(x :: t) if t.isEmpty => k(x)
-          // the ways so far kept reversed, each branch's put before them: linear in the ways, not quadratic
+  /** the first way the program goes with no `fail`: the choices tried in order, the rest not tried; a cut drops the
+   * alternatives made since its mark */
+  def first[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): Option[A] ! Rest = {
+    type B = Option[A] ! Rest
+    handle[Choose, Pending[B], R, Rest, A, Option[A]](p, Pending.empty[B],
+      new StatefulHandler[Choose, Pending[B], Rest, A, Option[A]] {
+        def ret(s: Pending[B], a: A) = pure(Some(a))
+        /** the next alternative, or none left */
+        def back(s: Pending[B]): B = s.stack match {
+          case alt :: below => alt(new Pending[B](below, s.depth - 1))
+          case Nil => pure[Option[A], Rest](None)
+        }
+        def op[X](s: Pending[B], op: Choose[X], k: (X, Pending[B]) => B) = op match {
           case Std.Choose.Among(xs) =>
-            xs.foldLeft(pure[List[A], Rest](Nil))((acc, x) => acc.flatMap(l => k(x).map(r => r reverse_::: l))).map(
-              _.reverse)
+            // `isEmpty`, not a `Nil` pattern: that is an `equals` call per choice point
+            def go(ys: List[X], s: Pending[B]): B =
+              if (ys.isEmpty) back(s)
+              else if (ys.tail.isEmpty) k(ys.head, s)
+              else k(ys.head, s.push(below => go(ys.tail, below)))
+            go(xs, s)
+          case Std.Choose.Mark(answer) => k(answer(s.depth), s)
+          case Std.Choose.Cut(m, answer) => k(answer(()), s.cutTo(m))
         }
       })
+  }
+
+  /** every way the program can go: each choice's ways in turn, its others pending; a cut drops the alternatives made
+   * since its mark. The ways found kept reversed: linear in the ways, not quadratic */
+  def all[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): List[A] ! Rest = {
+    type B = List[A] => List[A] ! Rest
+    handle[Choose, Pending[B], R, Rest, A, List[A] => List[A] ! Rest](p, Pending.empty[B],
+      new StatefulHandler[Choose, Pending[B], Rest, A, List[A] => List[A] ! Rest] {
+        /** the next alternative with the ways found so far, or those ways, in order, none left */
+        def back(s: Pending[B], found: List[A]): List[A] ! Rest = s.stack match {
+          case alt :: below => alt(new Pending[B](below, s.depth - 1))(found)
+          case Nil => pure[List[A], Rest](found.reverse)
+        }
+        def ret(s: Pending[B], a: A) = pure[B, Rest]((found: List[A]) => back(s, a :: found))
+        def op[X](s: Pending[B], op: Choose[X], k: (X, Pending[B]) => B ! Rest) = op match {
+          case Std.Choose.Among(xs) =>
+            def go(ys: List[X], s: Pending[B]): B ! Rest =
+              if (ys.isEmpty) pure[B, Rest]((found: List[A]) => back(s, found))
+              else if (ys.tail.isEmpty) k(ys.head, s)
+              else k(ys.head, s.push(below => (found: List[A]) => go(ys.tail, below).flatMap(_(found))))
+            go(xs, s)
+          case Std.Choose.Mark(answer) => k(answer(s.depth), s)
+          case Std.Choose.Cut(m, answer) => k(answer(()), s.cutTo(m))
+        }
+      }).flatMap(_(Nil))
+  }
 }

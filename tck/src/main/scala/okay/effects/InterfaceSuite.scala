@@ -64,6 +64,14 @@ abstract class InterfaceSuite(fx: okay.effects.Runner) extends munit.FunSuite {
     assertEquals(more.evens(List(1, 3)), None)
     assertEquals(more.many(3000), 3000)
   }
+  test("the cut — once, a cut back to a mark, a failure after a cut not coming back, a long chain") {
+    assertEquals(more.onceAll, List(1))
+    assertEquals(more.cutInner, List(11, 12))
+    assertEquals(more.failAfterCut, None)
+    assertEquals(more.failNoCut, Some(2))
+    assertEquals(more.markCut, List(11, 12))
+    assertEquals(more.chainCut(1000000), Some(1000000))
+  }
   test("lift and lower: another monad's programs inside, the program given back as one of it") {
     assertEquals(more.lowered(Some(2)), Some(3))
     assertEquals(more.lowered(None), None)

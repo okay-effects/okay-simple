@@ -47,10 +47,13 @@ that loops on no input (`many` of a parser that succeeds consuming nothing) does
 `orElse(p, q)` is parsec's `try p <|> q`: whatever `p` did, `q` is tried from the same input. `orCommitted(p, q)` is
 `p <|> q`: `q` only if `p` failed having taken nothing. Once `p` went past where it started and failed, the parse fails
 there, with `p`'s error — what was expected where the input stopped making sense, not the last alternative's at the
-start; once `p` succeeded, a failure after it does not come back to `q`. `manyCommitted(p)` repeats `p` so: an item
-that began and failed is the error, so what follows the items must not begin as an item does. The attempts are kept by
-the expectations' handler, outside the choice, so what an attempt did survives the choice rolling it back; a hundred
-thousand nested are the heap's.
+start; once `p` succeeded, a failure after it does not come back to `q`, nor into `p`: their alternatives are CUT
+(`Choose`'s cut, [standard effects](../guide/standard-effects.md)), so a parse of committed choices keeps none behind
+it. `manyCommitted(p)` repeats `p` so, an item at a time, each committed and cut as it is taken: what it keeps behind
+does not grow with the items (measured: bench.d/2026-10-22_cut.txt). An item that began and failed is the error, so
+what follows the items must not begin as an item does. The attempts are kept by the expectations' handler, outside
+the choice, so what an attempt did survives the choice rolling it back; under a fair search, which does not cut, that
+record still makes `q` fail at once.
 
 ```scala
 def ab: String ! P = char[P]('a').andThen(char[P]('b')).as("ab")

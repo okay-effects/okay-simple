@@ -17,7 +17,7 @@ import okay.effects.std.*
 | `Writer % W` | `tell(w)` | `writer[W]`: what was told, in order; `listen[W](p)`, `censor(f)(p)` |
 | `Error % E` | `raise(e)` | `attempt[E]`: `Either[E, A]`; `recover[E](p)(h)` |
 | `Abort` | `abort` | `optional(p)`: `Option[A]` |
-| `Choose` | `among(xs)`, `fail`, `guard(cond)` | `all`: every way; `first`: the first way with no `fail` |
+| `Choose` | `among(xs)`, `fail`, `guard(cond)`; the cut: `mark`, `cut(m)`, `once(p)` | `all`: every way; `first`: the first way with no `fail` |
 | `Yield % O` | `emit(o)` | `collect[O]`, `take[O](n)`, `each[O](p)(f)` |
 | `Fresh` | `fresh` | `freshFrom(n0)` |
 | `Random` | `nextLong`, `nextInt(bound)`, `nextDouble` | `random(seed)` |
@@ -132,7 +132,23 @@ assert(run(all(queens(6))).size == 4)
 assert(run(first(queens(8))).isDefined)
 ```
 
-`all` resumes `k` for each choice — linear in the ways. `first` tries them in order and stops at the first.
+`all` resumes `k` for each choice — linear in the ways. `first` tries them in order and stops at the first. Both keep
+the alternatives not yet tried as data, a stack beside the program, and resume the choice in tail position: a chain
+of choice points is as long in memory as the alternatives still pending.
+
+The CUT is Prolog's. `mark` says how many alternatives are pending; `cut(m)` drops those made since — the ways not
+yet tried there are not tried. `once(p)` is `p`'s first way, its others dropped once it has one: a failure after it
+does not come back into it. A program of choices each cut as it is taken keeps nothing behind it, whatever its
+length. `first` and `all` cut; the fair search of [logic](../modules/logic.md) has no order to cut in and keeps every
+way.
+
+```scala
+val two: Int ! Choose = among[Int, Choose](List(1, 2))
+assert(run(all(once[Int, Choose](among[Int, Choose](List(1, 2, 3))))) == List(1))
+assert(run(all(two.flatMap(a => once[Int, Choose](among[Int, Choose](List(10, 20))).map(a + _)))) == List(11, 12))
+assert(run(first(once[Int, Choose](two).flatMap(x => if x == 1 then fail[Int, Choose] else pure(x)))) == None)
+assert(run(first(two.flatMap(x => if x == 1 then fail[Int, Choose] else pure(x)))) == Some(2))
+```
 
 ## Yield
 

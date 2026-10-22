@@ -23,6 +23,28 @@ class MoreStd(val fx: Runner) {
     run(first(among[Int, Choose](xs).flatMap(x => if (x % 2 == 0) pure[Int, Choose](x * 10) else fail[Int, Choose])))
   def many(n: Int): Int = run(all(among[Int, Choose]((1 to n).toList))).length
 
+  // ---- the cut
+  def two: Int ! Choose = among[Int, Choose](List(1, 2))
+  /** `once`: the first way only, under `all` too */
+  def onceAll: List[Int] = run(all(once[Int, Choose](among[Int, Choose](List(1, 2, 3)))))
+  /** a cut drops only the alternatives made since its mark: the outer choice stays */
+  def cutInner: List[Int] = run(all(two.flatMap(a => once[Int, Choose](among[Int, Choose](List(10, 20))).map(a + _))))
+  /** a failure after a cut does not come back into what was cut */
+  def failAfterCut: Option[Int] =
+    run(first(once[Int, Choose](two).flatMap(x => if (x == 1) fail[Int, Choose] else pure[Int, Choose](x))))
+  /** the same without the cut: back to the second way */
+  def failNoCut: Option[Int] =
+    run(first(two.flatMap(x => if (x == 1) fail[Int, Choose] else pure[Int, Choose](x))))
+  /** a cut back to a mark taken before the choice: the choice's other ways gone, the earlier ones kept */
+  def markCut: List[Int] = run(all(two.flatMap(a =>
+    mark[Choose].flatMap(m => among[Int, Choose](List(10, 20)).flatMap(b => cut[Choose](m).map(_ => a + b))))))
+  /** `n` choices each cut as taken: what is kept behind does not grow — a million under `first` */
+  def chainCut(n: Int): Option[Int] = {
+    def loop(i: Int, acc: Int): Int ! Choose =
+      if (i == 0) pure[Int, Choose](acc) else once[Int, Choose](two).flatMap(x => loop(i - 1, acc + x))
+    run(first(loop(n, 0)))
+  }
+
   /** a program of Option's lifted, lowered to an Option by a `Lowering` of one's own */
   implicit val optionLowering: Std.Lowering[Option] = new Std.Lowering[Option] {
     def pure[A](a: A): Option[A] = Some(a)

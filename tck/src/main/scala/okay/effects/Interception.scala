@@ -42,6 +42,7 @@ class Interception(val fx: Runner) {
     run(all(around[Choose, Choose, Int](among[Int, Choose]((1 to 6).toList))(new Around[Choose, Choose] {
       def apply[X](op: Choose[X], proceed: X ! Choose): X ! Choose = op match {
         case Std.Choose.Among(xs) => among[X, Choose](xs.filter { case n: Int => n % 2 == 0; case _ => true })
+        case _ => proceed
       }
     })))
 

@@ -14,7 +14,7 @@ import okay.effects.stream.Streams
  *  - `descent`, `grammar`: a JSON array of `n` records, by the hand parser and by the grammar on effects;
  *  - `stream`: the same text in 4 KB chunks, its values as they come (`Jsons.values`), the stream input remembered;
  *  - `deep`: `n` nested arrays, by the grammar (no stack: the heap's);
- *  - `termsOrElse`, `termsCommitted`: `n` terms `+1`, by `many` (backtracking) and `manyCommitted` (the attempts' stack).
+ *  - `termsOrElse`, `termsCommitted`: `n` terms `+1`, by `many` (backtracking) and `manyCommitted` (cut as taken).
  * The history is in bench.d/ */
 @JmhState(Scope.Benchmark)
 @BenchmarkMode(Array(Mode.AverageTime))
