@@ -288,8 +288,11 @@ lazy val docsCheckMonix = (project in file("docs/check/monix"))
   .dependsOn(machine.jvm, stream.jvm, interopMonix.jvm)
   .settings(scalaVersion := scala3Next, crossScalaVersions := Seq(scala3Next), publish / skip := true, libraryDependencies += munit,
     scalacOptions ++= Seq("-deprecation", "-feature"), Test / sourceGenerators += docBlocks("scala monix").taskValue)
+// on the Scala 2.13 builds, fixed at 2.13: so it builds the same under any `++` — on the cross-built modules it took
+// the version switched to, Scala 3 unless `++2.13.18`, and failed in the root's `test`. A Scala 2 block of tagless or
+// of a module needs its module's 2.13 build here first, as `machine213`
 lazy val docsCheck2 = (project in file("docs/check/scala-2"))
-  .dependsOn(machine.jvm, free.jvm, tagless.jvm, stream.jvm)
+  .dependsOn(machine213, free213)
   .settings(scalaVersion := scala2, crossScalaVersions := Seq(scala2), publish / skip := true, libraryDependencies += munit,
     Test / sourceGenerators += docBlocks("scala2").taskValue)
 
