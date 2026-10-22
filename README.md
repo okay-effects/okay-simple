@@ -17,7 +17,7 @@ retries. On the JVM, Scala.js and Scala Native; built on Scala 3.3 LTS and Scala
 use it ([Scala versions](docs/getting-started.md#scala-versions)).
 
 **Get it:** `resolvers += "okay-effects" at "https://okay-effects.github.io/okay-simple/maven"`, then
-`"io.github.okay-effects" %% "okay-effects-machine" % "0.1.0"` ([getting started](docs/getting-started.md)).
+`"io.github.okay-effects" %% "okay-effects-machine" % "0.1.1"` ([getting started](docs/getting-started.md)).
 
 **Documentation: [docs/](docs/README.md)** — [getting started](docs/getting-started.md), [a tour](docs/tour.md), the
 guide, a page for each module, [the examples](docs/examples.md); every code block compiled and run.
@@ -45,7 +45,7 @@ In okay-core's repository, module `effects/` (`io.github.okay-effects::okay-effe
 okay-core's machine, `okay.effects.core.Core`. In okay-kernel's repository, module `effects/`
 (`io.github.okay-effects::okay-effects-kernel`): the interface on okay-kernel's protocol,
 `okay.effects.kernel.OnKernel.on(effects)`. Both are built on this repository's release, `okay-effects` and
-`okay-effects-tck` 0.1.0.
+`okay-effects-tck` 0.1.1.
 
 ## A program
 

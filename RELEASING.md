@@ -9,8 +9,8 @@ https://okay-effects.github.io/okay-simple/maven. No account and no token is nee
 resolvers += "okay-effects" at "https://okay-effects.github.io/okay-simple/maven"
 
 libraryDependencies ++= Seq(
-  "io.github.okay-effects" %% "okay-effects"         % "0.1.0",
-  "io.github.okay-effects" %% "okay-effects-machine" % "0.1.0"
+  "io.github.okay-effects" %% "okay-effects"         % "0.1.1",
+  "io.github.okay-effects" %% "okay-effects-machine" % "0.1.1"
 )
 ```
 

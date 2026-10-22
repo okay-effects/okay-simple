@@ -15,8 +15,8 @@ Releases are a Maven repository on GitHub Pages: one resolver, and the modules y
 resolvers += "okay-effects" at "https://okay-effects.github.io/okay-simple/maven"
 
 libraryDependencies ++= Seq(
-  "io.github.okay-effects" %% "okay-effects"         % "0.1.0",   // the interface and the standard effects
-  "io.github.okay-effects" %% "okay-effects-machine" % "0.1.0"    // an implementation to run on
+  "io.github.okay-effects" %% "okay-effects"         % "0.1.1",   // the interface and the standard effects
+  "io.github.okay-effects" %% "okay-effects-machine" % "0.1.1"    // an implementation to run on
 )
 ```
 

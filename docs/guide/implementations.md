@@ -62,7 +62,7 @@ its forms (`Deep`, `Answering`, `Stateful`), delimited control its native `shift
 observer. okay-kernel's bridge runs on any implementation of the protocol: each operation of one key carrying its
 place, so two effects of one type in a row stay two places. Both live in their own repositories
 (`io.github.okay-effects::okay-effects-core`, `::okay-effects-kernel`), built on the release of `okay-effects` and
-`okay-effects-tck`, 0.1.0.
+`okay-effects-tck`, 0.1.1.
 
 ## Choosing
 
