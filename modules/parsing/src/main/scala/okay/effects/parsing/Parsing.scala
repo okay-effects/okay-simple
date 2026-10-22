@@ -20,10 +20,19 @@ object Input {
 }
 
 /** WHAT A PARSER EXPECTED where it failed. Handled OUTSIDE the choice, so the furthest failure survives backtracking:
- * the error reported is the furthest point reached and everything expected there */
+ * the error reported is the furthest point reached and everything expected there. And, for a committed choice
+ * (`orCommitted`), what an attempt did before the choice rolled it back: an attempt is OPENED where it starts, CLOSED
+ * when it succeeds, and ASKED by the other alternative whether it was committed — it succeeded, or failed past its
+ * start */
 sealed trait Expect[X]
 object Expect {
   final case class Failed[X](offset: Long, expected: String, answer: Unit => X) extends Expect[X]
+  /** an attempt opened at `start`: its id */
+  final case class Open[X](start: Long, answer: Long => X) extends Expect[X]
+  /** the attempt succeeded */
+  final case class Close[X](id: Long, answer: Unit => X) extends Expect[X]
+  /** whether the attempt committed: it succeeded, or it failed having gone past its start */
+  final case class Committed[X](id: Long, answer: Boolean => X) extends Expect[X]
 }
 
 /** where a parse failed and what was expected there; `line` and `column` are 1-based, 0 when unknown (a stream) */
@@ -116,6 +125,24 @@ class Parsing[F <: Effects with Singleton](implicit implementation: F) {
   def sepBy1[A, R[_]](p: => A ! R, sep: => Unit ! R)(implicit c: In[Choose, R]): List[A] ! R =
     p.flatMap(a => many[A, R](sep.flatMap(_ => p)).map(a :: _))
 
+  // ---- committed alternatives: parsec's `p <|> q`
+  /** `p`, or else `q` — but `q` ONLY if `p` failed having taken nothing. Once `p` went past where it started and
+   * failed, the parse fails there, with `p`'s error: what was expected where the input stopped making sense, not
+   * the last alternative's at the start. Once `p` succeeded, a failure after it does not come back to `q`.
+   * `orElse` is parsec's `try p <|> q`, backtracking always; this is `p <|> q`. `p`'s own alternatives are as `p`
+   * makes them */
+  def orCommitted[A, R[_]](p: => A ! R, q: => A ! R)(
+    implicit i: In[Input, R], e: In[Expect, R], c: In[Choose, R]): A ! R =
+    offset[R].flatMap(start => perform[Expect].apply[R, Long](Expect.Open[Long](start, id => id)).flatMap(id =>
+      among[Boolean, R](List(true, false)).flatMap { first =>
+        if (first) p.flatMap(a => perform[Expect].apply[R, Unit](Expect.Close[Unit](id, u => u)).as(a))
+        else perform[Expect].apply[R, Boolean](Expect.Committed[Boolean](id, b => b)).flatMap(committed =>
+          if (committed) among[A, R](Nil) else q)
+      }))
+  /** `p` as many times as it parses, committed: a `p` that went past its start and failed is the parse's error */
+  def manyCommitted[A, R[_]](p: => A ! R)(implicit i: In[Input, R], e: In[Expect, R], c: In[Choose, R]): List[A] ! R =
+    orCommitted[List[A], R](p.flatMap(a => manyCommitted[A, R](p).map(a :: _)), pure[List[A], R](Nil))
+
   // ---- running
   /** the input from a text in memory: an index into it, answered in place, no copy of the text */
   def input(text: String): InputHandler = new InputHandler(text)
@@ -142,23 +169,58 @@ class Parsing[F <: Effects with Singleton](implicit implementation: F) {
   }
 
   /** the furthest failure and everything expected there, kept outside the choice: `Left((offset, expected))` when the
-   * parse gave nothing */
+   * parse gave nothing. And the open attempts of committed choices: a stack, the innermost on top, since the choice
+   * goes depth first; a failure raises the top one's furthest point, a closed one hands its furthest to the one
+   * below */
   def expectations: Expectations = new Expectations
   final class Expectations {
     def apply[R[_], Rest[_], A](p: Option[A] ! R)(implicit sp: Split[Expect, R, Rest]): Either[(Long, List[String]), A] ! Rest =
-      handle[Expect, (Long, List[String]), R, Rest, Option[A], Either[(Long, List[String]), A]](p, (-1L, Nil),
-        new StatefulTailHandler[Expect, (Long, List[String]), Rest, Option[A], Either[(Long, List[String]), A]] {
-          def ret(s: (Long, List[String]), oa: Option[A]) = pure(oa match {
+      handle[Expect, Expectations.State, R, Rest, Option[A], Either[(Long, List[String]), A]](p, Expectations.empty,
+        new StatefulTailHandler[Expect, Expectations.State, Rest, Option[A], Either[(Long, List[String]), A]] {
+          def ret(s: Expectations.State, oa: Option[A]) = pure(oa match {
             case Some(a) => Right(a)
-            case None => Left((math.max(0L, s._1), s._2.reverse))
+            case None => Left((math.max(0L, s.furthest), s.expected.reverse))
           })
-          def answer[X](cell: Cell[(Long, List[String])], op: Expect[X]): X = op match {
+          def answer[X](cell: Cell[Expectations.State], op: Expect[X]): X = op match {
             case Expect.Failed(o, what, answer) =>
-              val (m, ws) = cell.get
-              if (o > m) cell.set((o, List(what))) else if (o == m && !ws.contains(what)) cell.set((m, what :: ws))
+              val s = cell.get
+              val at = if (o > s.furthest) s.copy(furthest = o, expected = List(what))
+                else if (o == s.furthest && !s.expected.contains(what)) s.copy(expected = what :: s.expected) else s
+              cell.set(at.copy(open = at.open match {
+                case top :: below => top.copy(reached = math.max(top.reached, o)) :: below
+                case Nil => Nil
+              }))
               answer(())
+            case Expect.Open(start, answer) =>
+              val s = cell.get
+              cell.set(s.copy(open = Expectations.Attempt(s.next, start, -1L) :: s.open, next = s.next + 1))
+              answer(s.next)
+            case Expect.Close(id, answer) =>
+              cell.set(closed(cell.get, id)._1); answer(())
+            case Expect.Committed(id, answer) =>
+              val (s, attempt) = closed(cell.get, id)
+              cell.set(s)
+              // not open: it was closed by its success; open: it failed, committed if it got past its start
+              answer(attempt.forall(a => a.reached > a.start))
           }
+          /** the attempt `id` taken off the stack, its furthest handed to the one below */
+          private def closed(s: Expectations.State, id: Long): (Expectations.State, Option[Expectations.Attempt]) =
+            s.open.span(_.id != id) match {
+              case (above, a :: below) =>
+                val reached = (a :: above).map(_.reached).max
+                (s.copy(open = below match {
+                  case b :: more => b.copy(reached = math.max(b.reached, reached)) :: more
+                  case Nil => Nil
+                }), Some(a.copy(reached = reached)))
+              case _ => (s, None)
+            }
         })
+  }
+  object Expectations {
+    /** an open attempt: where it started, the furthest any failure in it got */
+    final case class Attempt(id: Long, start: Long, reached: Long)
+    final case class State(furthest: Long, expected: List[String], open: List[Attempt], next: Long)
+    val empty: State = State(-1L, Nil, Nil, 0L)
   }
 
   /** `p` over `text`, all of it: the value, or the furthest failure with its line and column */

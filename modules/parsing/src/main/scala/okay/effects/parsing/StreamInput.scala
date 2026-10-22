@@ -5,9 +5,10 @@ import okay.effects.stream.Streams
 /**
  * THE INPUT FROM A STREAM OF CHUNKS: a chunk pulled when the parser needs the next character, so a text need not be in
  * memory. The handler's state — the chunk, the place in it, the stream after it — is per resume: under `orElse` each
- * alternative goes on from its own, and a chunk a rolled-back alternative needs again is pulled from the stream again,
- * so the source must REMEMBER what it gave (`fromIterator` does; a stream of effects would run them again). A parser
- * that decides by the next character never rolls back and reads each chunk once.
+ * alternative goes on from its own. The stream is REMEMBERED as it is pulled (`remembered`): a chunk a rolled-back
+ * alternative needs again is the one already pulled, not pulled from the source again, so any source will do — a
+ * stream of effects runs each once. What is kept is what a live choice point can still reach; the rest is the
+ * garbage collector's. A parser that decides by the next character never rolls back and keeps nothing behind it.
  */
 class StreamInput[S <: Streams[_ <: okay.effects.Effects]](val streams: S) {
   import streams.fx._
@@ -19,10 +20,31 @@ class StreamInput[S <: Streams[_ <: okay.effects.Effects]](val streams: S) {
   }
   private val parsers = new Parsing[streams.fx.type]()(streams.fx)
 
+  /** the stream, each pull remembered the first time it runs: pulled again, the same chunk and the same rest, the
+   * source not asked again */
+  def remembered[R[_]](s: streams.Stream[String, R]): streams.Stream[String, R] = {
+    @volatile var got: Option[streams.Pull[String, R]] = None
+    new streams.Stream[String, R](() => pure[Unit, R](()).flatMap { _ =>
+      got match {
+        case Some(p) => pure[streams.Pull[String, R], R](p)
+        case None => s.pull().map { p =>
+            // the rest wrapped once, here: `Emit` takes it by name, and a wrapper made at each look would remember
+            // nothing
+            val kept = p.fold[streams.Pull[String, R]](new streams.End[String, R]) { (c, rest) =>
+              val next = remembered[R](rest)
+              new streams.Emit[String, R](c, next)
+            }
+            got = Some(kept); kept
+          }
+      }
+    })
+  }
+
   def inputFrom[Rest[_]](chunks: streams.Stream[String, Rest]): FromStream[Rest] = new FromStream[Rest](chunks)
   final class FromStream[Rest[_]](chunks: streams.Stream[String, Rest]) {
     def apply[R[_], A](p: A ! R)(implicit sp: Split[Input, R, Rest]): A ! Rest =
-      handle[Input, At[Rest], R, Rest, A, A](p, At[Rest]("", 0, 0L, chunks), new StatefulHandler[Input, At[Rest], Rest, A, A] {
+      handle[Input, At[Rest], R, Rest, A, A](p, At[Rest]("", 0, 0L, remembered[Rest](chunks)),
+        new StatefulHandler[Input, At[Rest], Rest, A, A] {
         def ret(s: At[Rest], a: A) = pure(a)
         /** `s` with a character at `pos`, the next chunk pulled if need be; `None` at the end of the stream */
         def fill(s: At[Rest]): Option[At[Rest]] ! Rest =

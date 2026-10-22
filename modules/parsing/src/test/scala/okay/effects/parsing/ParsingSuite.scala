@@ -64,6 +64,59 @@ abstract class ParsingChecks(val fx0: Runner) extends munit.FunSuite {
     assertEquals(ps.fx.run(fromStreams.parseStream[Void](streams.fromIterator[String, Void](Iterator("let", "ter")))(
       orElse[String, P](string[P]("let"), string[P]("letter")))), Right("letter"))
   }
+
+  // ---- committed alternatives
+  def ab: String ! P = char[P]('a').flatMap(_ => char[P]('b')).as("ab")
+  test("committed: q only when p took nothing") {
+    assertEquals(run(parse("var")(orCommitted[String, P](string[P]("let"), string[P]("var")))), Right("var"))
+  }
+  test("committed: p went past its start and failed — p's error, where the input stopped making sense") {
+    assertEquals(run(parse("ac")(orElse[String, P](ab, string[P]("ac")))), Right("ac"))
+    assertEquals(run(parse("ac")(orCommitted[String, P](ab, string[P]("ac")))).left.map(e => (e.offset, e.expected)),
+      Left((1L, List("'b'"))))
+  }
+  test("committed: p succeeded, a failure after it does not come back to q") {
+    assertEquals(run(parse("letter")(orElse[String, P](string[P]("let"), string[P]("letter")))), Right("letter"))
+    assertEquals(run(parse("letter")(orCommitted[String, P](string[P]("let"), string[P]("letter"))))
+        .left.map(e => (e.offset, e.expected)), Left((3L, List("end of input"))))
+  }
+  test("committed, nested: an inner attempt's failure past the start commits the outer one too") {
+    def inner: String ! P =
+      orCommitted[String, P](string[P]("x"), char[P]('(').flatMap(_ => char[P](')')).as("()"))
+    assertEquals(run(parse("(]")(orElse[String, P](inner, string[P]("(]")))), Right("(]"))
+    assertEquals(run(parse("(]")(orCommitted[String, P](inner, string[P]("(]")))).left.map(e => (e.offset, e.expected)),
+      Left((1L, List("')'"))))
+  }
+  test("many, committed: an item that went past its start and failed is the parse's error") {
+    def list: String ! P = manyCommitted[String, P](ab).flatMap(_ => string[P]("ac"))
+    assertEquals(run(parse("abac")(many[String, P](ab).flatMap(_ => string[P]("ac")))), Right("ac"))
+    assertEquals(run(parse("abac")(list)).left.map(e => (e.offset, e.expected)), Left((3L, List("'b'"))))
+    // what follows the items must not begin as an item does: that is the commitment
+    assertEquals(run(parse("ababc")(manyCommitted[String, P](ab).flatMap(_ => string[P]("c")))), Right("c"))
+  }
+  test("committed, deep: a hundred thousand open attempts are the heap's") {
+    def factor: Int ! P =
+      orCommitted[Int, P](number, char[P]('(').flatMap(_ => cexpr).flatMap(e => char[P](')').as(e)))
+    def cexpr: Int ! P = factor.flatMap(f => manyCommitted[Int, P](char[P]('+').flatMap(_ => factor)).map(fs => f + fs.sum))
+    val n = 100000
+    assertEquals(run(parse("(" * n + "1+2" + ")" * n)(cexpr)), Right(3))
+    assertEquals(run(parse("(1+)")(cexpr)).left.map(e => (e.offset, e.expected)), Left((3L, List("a digit", "'('"))))
+  }
+
+  // ---- the stream remembered
+  test("a rolled-back alternative reads the chunks already pulled: a source that does not remember is asked once") {
+    val xs = Vector("let", "ter")
+    var pulls = 0
+    def from(i: Int): streams.Stream[String, Void] = new streams.Stream[String, Void](() => delay {
+      pulls += 1
+      pure[streams.Pull[String, Void], Void](
+        if (i < xs.length) new streams.Emit[String, Void](xs(i), from(i + 1))
+        else new streams.End[String, Void])
+    })
+    val parsed = ps.fx.run(fromStreams.parseStream[Void](from(0))(orElse[String, P](string[P]("let"), string[P]("letter"))))
+    assertEquals(parsed, Right("letter"))
+    assertEquals(pulls, 3, "each chunk pulled once, and the end once")
+  }
 }
 
 class ParsingOnMachine extends ParsingChecks(Machine)
