@@ -1,0 +1,111 @@
+ParsingScaleBenchmark, commit f16fee9 (+ the benchmark itself), 2026-10-22, JDK 26, Apple silicon, host load 7-18 (other sessions building)
+Question: does any parsing path grow faster than the input? Sizes doubling; linear is a flat time per item.
+
+1. sbt "bench/Jmh/run -f 1 -wi 2 -i 3 -w 1 -r 1 ParsingScaleBenchmark"  (load 13-17)
+Benchmark                              (impl)   (n)  Mode  Cnt      Score       Error  Units
+ParsingScaleBenchmark.deep            machine  1000  avgt    3    182.324 ±    97.071  us/op
+ParsingScaleBenchmark.deep            machine  2000  avgt    3    409.578 ±   410.375  us/op
+ParsingScaleBenchmark.deep            machine  4000  avgt    3    857.585 ±  1163.629  us/op
+ParsingScaleBenchmark.deep            machine  8000  avgt    3   1804.424 ±   157.674  us/op
+ParsingScaleBenchmark.deep               free  1000  avgt    3    270.549 ±   221.329  us/op
+ParsingScaleBenchmark.deep               free  2000  avgt    3    595.384 ±   438.795  us/op
+ParsingScaleBenchmark.deep               free  4000  avgt    3   1254.022 ±   222.084  us/op
+ParsingScaleBenchmark.deep               free  8000  avgt    3   3171.957 ±  2825.930  us/op
+ParsingScaleBenchmark.descent         machine  1000  avgt    3    192.484 ±    16.727  us/op
+ParsingScaleBenchmark.descent         machine  2000  avgt    3    404.079 ±    76.260  us/op
+ParsingScaleBenchmark.descent         machine  4000  avgt    3    826.276 ±   421.069  us/op
+ParsingScaleBenchmark.descent         machine  8000  avgt    3   1544.704 ±   104.354  us/op
+ParsingScaleBenchmark.descent            free  1000  avgt    3    190.396 ±    12.838  us/op
+ParsingScaleBenchmark.descent            free  2000  avgt    3    406.005 ±    97.085  us/op
+ParsingScaleBenchmark.descent            free  4000  avgt    3    813.111 ±    94.384  us/op
+ParsingScaleBenchmark.descent            free  8000  avgt    3   1619.893 ±   241.926  us/op
+ParsingScaleBenchmark.grammarJson     machine  1000  avgt    3   3849.200 ±   502.225  us/op
+ParsingScaleBenchmark.grammarJson     machine  2000  avgt    3   7838.275 ±  2734.416  us/op
+ParsingScaleBenchmark.grammarJson     machine  4000  avgt    3  15785.467 ±  3105.668  us/op
+ParsingScaleBenchmark.grammarJson     machine  8000  avgt    3  32934.703 ± 24012.974  us/op
+ParsingScaleBenchmark.grammarJson        free  1000  avgt    3   5141.802 ±   974.273  us/op
+ParsingScaleBenchmark.grammarJson        free  2000  avgt    3   9726.617 ±   454.383  us/op
+ParsingScaleBenchmark.grammarJson        free  4000  avgt    3  19723.496 ±  4053.804  us/op
+ParsingScaleBenchmark.grammarJson        free  8000  avgt    3  39081.504 ±  3934.807  us/op
+ParsingScaleBenchmark.streamJson      machine  1000  avgt    3   8486.054 ±  2655.898  us/op
+ParsingScaleBenchmark.streamJson      machine  2000  avgt    3  16423.782 ±  1220.379  us/op
+ParsingScaleBenchmark.streamJson      machine  4000  avgt    3  34588.700 ± 19860.558  us/op
+ParsingScaleBenchmark.streamJson      machine  8000  avgt    3  66971.967 ±  5267.375  us/op
+ParsingScaleBenchmark.streamJson         free  1000  avgt    3  11095.047 ±  1969.659  us/op
+ParsingScaleBenchmark.streamJson         free  2000  avgt    3  25667.627 ± 49646.142  us/op
+ParsingScaleBenchmark.streamJson         free  4000  avgt    3  43085.588 ± 33665.823  us/op
+ParsingScaleBenchmark.streamJson         free  8000  avgt    3  82938.205 ±  5793.334  us/op
+ParsingScaleBenchmark.termsCommitted  machine  1000  avgt    3    253.625 ±    40.306  us/op
+ParsingScaleBenchmark.termsCommitted  machine  2000  avgt    3    532.324 ±   292.688  us/op
+ParsingScaleBenchmark.termsCommitted  machine  4000  avgt    3   1324.055 ±  1320.786  us/op
+ParsingScaleBenchmark.termsCommitted  machine  8000  avgt    3   3010.227 ±  2415.837  us/op
+ParsingScaleBenchmark.termsCommitted     free  1000  avgt    3    376.181 ±   273.839  us/op
+ParsingScaleBenchmark.termsCommitted     free  2000  avgt    3    771.132 ±    79.521  us/op
+ParsingScaleBenchmark.termsCommitted     free  4000  avgt    3   1796.107 ±  1219.606  us/op
+ParsingScaleBenchmark.termsCommitted     free  8000  avgt    3   5374.492 ±  3952.854  us/op
+ParsingScaleBenchmark.termsOrElse     machine  1000  avgt    3    217.194 ±   402.919  us/op
+ParsingScaleBenchmark.termsOrElse     machine  2000  avgt    3    351.063 ±   507.310  us/op
+ParsingScaleBenchmark.termsOrElse     machine  4000  avgt    3    746.907 ±   563.031  us/op
+ParsingScaleBenchmark.termsOrElse     machine  8000  avgt    3   1815.838 ±  1520.087  us/op
+ParsingScaleBenchmark.termsOrElse        free  1000  avgt    3    278.162 ±   511.935  us/op
+ParsingScaleBenchmark.termsOrElse        free  2000  avgt    3    571.413 ±   160.371  us/op
+ParsingScaleBenchmark.termsOrElse        free  4000  avgt    3   1230.878 ±  1677.638  us/op
+ParsingScaleBenchmark.termsOrElse        free  8000  avgt    3   2863.283 ±  4333.245  us/op
+
+2. the two terms benchmarks again, wider: -f 2 -wi 3 -i 5 -p n=2000..32000  (load 8-13)
+ParsingScaleBenchmark.termsCommitted  machine   2000  avgt   10    532.987 ±   50.397  us/op
+ParsingScaleBenchmark.termsCommitted  machine   4000  avgt   10   1282.439 ±  176.066  us/op
+ParsingScaleBenchmark.termsCommitted  machine   8000  avgt   10   3109.668 ±  404.034  us/op
+ParsingScaleBenchmark.termsCommitted  machine  16000  avgt   10   8960.374 ± 3028.298  us/op
+ParsingScaleBenchmark.termsCommitted  machine  32000  avgt   10  23487.033 ± 8305.579  us/op
+ParsingScaleBenchmark.termsCommitted     free   2000  avgt   10    957.873 ±  103.149  us/op
+ParsingScaleBenchmark.termsCommitted     free   4000  avgt   10   2141.318 ±  224.952  us/op
+ParsingScaleBenchmark.termsCommitted     free   8000  avgt   10   6710.071 ± 1260.710  us/op
+ParsingScaleBenchmark.termsCommitted     free  16000  avgt   10  16721.706 ± 8869.797  us/op
+ParsingScaleBenchmark.termsCommitted     free  32000  avgt   10  24545.138 ±  832.041  us/op
+ParsingScaleBenchmark.termsOrElse     machine   2000  avgt   10    353.250 ±   58.188  us/op
+ParsingScaleBenchmark.termsOrElse     machine   4000  avgt   10    728.266 ±   12.347  us/op
+ParsingScaleBenchmark.termsOrElse     machine   8000  avgt   10   1664.911 ±   36.655  us/op
+ParsingScaleBenchmark.termsOrElse     machine  16000  avgt   10   3985.796 ±  105.494  us/op
+ParsingScaleBenchmark.termsOrElse     machine  32000  avgt   10  10234.666 ± 1105.621  us/op
+ParsingScaleBenchmark.termsOrElse        free   2000  avgt   10    504.748 ±    3.503  us/op
+ParsingScaleBenchmark.termsOrElse        free   4000  avgt   10   1105.369 ±   22.675  us/op
+ParsingScaleBenchmark.termsOrElse        free   8000  avgt   10   2576.899 ±  274.360  us/op
+ParsingScaleBenchmark.termsOrElse        free  16000  avgt   10   5518.076 ±  363.732  us/op
+ParsingScaleBenchmark.termsOrElse        free  32000  avgt   10  17386.941 ± 8381.127  us/op
+
+3. -prof gc, machine (load 7-13): bytes allocated per op
+ParsingScaleBenchmark.termsCommitted:gc.alloc.rate.norm  machine   2000  avgt   10   5339795.543 ±   38.901    B/op
+ParsingScaleBenchmark.termsCommitted:gc.alloc.rate.norm  machine   8000  avgt   10  22011853.728 ±    2.408    B/op
+ParsingScaleBenchmark.termsCommitted:gc.alloc.rate.norm  machine  32000  avgt   10  88059966.195 ±   10.437    B/op
+ParsingScaleBenchmark.termsOrElse:gc.alloc.rate.norm     machine   2000  avgt   10   3791495.297 ±   13.759    B/op
+ParsingScaleBenchmark.termsOrElse:gc.alloc.rate.norm     machine   8000  avgt   10  15167607.335 ±    5.864    B/op
+ParsingScaleBenchmark.termsOrElse:gc.alloc.rate.norm     machine  32000  avgt   10  60671671.021 ±    7.695    B/op
+
+4. before/after the committed-choice commit (5cbdef8: cff3ab2 vs HEAD), alternating, 3 rounds, machine, n=4000:
+1 before load=11.53 ParsingScaleBenchmark.grammarJson  machine  4000  avgt    5  15915.929 ±  1283.375  us/op
+1 before load=11.53 ParsingScaleBenchmark.streamJson   machine  4000  avgt    5  37158.253 ± 10670.708  us/op
+1 after load=11.71 ParsingScaleBenchmark.grammarJson  machine  4000  avgt    5  19960.059 ± 29655.341  us/op
+1 after load=11.71 ParsingScaleBenchmark.streamJson   machine  4000  avgt    5  39210.804 ± 26270.377  us/op
+2 before load=10.86 ParsingScaleBenchmark.grammarJson  machine  4000  avgt    5  18006.910 ±  9993.009  us/op
+2 before load=10.86 ParsingScaleBenchmark.streamJson   machine  4000  avgt    5  38125.386 ± 17169.989  us/op
+2 after load=10.52 ParsingScaleBenchmark.grammarJson  machine  4000  avgt    5  16685.600 ± 1956.896  us/op
+2 after load=10.52 ParsingScaleBenchmark.streamJson   machine  4000  avgt    5  34434.827 ± 4630.956  us/op
+3 before load=10.26 ParsingScaleBenchmark.grammarJson  machine  4000  avgt    5  16621.512 ± 7917.514  us/op
+3 before load=10.26 ParsingScaleBenchmark.streamJson   machine  4000  avgt    5  33652.544 ±  996.214  us/op
+3 after load=9.52 ParsingScaleBenchmark.grammarJson  machine  4000  avgt    5  15845.209 ± 1440.212  us/op
+3 after load=9.52 ParsingScaleBenchmark.streamJson   machine  4000  avgt    5  34458.636 ± 7905.964  us/op
+
+Reading:
+- descent, grammarJson, deep, streamJson: growth per doubling about 2.0 on both implementations — LINEAR. No choice
+  points, nothing retained behind the parse.
+- termsOrElse, termsCommitted: allocation per term FLAT (1896 B, 2670-2752 B) — the work is linear — but time per term
+  rises with n (machine 177 -> 320 ns orElse, 266 -> 734 ns committed, n 2000 -> 32000): both keep a live choice point
+  per item until the parse ends, so the live heap grows with the input and the collector and caches pay for it.
+  Not quadratic (that would be 4x per doubling; measured 2.1-2.6x).
+- manyCommitted keeps its alternatives too: the commitment is checked when the other branch runs, the branch is not
+  dropped. parsec drops it and runs in constant space. Recorded in BACKLOG as a perf item (a cut in Choose).
+- the commit's A/B: grammarJson median 16622 us before, 16686 us after (+0.4%); streamJson 37158 -> 34459 us (-7%);
+  both inside the noise at load ~10 — no measurable change from the expectations' attempts or the remembered stream.
+- streamJson is ~2x grammarJson for the same text (4 KB chunks through the generator and the lifted stream): a
+  constant, not growth; not looked into.

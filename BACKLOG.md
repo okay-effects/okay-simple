@@ -22,6 +22,17 @@ measurements before and after are in docs/modules/json.md ("Measured") and bench
 - DONE 2026-10-22: the stream input remembers what it pulled (`StreamInput.remembered`): a rolled-back alternative
   reads the chunks already pulled, so the source need not remember; what is kept is what a live choice point reaches.
 
+## parsing: a committed choice that frees its alternatives (kind: perf) — found 2026-10-22
+
+`orCommitted` and `manyCommitted` keep the other branch on the choice's stack until the parse ends; the commitment
+is checked when that branch runs, and it then fails at once. parsec drops the branch and runs `many` in constant
+space. Measured (bench.d/2026-10-22_f16fee9_parsing-scale.txt): allocation per term flat, time per term 266 -> 734 ns
+from 2000 to 32000 terms on the machine, against 177 -> 320 ns for the backtracking `many` — the live heap grows with
+the input. The shape of a fix: a `cut` in `Choose` (drop the alternatives made since a mark), issued when the attempt
+commits; or a committed choice handled by its own handler. Expected: flat time per term for `manyCommitted`.
+Disqualifying: if the per-term rise stays after the alternatives are dropped, the retention is elsewhere (the `map`
+chain of `many`'s results).
+
 ## shape: derived from a type, Scala 3 first
 
 `Shaped[P]` a type class with `shape: Shape[P]`; `derives Shaped` in `scala-3/` by `Mirror` and `inline`, no
