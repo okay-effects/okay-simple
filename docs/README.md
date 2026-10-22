@@ -22,7 +22,7 @@ runs.
 - [Examples](examples.md) — the `examples/` module, shown and told: rows in any order, a handler resuming twice, a
   search, delimited control, code for both compilers, one application of both; and the best of the modules' pages.
 - [The okay family](family.md) — okay-core, okay-kernel, okay (the platform), okay-java, okay-go, okay-rust,
-  okay-python, okay-ts, okay-lean: what each is, an example of each, how each meets this interface.
+  okay-python, okay-ts, okay-lean, okay-proof: what each is, an example of each, how each meets this interface.
 
 ## The guide
 

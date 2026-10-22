@@ -18,6 +18,7 @@ all of them in the GitHub organization [okay-effects](https://github.com/okay-ef
 | [okay-python](https://github.com/okay-effects/okay-python) | Python 3.11+ | typed effects on generators, `mypy --strict` clean; the protocol, a wire to okay | through okay-kernel |
 | [okay-ts](https://github.com/okay-effects/okay-ts) | TypeScript | okay-core's effects in TypeScript, programs as data or generators; the protocol | through okay-kernel |
 | [okay-lean](https://github.com/okay-effects/okay-lean) | Lean 4 | this repository's `Free` in Lean: programs as data, rows of typed places, the laws proved; a far side of okay's wire, over pipes and in the JVM's own process through FFM | a port of its `Free`; okay's wire |
+| [okay-proof](https://github.com/okay-effects/okay-proof) | Scala 3 | a small LCF-style prover for the run time: exact arithmetic, linear arithmetic and the Omega test by certificate, inference steps as an effect for audit and control | built on it (`okay-effects-machine` 0.1.0): a proof a program of its effects |
 
 okay-simple gives the family ONE typed Scala interface, `Effectful`, written over any machine. Its own
 implementations are the machine, `Free` and tagless. okay-core's machine and okay-kernel's protocol are two more,
@@ -295,6 +296,22 @@ the wire: a Lean worker is a far side of okay's (`Okay.Wire`: programs by name, 
 pure function continued any number of times), over a child's pipes or as one library of okay's C ABI that okay loads
 into the JVM's own process through FFM, checked by okay's conformance suite over both; and Lean as the host of another
 side's program, its operations under Lean's handlers.
+
+## okay-proof
+
+A small prover for decisions that must be justified, run inside an application: a kernel of first-order logic with
+equality, induction and exact arithmetic, LCF-style — a theorem is a value only the kernel makes. Its inference step
+is an effect of this repository's, `Infer.Step(rule)`, the kernel its handler: `observe` audits every step, `around`
+vetoes a rule, and no interceptor can forge a theorem (an answer must be made from the very step, by the kernel that
+owns the theory). Linear arithmetic over the rationals and the integers (the Omega test) and products of variables are
+decided outside the kernel and checked inside, by certificate; proof search runs on `Choose`, its strategy a handler.
+A decision proved in microseconds; its certificate, JSON with the theory and its digest, checked again by okay-lean's
+second kernel in Lean.
+
+```text
+Auto.prove(bank, facts, P(mayTransfer, List(ann, acc1, dec("700.00"))))   // Right(Some(t)): t.hyps the facts it rests on
+Certificate.checkAlone(Certificate.of(t))                                 // every step derived again
+```
 
 ## Continuations across the family
 

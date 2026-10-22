@@ -23,7 +23,7 @@ use it ([Scala versions](docs/getting-started.md#scala-versions)).
 guide, a page for each module, [the examples](docs/examples.md); every code block compiled and run.
 
 **The family: [docs/family.md](docs/family.md)** — okay-core, okay-kernel, okay (the platform), okay-java, okay-go,
-okay-rust, okay-python, okay-ts, okay-lean: what each is, and how each meets this interface.
+okay-rust, okay-python, okay-ts, okay-lean, okay-proof: what each is, and how each meets this interface.
 
 ## Modules and packages
 
