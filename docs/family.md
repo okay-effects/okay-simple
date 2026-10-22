@@ -17,6 +17,7 @@ all of them in the GitHub organization [okay-effects](https://github.com/okay-ef
 | [okay-rust](https://github.com/okay-effects/okay-rust) | Rust | okay-core's kernel in Rust (crate `okay`), and effects in async Rust (crate `okay-effects`) | through okay-kernel |
 | [okay-python](https://github.com/okay-effects/okay-python) | Python 3.11+ | typed effects on generators, `mypy --strict` clean; the protocol, a wire to okay | through okay-kernel |
 | [okay-ts](https://github.com/okay-effects/okay-ts) | TypeScript | okay-core's effects in TypeScript, programs as data or generators; the protocol | through okay-kernel |
+| [okay-lean](https://github.com/okay-effects/okay-lean) | Lean 4 | this repository's `Free` in Lean: programs as data, rows of typed places, the laws proved; a far side of okay's wire, over pipes and in the JVM's own process through FFM | a port of its `Free`; okay's wire |
 
 okay-simple gives the family ONE typed Scala interface, `Effectful`, written over any machine. Its own
 implementations are the machine, `Free` and tagless. okay-core's machine and okay-kernel's protocol are two more,
@@ -265,11 +266,42 @@ Interceptors and audit follow okay-core's (`audit`, `intercept`, `observe`). The
 speaks okay-kernel's protocol (`fromKernel`/`toKernel`, with okay-kernel's Scala.js module), and is a far side of
 okay's wire, over stdio or a WebSocket.
 
+## okay-lean
+
+This repository's `Free` monad in Lean 4: a program is data (`ret`, `bind`, an operation alone, an operation and its
+rest, `delay`), its row a list of effects, an operation carrying its typed `Place` in it — a handler takes its effect
+from its place by dependent matching, no cast, as here by Scala 3's GADT inference. Each interpreter is written twice:
+a total reference in continuation-passing style, which the proofs are about, and this repository's loop for running it
+(`@[implemented_by]`: a bind re-associated as data, every step a jump, a deep handler's `k` a trampoline) — so the
+monad laws are theorems (`rfl` after normalization), and 10^8 operations run in constant stack.
+
+```lean
+import Okay
+open Okay.Effects Okay.Effects.Free
+
+def greet [In (Reader String) R] [In (Writer String) R] [In (State Nat) R] : Nat ! R := do
+  let name : String ← ask
+  tell s!"hello, {name}"
+  let n : Nat ← get
+  put (n + name.length)
+  pure n
+
+#eval run (writer String (state 10 (reader "Ann" (greet (R := [Reader String, State Nat, Writer String])))))
+-- ((10, 13), ["hello, Ann"])
+```
+
+The standard effects — `State`, `Reader`, `Writer`, `Error`, `Choose`, `Abort` — with their handlers' laws proved. And
+the wire: a Lean worker is a far side of okay's (`Okay.Wire`: programs by name, typed effects through `Wire`, a rest a
+pure function continued any number of times), over a child's pipes or as one library of okay's C ABI that okay loads
+into the JVM's own process through FFM, checked by okay's conformance suite over both; and Lean as the host of another
+side's program, its operations under Lean's handlers.
+
 ## Continuations across the family
 
 | | multi-shot `k` | how |
 |---|---|---|
 | okay-simple, okay-core, okay-kernel, okay-java, okay-rust (`okay`) | yes | `k` is data |
 | okay-ts | data: yes; generators: no | two kinds of program, told apart by type |
+| okay-lean | yes, across a process and through FFM too | `k` a pure function, kept by the far side under an id |
 | okay-go | coroutines: no; `prog`: yes | a coroutine cannot be copied |
 | okay-python, okay-rust (`okay-effects`) | by replay | the program run again, the answers so far replayed |
