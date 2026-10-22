@@ -1,0 +1,77 @@
+The machine's first after the cut: where its cost was, and its fix. 2026-10-22, JDK 26, Apple silicon, host load 5-10.
+
+1. Four shapes of first in one JVM (FirstVariantsBenchmark, -f 2 -wi 3 -i 5), before the fix:
+FirstVariantsBenchmark.firstChain   machine      old  avgt   10  1786.715 ±  66.239  us/op
+FirstVariantsBenchmark.firstChain   machine      std  avgt   10  1886.159 ±  28.442  us/op
+FirstVariantsBenchmark.firstChain   machine    fused  avgt   10  1869.455 ±  33.659  us/op
+FirstVariantsBenchmark.firstChain   machine  handler  avgt   10  4772.006 ± 101.721  us/op
+FirstVariantsBenchmark.firstChain      free      old  avgt   10  1270.790 ±  14.231  us/op
+FirstVariantsBenchmark.firstChain      free      std  avgt   10  1312.160 ±  20.512  us/op
+FirstVariantsBenchmark.firstChain      free    fused  avgt   10  1501.562 ±  93.209  us/op
+FirstVariantsBenchmark.firstChain      free  handler  avgt   10  2059.568 ± 203.088  us/op
+FirstVariantsBenchmark.firstSearch  machine      old  avgt   10  4583.196 ± 361.249  us/op
+FirstVariantsBenchmark.firstSearch  machine      std  avgt   10  5020.854 ±  69.940  us/op
+FirstVariantsBenchmark.firstSearch  machine    fused  avgt   10  4760.940 ± 293.452  us/op
+FirstVariantsBenchmark.firstSearch  machine  handler  avgt   10  4520.213 ±  64.264  us/op
+FirstVariantsBenchmark.firstSearch     free      old  avgt   10  5054.192 ±  79.145  us/op
+FirstVariantsBenchmark.firstSearch     free      std  avgt   10  3310.719 ± 207.940  us/op
+FirstVariantsBenchmark.firstSearch     free    fused  avgt   10  3222.233 ±  75.511  us/op
+FirstVariantsBenchmark.firstSearch     free  handler  avgt   10  4371.316 ± 272.868  us/op
+Reading: std (Pending + cons + closure per alternative) +9.5% search, +5.5% chain against old on the machine; fused
+(one node per alternative) closes the search to +4% but not the chain; handler (a plain handler, the stack passed in
+the answer) is 2.7x SLOWER in the chain — REFUTED, as BACKLOG's disqualifying test said. The chain has no
+alternatives at all: what is left there is the machine resuming a stateful handler — a new Level.StateK per resume
+(Engine.scala, `here`), where a general handler reuses its level.
+
+2. The fix: the machine reuses the StateK level when resumed with the same state (scala-3 Engine; the scala-2 one
+keeps the outside frames in its level, so it allocates per resume either way), and first's pending alternatives
+fused to one node (Std.Alternative). Same JVM, old against the new std:
+FirstVariantsBenchmark.firstChain   machine      old  avgt   10  1770.198 ±  32.782  us/op
+FirstVariantsBenchmark.firstChain   machine      std  avgt   10  1775.436 ±  46.996  us/op
+FirstVariantsBenchmark.firstChain      free      old  avgt   10  1267.550 ±  20.495  us/op
+FirstVariantsBenchmark.firstChain      free      std  avgt   10  1281.423 ±  10.026  us/op
+FirstVariantsBenchmark.firstSearch  machine      old  avgt   10  4377.676 ±  17.866  us/op
+FirstVariantsBenchmark.firstSearch  machine      std  avgt   10  4416.248 ±  80.890  us/op
+FirstVariantsBenchmark.firstSearch     free      old  avgt   10  5035.494 ± 157.428  us/op
+FirstVariantsBenchmark.firstSearch     free      std  avgt   10  2749.603 ±  46.757  us/op
+
+3. Alternating A/B against eabcc87 (before the cut), 3 rounds, ChoiceBenchmark:
+1 before load=5.34 ChoiceBenchmark.allWays      machine  avgt    5   895.902 ±  21.145  us/op
+1 before load=5.34 ChoiceBenchmark.allWays         free  avgt    5   514.529 ±   8.325  us/op
+1 before load=5.34 ChoiceBenchmark.firstChain   machine  avgt    5  1502.636 ±  55.230  us/op
+1 before load=5.34 ChoiceBenchmark.firstChain      free  avgt    5  1387.944 ±  75.883  us/op
+1 before load=5.34 ChoiceBenchmark.firstSearch  machine  avgt    5  4329.925 ± 109.205  us/op
+1 before load=5.34 ChoiceBenchmark.firstSearch     free  avgt    5  4307.297 ±  47.381  us/op
+1 after load=5.24 ChoiceBenchmark.allWays      machine  avgt    5   281.451 ±  17.125  us/op
+1 after load=5.24 ChoiceBenchmark.allWays         free  avgt    5   239.538 ±   5.758  us/op
+1 after load=5.24 ChoiceBenchmark.firstChain   machine  avgt    5  1505.264 ±  83.746  us/op
+1 after load=5.24 ChoiceBenchmark.firstChain      free  avgt    5  1380.001 ±  26.194  us/op
+1 after load=5.24 ChoiceBenchmark.firstSearch  machine  avgt    5  4351.106 ±  76.103  us/op
+1 after load=5.24 ChoiceBenchmark.firstSearch     free  avgt    5  2875.636 ± 114.802  us/op
+2 before load=5.10 ChoiceBenchmark.allWays      machine  avgt    5   883.579 ±  14.471  us/op
+2 before load=5.10 ChoiceBenchmark.allWays         free  avgt    5   521.573 ±  32.674  us/op
+2 before load=5.10 ChoiceBenchmark.firstChain   machine  avgt    5  1495.351 ±  53.089  us/op
+2 before load=5.10 ChoiceBenchmark.firstChain      free  avgt    5  1295.360 ±  18.683  us/op
+2 before load=5.10 ChoiceBenchmark.firstSearch  machine  avgt    5  4307.939 ±  39.164  us/op
+2 before load=5.10 ChoiceBenchmark.firstSearch     free  avgt    5  4341.759 ± 153.587  us/op
+2 after load=5.37 ChoiceBenchmark.allWays      machine  avgt    5   279.750 ±  15.233  us/op
+2 after load=5.37 ChoiceBenchmark.allWays         free  avgt    5   242.309 ±   1.410  us/op
+2 after load=5.37 ChoiceBenchmark.firstChain   machine  avgt    5  1505.257 ± 122.138  us/op
+2 after load=5.37 ChoiceBenchmark.firstChain      free  avgt    5  1397.332 ±  38.025  us/op
+2 after load=5.37 ChoiceBenchmark.firstSearch  machine  avgt    5  4346.488 ± 167.505  us/op
+2 after load=5.37 ChoiceBenchmark.firstSearch     free  avgt    5  2925.124 ±  71.345  us/op
+3 before load=4.87 ChoiceBenchmark.allWays      machine  avgt    5   889.165 ±  20.317  us/op
+3 before load=4.87 ChoiceBenchmark.allWays         free  avgt    5   515.465 ±  16.792  us/op
+3 before load=4.87 ChoiceBenchmark.firstChain   machine  avgt    5  1484.741 ±  16.581  us/op
+3 before load=4.87 ChoiceBenchmark.firstChain      free  avgt    5  1397.736 ±  22.733  us/op
+3 before load=4.87 ChoiceBenchmark.firstSearch  machine  avgt    5  4119.124 ± 130.511  us/op
+3 before load=4.87 ChoiceBenchmark.firstSearch     free  avgt    5  4401.901 ± 247.509  us/op
+3 after load=9.92 ChoiceBenchmark.allWays      machine  avgt    5   273.852 ±   7.641  us/op
+3 after load=9.92 ChoiceBenchmark.allWays         free  avgt    5   241.992 ±   6.343  us/op
+3 after load=9.92 ChoiceBenchmark.firstChain   machine  avgt    5  1485.607 ±  19.257  us/op
+3 after load=9.92 ChoiceBenchmark.firstChain      free  avgt    5  1402.191 ±  12.600  us/op
+3 after load=9.92 ChoiceBenchmark.firstSearch  machine  avgt    5  4340.092 ± 123.836  us/op
+3 after load=9.92 ChoiceBenchmark.firstSearch     free  avgt    5  2853.244 ± 119.741  us/op
+Medians: firstSearch machine 4308 -> 4346 us (+0.9%, within the before-runs' own spread 4119-4330); firstChain
+machine 1495 -> 1505 us (+0.7%); firstSearch Free 4342 -> 2876 us (-34%); allWays machine 889 -> 280 us, Free
+515 -> 242 us. The machine's regression of bench.d/2026-10-22_cut.txt is gone.

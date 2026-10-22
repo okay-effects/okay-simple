@@ -36,7 +36,7 @@ DONE: `Choose` got `Mark`/`Cut` and `once`; `first` and `all` keep the pending a
 resume in tail position; `orCommitted` cuts once `p` succeeds; `manyCommitted` is a loop of item-wise committed
 choices. Time per term on the machine 304 -> 381 ns from 2000 to 32000 terms (was 266 -> 734); bench.d/2026-10-22_cut.txt.
 
-## the machine's `first` as a stateful handler: 15% slower in backtracking search (kind: perf) — found 2026-10-22
+## the machine's `first` as a stateful handler: 15% slower in backtracking search (kind: perf) — found 2026-10-22, DONE 2026-10-22
 
 `first` on an explicit stack (for the cut) threads its state through every resume: on the machine, `firstSearch`
 (65 536 ways) 4307 -> 4958 us, `firstChain` 1524 -> 1626 us; on `Free` 21% faster, and `all` 2.2-3.5x faster on both
@@ -44,6 +44,10 @@ choices. Time per term on the machine 304 -> 381 ns from 2000 to 32000 terms (wa
 boxed per resume, the clause called through the pair. Expected: `firstSearch` back to ~4300 us. Disqualifying: if a
 Handler-shaped `first` keeping its stack in the answer type (`B = Pending => Option[A] ! Rest`) is no faster, the
 cost is the stack's allocation, not the stateful path.
+DONE: both, in part. The plain-handler shape was REFUTED (2.7x slower in a chain). The cost was a new Level.StateK
+per resume on the Scala 3 machine — now reused when the state is the same object — and three allocations per
+pending alternative — now one node (`Std.Alternative`). firstSearch on the machine 4308 -> 4346 us against the code
+before the cut (+0.9%, noise), Free 4342 -> 2876 us; bench.d/2026-10-22_first-on-the-machine.txt.
 
 ## shape: derived from a type, Scala 3 first
 

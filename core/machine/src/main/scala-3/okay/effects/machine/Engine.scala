@@ -222,7 +222,9 @@ private[machine] object Engine:
       Go[Rest, B, W, Z](g.h.op[X](op, (x: X) => Prog.Resume[Rest, X, B, R0, V0, E, R, A](inner, pre, l.at, g, x)),
         l.outside, l.m)
     case g: Level.StateK[e3, t3, a3, b3, s] =>
-      val k = (x: X, s1: s) => Prog.Resume[Rest, X, B, R0, V0, E, R, A](inner, pre, l.at, Level.StateK(g.h, s1), x)
+      // the level reused when resumed with the state it has: no allocation per operation for a state that stays
+      val k = (x: X, s1: s) => Prog.Resume[Rest, X, B, R0, V0, E, R, A](inner, pre, l.at,
+        if (s1.asInstanceOf[AnyRef] eq g.state.asInstanceOf[AnyRef]) g else Level.StateK(g.h, s1), x)
       Go[Rest, B, W, Z](g.h.op[X](g.state, op, k), l.outside, l.m)
     case g: Level.Abort[e3, t3, a3, b3] =>
       // the rest dropped: the frames inside and the levels crossed left behind, no `k`

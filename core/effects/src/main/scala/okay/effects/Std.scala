@@ -446,28 +446,38 @@ class Std[F <: Effects with Singleton](val fx: F) {
   }
   object Pending { def empty[B]: Pending[B] = new Pending[B](Nil, 0) }
 
+  /** `first`'s pending alternatives, ONE NODE EACH: a choice point's `k`, its ways not yet tried, the node below, the
+   * depth — one allocation per choice point of two ways or more, none for one; `null` is none pending */
+  final class Alternative[B](val k: (Any, Alternative[B]) => B, val ways: List[Any], val below: Alternative[B],
+    val depth: Int)
+
   /** the first way the program goes with no `fail`: the choices tried in order, the rest not tried; a cut drops the
    * alternatives made since its mark */
   def first[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): Option[A] ! Rest = {
     type B = Option[A] ! Rest
-    handle[Choose, Pending[B], R, Rest, A, Option[A]](p, Pending.empty[B],
-      new StatefulHandler[Choose, Pending[B], Rest, A, Option[A]] {
-        def ret(s: Pending[B], a: A) = pure(Some(a))
-        /** the next alternative, or none left */
-        def back(s: Pending[B]): B = s.stack match {
-          case alt :: below => alt(new Pending[B](below, s.depth - 1))
-          case Nil => pure[Option[A], Rest](None)
-        }
-        def op[X](s: Pending[B], op: Choose[X], k: (X, Pending[B]) => B) = op match {
+    type P = Alternative[B]
+    handle[Choose, P, R, Rest, A, Option[A]](p, null,
+      new StatefulHandler[Choose, P, Rest, A, Option[A]] {
+        def ret(s: P, a: A) = pure(Some(a))
+        def depth(s: P): Int = if (s eq null) 0 else s.depth
+        /** the next alternative, its node kept for the ways after it, or none left */
+        def back(s: P): B =
+          if (s eq null) pure[Option[A], Rest](None)
+          else {
+            val after = s.ways.tail
+            s.k(s.ways.head, if (after.isEmpty) s.below else new Alternative[B](s.k, after, s.below, s.depth))
+          }
+        def op[X](s: P, op: Choose[X], k: (X, P) => B) = op match {
+          // `isEmpty`, not a `Nil` pattern: that is an `equals` call per choice point
           case Std.Choose.Among(xs) =>
-            // `isEmpty`, not a `Nil` pattern: that is an `equals` call per choice point
-            def go(ys: List[X], s: Pending[B]): B =
-              if (ys.isEmpty) back(s)
-              else if (ys.tail.isEmpty) k(ys.head, s)
-              else k(ys.head, s.push(below => go(ys.tail, below)))
-            go(xs, s)
-          case Std.Choose.Mark(answer) => k(answer(s.depth), s)
-          case Std.Choose.Cut(m, answer) => k(answer(()), s.cutTo(m))
+            if (xs.isEmpty) back(s)
+            else if (xs.tail.isEmpty) k(xs.head, s)
+            else k(xs.head, new Alternative[B](k.asInstanceOf[(Any, P) => B], xs.tail, s, depth(s) + 1))
+          case Std.Choose.Mark(answer) => k(answer(depth(s)), s)
+          case Std.Choose.Cut(m, answer) =>
+            var t = s
+            while ((t ne null) && t.depth > m) t = t.below
+            k(answer(()), t)
         }
       })
   }
