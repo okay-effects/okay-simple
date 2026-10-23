@@ -40,6 +40,7 @@ val moduleDescriptions: Map[String, String] = Map(
   "okay-effects" -> "Algebraic effects and handlers for Scala 3 and 2.13: the interface, one for both compilers, and the standard effects",
   "okay-effects-machine" -> "The machine: the fast implementation of okay-effects, an explicit stack of frames and handlers",
   "okay-effects-free" -> "The Free monad: an implementation of okay-effects, a program a tree, each handler its interpreter",
+  "okay-effects-cek" -> "okay-effects on okay-scala's CEK machine: an adapter, Scala 3",
   "okay-effects-tagless" -> "Tagless: programs of okay-effects of no implementation, made on the one given when run",
   "okay-effects-tck" -> "The interface's suite: InterfaceSuite(fx), checking any implementation of okay-effects",
   "okay-effects-concurrent" -> "Cooperative threads in turns and a rendezvous channel, over okay-effects",
@@ -113,6 +114,18 @@ lazy val free = crossBoth("free", "core/free").dependsOn(effects)
 /** the interface's suite on the `Free` monad */
 lazy val suiteFree = crossBoth("suiteFree", "suite-free").dependsOn(free, tck)
   .settings(name := "okay-effects-suite-free", publish / skip := true)
+
+/** THE INTERFACE ON OKAY-SCALA'S MACHINE (github.com/okay-effects/okay-scala), a CEK machine: an adapter, Scala 3
+ * alone. Neither depends on the other's classes — okay-scala's machine takes this interface's places as they are */
+val okayScala = "0.1.0-SNAPSHOT"
+lazy val cek = crossBoth("cek", "core/cek").dependsOn(effects)
+  .settings(name := "okay-effects-cek", crossScalaVersions := Seq(scala3),
+    resolvers += "okay-scala" at "https://okay-effects.github.io/okay-scala/maven",
+    libraryDependencies += "io.github.okay-effects" %%% "okay-scala" % okayScala)
+
+/** the interface's suite on okay-scala's machine */
+lazy val suiteCek = crossBoth("suiteCek", "suite-cek").dependsOn(cek, tck)
+  .settings(name := "okay-effects-suite-cek", publish / skip := true, crossScalaVersions := Seq(scala3))
 
 /** EXAMPLES: how to write with the effects — code for both compilers, Scala 3's way, Scala 2's way — written over
  * `Effects` alone; run on the machine and on the `Free` monad by `OnMachine` and `OnFree`, their values checked on
@@ -254,6 +267,10 @@ lazy val async = effectModule("async", "okay-effects-async").dependsOn(stream)
 lazy val bench = (project in file("bench")).dependsOn(machine.jvm, free.jvm, tagless.jvm, json.jvm).enablePlugins(JmhPlugin)
   .settings(crossScalaVersions := Seq(scala3, scala2), name := "okay-effects-bench", publish / skip := true)
 
+/** okay-scala's machine beside this one, on `bench`'s programs: Scala 3 alone. `sbt "benchCek/Jmh/run -f 2 -wi 5 -i 5"` */
+lazy val benchCek = (project in file("bench-cek")).dependsOn(bench, cek.jvm).enablePlugins(JmhPlugin)
+  .settings(scalaVersion := scala3, crossScalaVersions := Seq(scala3), name := "okay-effects-bench-cek", publish / skip := true)
+
 /** THE DOCUMENTATION'S CODE, CHECKED: each ```scala block of `docs/` (```scala2 for Scala 2.13), a page's blocks in
  * turn in one class, compiled; an instance made in a test, so a page's `assert`s run — a class, not an object: a
  * callback on another thread waits on no initialisation of it. `sbt docsCheck/test docsCheck2/test` */
@@ -327,18 +344,18 @@ lazy val compat3 = (project in file("compat/scala3")).dependsOn(compat2)
     projectDependencies ~= (_.map(_.exclude("org.scala-lang", "scala-library"))))
 
 /** every cross-built module, on each platform built */
-lazy val crossBuiltModules: Seq[CrossProject] = Seq(interopKyo, effects, tck, machine, suite, free, suiteFree, tagless, concurrent, resource, io, probability, parsing, logic, transaction, resilience, stream, async, json, shape, describe, algebra, interopCats, interopZio, interopZioStream, interopFs2, interopMonix)
+lazy val crossBuiltModules: Seq[CrossProject] = Seq(interopKyo, effects, tck, machine, suite, free, suiteFree, cek, suiteCek, tagless, concurrent, resource, io, probability, parsing, logic, transaction, resilience, stream, async, json, shape, describe, algebra, interopCats, interopZio, interopZioStream, interopFs2, interopMonix)
 lazy val root = (project in file(".")).aggregate((Seq[ProjectReference](docsCheck, docsCheck2, docsCheckMonix, interopTofu, interopJavaStream, examples, free213, examples213, examplesMixed, compat2, compat3, effects213, machine213, compat3on2) ++ crossBuiltModules.flatMap(_.projects.values.map(p => p: ProjectReference))): _*)
   .settings(publish / skip := true, crossScalaVersions := Nil)
 
 /** everything: the interface's suites by both compilers, then the two compilers in one application */
 /** the same suites on Scala.js (Node.js) and on Scala Native, by both compilers — when built: `sbt -Dplatforms=jvm,js testJS`,
  * `sbt -Dplatforms=jvm,native testNative` */
-addCommandAlias("testJS", if (platformsAsked("js")) "; ++3.3.8 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; asyncJS/test ; interopCatsJS/test ; interopZioJS/test ; interopZioStreamJS/test ; interopFs2JS/test ; interopMonixJS/test ; ++3.9.0 interopKyoJS/test ; ++2.13.18 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; asyncJS/test ; interopCatsJS/test ; interopZioJS/test ; interopZioStreamJS/test ; interopFs2JS/test ; interopMonixJS/test ; ++3.3.8" else "; show platformsHelp")
-addCommandAlias("testNative", if (platformsAsked("native")) "; ++3.3.8 suiteNative/test ; suiteFreeNative/test ; taglessNative/test ; concurrentNative/test ; resourceNative/test ; ioNative/test ; probabilityNative/test ; parsingNative/test ; logicNative/test ; transactionNative/test ; resilienceNative/test ; streamNative/test ; asyncNative/test ; interopCatsNative/test ; interopZioNative/test ; interopZioStreamNative/test ; interopFs2Native/test ; ++3.9.0 interopKyoNative/test ; ++2.13.18 suiteNative/test ; suiteFreeNative/test ; taglessNative/test ; concurrentNative/test ; resourceNative/test ; ioNative/test ; probabilityNative/test ; parsingNative/test ; logicNative/test ; transactionNative/test ; resilienceNative/test ; streamNative/test ; asyncNative/test ; interopCatsNative/test ; interopZioNative/test ; interopZioStreamNative/test ; interopFs2Native/test ; ++3.3.8" else "; show platformsHelp")
+addCommandAlias("testJS", if (platformsAsked("js")) "; ++3.3.8 suiteJS/test ; suiteFreeJS/test ; suiteCekJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; asyncJS/test ; interopCatsJS/test ; interopZioJS/test ; interopZioStreamJS/test ; interopFs2JS/test ; interopMonixJS/test ; ++3.9.0 interopKyoJS/test ; ++2.13.18 suiteJS/test ; suiteFreeJS/test ; taglessJS/test ; concurrentJS/test ; resourceJS/test ; ioJS/test ; probabilityJS/test ; parsingJS/test ; logicJS/test ; transactionJS/test ; resilienceJS/test ; streamJS/test ; asyncJS/test ; interopCatsJS/test ; interopZioJS/test ; interopZioStreamJS/test ; interopFs2JS/test ; interopMonixJS/test ; ++3.3.8" else "; show platformsHelp")
+addCommandAlias("testNative", if (platformsAsked("native")) "; ++3.3.8 suiteNative/test ; suiteFreeNative/test ; suiteCekNative/test ; taglessNative/test ; concurrentNative/test ; resourceNative/test ; ioNative/test ; probabilityNative/test ; parsingNative/test ; logicNative/test ; transactionNative/test ; resilienceNative/test ; streamNative/test ; asyncNative/test ; interopCatsNative/test ; interopZioNative/test ; interopZioStreamNative/test ; interopFs2Native/test ; ++3.9.0 interopKyoNative/test ; ++2.13.18 suiteNative/test ; suiteFreeNative/test ; taglessNative/test ; concurrentNative/test ; resourceNative/test ; ioNative/test ; probabilityNative/test ; parsingNative/test ; logicNative/test ; transactionNative/test ; resilienceNative/test ; streamNative/test ; asyncNative/test ; interopCatsNative/test ; interopZioNative/test ; interopZioStreamNative/test ; interopFs2Native/test ; ++3.3.8" else "; show platformsHelp")
 lazy val platformsHelp = taskKey[String]("how to build for Scala.js and Scala Native")
 ThisBuild / platformsHelp := "Scala.js and Scala Native are built when asked: sbt -Dplatforms=jvm,js,native (or OKAY_PLATFORMS=js,native)"
-addCommandAlias("testAll", "; ++3.3.8 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; json/test ; shape/test ; algebra/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; interopJavaStream/test ; interopZioStream/test ; interopFs2/test ; interopMonix/test ; ++2.13.18 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; json/test ; shape/test ; algebra/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; interopJavaStream/test ; interopZioStream/test ; interopFs2/test ; interopMonix/test ; ++3.3.8 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test ; ++3.9.0 interopKyo/test ; docsCheck/test ; docsCheckMonix/test ; ++3.9.0! suite/test ; suiteFree/test ; tagless/test ; ++2.13.18 docsCheck2/test ; ++3.3.8")
+addCommandAlias("testAll", "; ++3.3.8 suite/test ; suiteFree/test ; suiteCek/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; json/test ; shape/test ; algebra/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; interopJavaStream/test ; interopZioStream/test ; interopFs2/test ; interopMonix/test ; ++2.13.18 suite/test ; suiteFree/test ; tagless/test ; concurrent/test ; resource/test ; io/test ; probability/test ; parsing/test ; json/test ; shape/test ; algebra/test ; logic/test ; transaction/test ; resilience/test ; stream/test ; async/test ; examples/test ; interopCats/test ; interopZio/test ; interopTofu/test ; interopJavaStream/test ; interopZioStream/test ; interopFs2/test ; interopMonix/test ; ++3.3.8 ; compat2/test ; compat3/test ; compat3on2/test ; examplesMixed/test ; ++3.9.0 interopKyo/test ; docsCheck/test ; docsCheckMonix/test ; ++3.9.0! suite/test ; suiteFree/test ; suiteCek/test ; tagless/test ; ++2.13.18 docsCheck2/test ; ++3.3.8")
 /** a release into `target/pages-maven/`: the libraries on Scala 3.3 and 2.13, kyo's interop on its own Scala 3 —
  * `sbt -Dplatforms=jvm,js,native publishPages` for all three platforms */
 addCommandAlias("publishPages", "; ++3.3.8 publish ; ++2.13.18 publish ; ++3.9.0 interopKyo/publish" +
