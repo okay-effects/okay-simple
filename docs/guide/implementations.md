@@ -8,6 +8,7 @@ runs on any; choose where you run.
 | the machine | `okay-effects-machine` | `okay.effects.machine.Machine` | an explicit stack of frames and handlers' levels, an operation finding its handler in one walk — the fast one |
 | the `Free` monad | `okay-effects-free` | `okay.effects.free.Free` (through the interface), `OnFree` (as it is, its words `inline`) | a program a tree, each handler its interpreter |
 | tagless | `okay-effects-tagless` | `okay.effects.tagless.Tagless` (an `Effects`), `Tagless.on(fx)` (a `Runner`) | programs of NO implementation, made on the one given at `run` |
+| okay-scala | `okay-effects-cek` (Scala 3) | `okay.effects.cek.OnCek` | the interface on okay-scala's CEK machine: a program okay-scala's own `Prog`, over this interface's rows |
 | okay-core | okay-core's `okay-effects-core` | `okay.effects.core.Core` | the interface on okay-core's machine: a program okay-core's own `Cont` |
 | okay-kernel | okay-kernel's `okay-effects-kernel` | `okay.effects.kernel.OnKernel.on(effects)` | on any implementation of okay-kernel's protocol: its reference machine, okay-java, okay-core |
 
@@ -63,6 +64,12 @@ observer. okay-kernel's bridge runs on any implementation of the protocol: each 
 place, so two effects of one type in a row stay two places. Both live in their own repositories
 (`io.github.okay-effects::okay-effects-core`, `::okay-effects-kernel`), built on the release of `okay-effects` and
 `okay-effects-tck`, 0.1.1.
+
+okay-scala's adapter is here, module `cek`: okay-scala (`io.github.okay-effects::okay-scala`, its own release) is
+algebraic effects for Scala 3 alone, a CEK machine typed by its rows with no cast, and depends on nothing. Its
+machine takes places of any representation; the adapter gives it this interface's own (`Spot`), compared by the
+adapter, so the two libraries share no class and this interface is unchanged. Its runs allocate what the machine's
+do; the interface's suite passes on it on every platform.
 
 ## Choosing
 

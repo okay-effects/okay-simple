@@ -18,6 +18,7 @@ all of them in the GitHub organization [okay-effects](https://github.com/okay-ef
 | [okay-python](https://github.com/okay-effects/okay-python) | Python 3.11+ | typed effects on generators, `mypy --strict` clean; the protocol, a wire to okay | through okay-kernel |
 | [okay-ts](https://github.com/okay-effects/okay-ts) | TypeScript | okay-core's effects in TypeScript, programs as data or generators; the protocol | through okay-kernel |
 | [okay-lean](https://github.com/okay-effects/okay-lean) | Lean 4 | this repository's `Free` in Lean: programs as data, rows of typed places, the laws proved; a far side of okay's wire, over pipes and in the JVM's own process through FFM | a port of its `Free`; okay's wire |
+| [okay-scala](https://github.com/okay-effects/okay-scala) | Scala 3 | the rows `A ! R`, `R + E`, `F % S` for Scala 3 alone: one CEK machine with generalised continuations, enums and GADTs, no cast; JVM, Scala.js, Native | module `cek/`: `okay.effects.cek.OnCek`, a `Runner`; no class shared |
 | [okay-proof](https://github.com/okay-effects/okay-proof) | Scala 3 | a small LCF-style prover for the run time: exact arithmetic, linear arithmetic and the Omega test by certificate, inference steps as an effect for audit and control | built on it (`okay-effects-machine` 0.1.0): a proof a program of its effects |
 
 okay-simple gives the family ONE typed Scala interface, `Effectful`, written over any machine. Its own
@@ -297,6 +298,25 @@ pure function continued any number of times), over a child's pipes or as one lib
 into the JVM's own process through FFM, checked by okay's conformance suite over both; and Lean as the host of another
 side's program, its operations under Lean's handlers.
 
+## okay-scala
+
+This repository's interface written again for Scala 3 alone, nothing kept for Scala 2, and one machine for it: the
+CEK machine with the generalised continuations of Hillerström, Lindley and Atkey, its data enums typed by the row, so
+Scala 3's GADT inference proves each operation its handler's — no cast. A clause is a polymorphic function, a handler
+one of four shapes; a missing effect says so as the row is written, by its one macro. It depends on nothing, and is
+built on Scala 3.3 LTS for the JVM, Scala.js and Scala Native. Its machine takes places of any representation, so this
+repository's adapter, `cek`, runs the interface on it with this interface's own rows and places: no class shared.
+
+```text
+def greet[R[_]: Has[Reader % String] : Has[State % Int] : Has[Writer % String]]: Int ! R =
+  for
+    name <- Reader.ask
+    n    <- State.get
+    _    <- State.put(n + 1)
+    _    <- Writer.tell(s"hello, $name")
+  yield n
+```
+
 ## okay-proof
 
 A small prover for decisions that must be justified, run inside an application: a kernel of first-order logic with
@@ -317,7 +337,7 @@ Certificate.checkAlone(Certificate.of(t))                                 // eve
 
 | | multi-shot `k` | how |
 |---|---|---|
-| okay-simple, okay-core, okay-kernel, okay-java, okay-rust (`okay`) | yes | `k` is data |
+| okay-simple, okay-scala, okay-core, okay-kernel, okay-java, okay-rust (`okay`) | yes | `k` is data |
 | okay-ts | data: yes; generators: no | two kinds of program, told apart by type |
 | okay-lean | yes, across a process and through FFM too | `k` a pure function, kept by the far side under an id |
 | okay-go | coroutines: no; `prog`: yes | a coroutine cannot be copied |
