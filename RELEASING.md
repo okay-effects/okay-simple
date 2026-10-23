@@ -17,6 +17,14 @@ libraryDependencies ++= Seq(
 `%%%` for Scala.js and Scala Native. The libraries are built on Scala 3.3 LTS and Scala 2.13; kyo's interop on the
 latest Scala 3, as kyo is.
 
+`okay-effects-cek`, the interface on okay-scala's machine (Scala 3), needs okay-scala's repository too:
+
+```scala-sbt
+resolvers += "okay-scala" at "https://okay-effects.github.io/okay-scala/maven"
+
+libraryDependencies += "io.github.okay-effects" %% "okay-effects-cek" % "0.1.1"
+```
+
 ## Making one
 
 1. On `master`, everything green, on every platform:
