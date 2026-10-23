@@ -18,10 +18,11 @@ import okay.direct.{Answer, Body, MultiResume, Resume}
  * A handler's `k` lives while its clause's program runs: a clause returning a program that resumes `k` later, after
  * it has returned (as `lower` into a lazy monad does), is not run here.
  *
- * The interface's suite (`InterfaceSuite`): on Loom and on threads 20 of 28, the 8 others multi-shot (refused: "resumed
- * twice"); on Espresso 27 of 28. The one left is `intercept` over 100 000 operations in constant stack: an interceptor
- * is a general handler, and okay-direct's general handler nests the stack at each resumption (on Espresso, each a copy
- * of the rest too) — tail and stateful handlers run in a loop, a general one does not.
+ * The interface's suite (`InterfaceSuite`): on Loom and on threads 20 of 30, the 10 others multi-shot (refused:
+ * "resumed twice"); on Espresso 28 of 30. The two left are in constant stack — `intercept` over 100 000 operations, a
+ * million choices cut under `first`: a general handler (an interceptor, `Choose`'s) nests the stack at each resumption
+ * in okay-direct (on Espresso, each a copy of the rest too) — tail and stateful handlers run in a loop, a general one
+ * does not.
  */
 class OnDirect(val effects: okay.direct.Effects) extends Runner {
   import OnDirect._
@@ -46,8 +47,7 @@ class OnDirect(val effects: okay.direct.Effects) extends Runner {
   def flatMap[A, B, R[_]](p: A ! R)(f: A => B ! R): B ! R = Bind(p, f)
   def delay[A, R[_]](p: => A ! R): A ! R = Suspend(() => p)
 
-  protected[effects] def perform[E[_], R[_], X](op: E[X])(implicit in: In[E, R]): X ! R =
-    Act(env => capability[E](env, in.offset).perform(Op[E, X](op)))
+  protected[effects] def perform[E[_], R[_], X](op: E[X])(implicit in: In[E, R]): X ! R = Perf(in.offset, Op[E, X](op))
 
   def split[E[_], R[_], Rest[_], A](p: A ! R)(implicit s: Split[E, R, Rest]): A ! ({ type L[x] = Sum[Rest, E, x] })#L =
     Local(env => insert(env.tail, s.offset, env.head), p)
@@ -99,10 +99,13 @@ class OnDirect(val effects: okay.direct.Effects) extends Runner {
   override def handleLast[E[_], S, R[_], A, B](p: A ! ({ type L[x] = Sum[R, E, x] })#L, s0: S,
       h: StatefulTailHandler[E, S, R, A, B]): B ! R =
     Act(env => effects.handle(new okay.direct.StatefulHandler[Fam[E], S, A, B] {
+      /** the state where the clause is: one cell for the handler, set from the state of each operation's time (a
+       * clause reads and writes it while it runs, and keeps it no longer) */
+      private[this] val cell = new Cell.Var[S](s0)
       def value(s: S, a: A): B = exec(h.ret(s, a), env).asInstanceOf[B]
       def operation(s: S, op: Fam[E], k: Answer[Fam[E]]): S = op match {
         case o: Op[E, Any] @unchecked =>
-          val cell = new Cell.Var[S](s)
+          cell.state = s
           k.answer(o, h.answer[Any](cell, o.op))
           cell.state
       }
@@ -127,8 +130,10 @@ object OnDirect {
   final case class Done[A](a: A) extends Prog[A]
   final case class Suspend[A](thunk: () => Prog[A]) extends Prog[A]
   final case class Bind[X, A](p: Prog[X], f: X => Prog[A]) extends Prog[A]
-  /** a step done with the environment: an operation performed, a handler run */
+  /** a step done with the environment: a handler run */
   final case class Act[A](step: Env => A) extends Prog[A]
+  /** an operation, performed through the capability at `offset` */
+  final case class Perf[A](offset: Int, op: AnyRef) extends Prog[A]
   /** a program run in an environment changed: its effects moved */
   final case class Local[A](f: Env => Env, p: Prog[A]) extends Prog[A]
 
@@ -150,26 +155,35 @@ object OnDirect {
     before ::: (capability :: after)
   }
 
-  private sealed trait Frame
-  private final case class Then(f: Any => Prog[Any]) extends Frame
-  private final case class Restore(env: Env) extends Frame
+  /** THE TRAMPOLINE'S STACK: immutable, so a continuation copied by a multi-shot implementation (Espresso's: the
+   * Java stack copied, the heap shared) resumes each copy with its own frames. `f` a bind's function, or with `f`
+   * null, `env` the environment to put back */
+  private final class Frame(val f: Any => Prog[Any], val env: Env, val next: Frame)
 
-  /** the trampoline: binds in a stack of its own, so in constant stack however deep */
+  /** THE TRAMPOLINE: binds on a stack of its own, so in constant stack however deep; a value computed goes straight
+   * to the frame on top — no `Done` made for an operation's answer, one frame a bind */
   def exec(program: Prog[Any], environment: Env): Any = {
     var p: Prog[Any] = program
     var env = environment
-    var stack: List[Frame] = Nil
+    var stack: Frame = null
+    var value: Any = null
+    var valued = false
     while (true) {
-      p match {
-        case Done(a) => stack match {
-          case Nil => return a
-          case Then(f) :: rest => stack = rest; p = f(a)
-          case Restore(e) :: rest => stack = rest; env = e
-        }
+      if (valued) {
+        if (stack == null) return value
+        val top = stack
+        stack = top.next
+        if (top.f eq null) env = top.env
+        else { valued = false; p = top.f(value) }
+      } else p match {
+        case Done(a) => value = a; valued = true
+        case b: Bind[x, Any] @unchecked => stack = new Frame(b.f.asInstanceOf[Any => Prog[Any]], null, stack); p = b.p
+        case Perf(offset, op) =>
+          value = env(offset).asInstanceOf[okay.direct.Effect[AnyRef]].perform(op.asInstanceOf[okay.direct.Effect.Op[AnyRef, Any]])
+          valued = true
         case Suspend(thunk) => p = thunk()
-        case b: Bind[x, Any] @unchecked => stack = Then(b.f.asInstanceOf[Any => Prog[Any]]) :: stack; p = b.p
-        case Act(step) => p = Done(step(env))
-        case Local(f, q) => stack = Restore(env) :: stack; env = f(env); p = q
+        case Act(step) => value = step(env); valued = true
+        case Local(f, q) => stack = new Frame(null, env, stack); env = f(env); p = q
       }
     }
     throw new IllegalStateException("unreachable")
