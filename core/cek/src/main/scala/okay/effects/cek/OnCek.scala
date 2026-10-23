@@ -86,9 +86,12 @@ object OnCek extends Runner with Self:
    * its own. The matches are `@unchecked` as there: an effect is never a row.
    */
   enum Spot[E[_], R[_], Rest[_]] extends At[E, R, Rest]:
-    case Only[E[_]]() extends Spot[E, E, Void]
-    case Last[R[_], E[_]]() extends Spot[E, R + E, R]
+    /** a handler's place meets every operation of its effect: the proof it is the handler's made once, kept here — in
+     * the padding of an object of no other field, so no place is bigger for it */
+    case Only[E[_]](private[cek] var proof: Taken[E, E, Void] | Null = null) extends Spot[E, E, Void]
+    case Last[R[_], E[_]](private[cek] var proof: Taken[E, E, R] | Null = null) extends Spot[E, R + E, R]
     case Init[E[_], R[_], G[_], Rest[_]](at: Spot[E, R, Rest]) extends Spot[E, R + G, Rest + G]
     case Absurd[R[_]]() extends Spot[Void, R, R]
 
     def take[E2[_]](at: At[E2, R, ?]): Taken[E, E2, Rest] = Spots.take(this, at)
+    override def outside[E2[_]](at: At[E2, R, ?]): At[E2, Rest, ?] | Null = Spots.outside(this, at)
