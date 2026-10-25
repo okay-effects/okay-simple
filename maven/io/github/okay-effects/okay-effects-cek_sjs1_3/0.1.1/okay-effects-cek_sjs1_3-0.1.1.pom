@@ -66,7 +66,7 @@
         <dependency>
             <groupId>io.github.okay-effects</groupId>
             <artifactId>okay-scala_sjs1_3</artifactId>
-            <version>0.1.0</version>
+            <version>0.1.1</version>
         </dependency>
     </dependencies>
     <repositories>
