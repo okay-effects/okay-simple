@@ -1,6 +1,7 @@
 package okay.effects.bench
 
-import okay.scala3.{!, %, +, Choose, Fail, Has, Pure, Reader, State, Writer, pure, run, flatMap, map, andThen}
+import okay.scala3.{!, %, +, Has, Pure, pure, run, flatMap, map, andThen}
+import okay.scala3.std.{Choose, Fail, Reader, State, Writer}
 
 /** the lanes of the benchmark, each a run: okay-simple's `Lanes` on an implementation, or `CekLanes` */
 trait Lane:

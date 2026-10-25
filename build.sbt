@@ -16,7 +16,7 @@ ThisBuild / developers := List(Developer("sergey-scherbina", "Sergiy Shcherbyna"
   url("https://github.com/sergey-scherbina")))
 ThisBuild / startYear := Some(2026)
 ThisBuild / versionScheme := Some("early-semver")
-ThisBuild / version := "0.1.2-SNAPSHOT"
+ThisBuild / version := "0.1.1"
 ThisBuild / licenses := List("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.txt"))
 /** RELEASES, ON GITHUB PAGES: `sbt publishPages` writes every published module, for both compilers and every platform
  * asked, as a Maven repository into `target/pages-maven/`; that directory goes to the `gh-pages` branch under
@@ -118,7 +118,7 @@ lazy val suiteFree = crossBoth("suiteFree", "suite-free").dependsOn(free, tck)
 /** THE INTERFACE ON OKAY-SCALA'S MACHINE (github.com/okay-effects/okay-scala, its release on GitHub Pages), a CEK
  * machine: an adapter, Scala 3 alone. Neither depends on the other's classes — okay-scala's machine takes this
  * interface's places as they are */
-val okayScala = "0.1.0"
+val okayScala = "0.1.1"
 lazy val cek = crossBoth("cek", "core/cek").dependsOn(effects)
   .settings(name := "okay-effects-cek", crossScalaVersions := Seq(scala3),
     resolvers += "okay-scala" at "https://okay-effects.github.io/okay-scala/maven",
