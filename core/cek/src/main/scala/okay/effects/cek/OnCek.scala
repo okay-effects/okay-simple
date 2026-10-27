@@ -79,6 +79,11 @@ object OnCek extends Runner with Self:
 
   def run[A](p: Prog[Pure, A]): A = Cek.run(p, Spots.escape)
 
+  /** `p` as a program of okay-scala's row `S` (`Into`): `OnCek.into[S](p)` */
+  def into[S[_]]: IntoRow[S] = IntoRow[S]()
+  final class IntoRow[S[_]]:
+    def apply[R[_], A](p: Prog[R, A])(using i: Into[R, S]): Prog[S, A] = Prog.Remap(p, i.renaming)
+
   // -- THIS INTERFACE'S PLACES, FOR THE MACHINE
 
   /**
