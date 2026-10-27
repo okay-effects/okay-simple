@@ -66,6 +66,9 @@ package object effects {
   def run[A](p: A ! Pure): A = Machine.run[A](p)
   def lower[G[_], A](p: A ! ({ type L[x] = Std.Lift[G, x] })#L)(implicit G: Std.Lowering[G]): G[A] =
     Machine.lower[G, A](p)(G)
+  def lowerLast[G[_], R[_], A](p: A ! R)(
+    implicit s: Split[({ type L[x] = Std.Lift[G, x] })#L, R, Pure], G: Std.Lowering[G]): G[A] =
+    Machine.lowerLast[G, R, A](p)(s, G)
 
   /** the standard effects on the machine: `import okay.effects.std._` */
   val std: Machine.std.type = Machine.std

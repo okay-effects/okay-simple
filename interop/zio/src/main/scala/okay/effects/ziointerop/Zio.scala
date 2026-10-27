@@ -39,6 +39,13 @@ class ZioEffects[F <: Runner with Singleton](implicit implementation: F) {
 
   def fromZIOTask[X, R[_]](task: Task[X])(implicit in: In[Tasks, R]): X ! R = std.lift[Task, X, R](task)
   def toZIOTask[A](p: A ! Tasks): Task[A] = fx.lower[Task, A](p)
+  /** a ZIO task as a `Future`, run on `runtime` when lifted (`Unsafe`, `runToFuture`): `std.liftVia(taskToFuture(rt))`
+   * brings a program's `Tasks` to its `Lift[Future, *]`, to lower one control monad */
+  def taskToFuture(runtime: Runtime[Any]): Std.~>[Task, scala.concurrent.Future] =
+    new Std.~>[Task, scala.concurrent.Future] {
+      def apply[X](task: Task[X]): scala.concurrent.Future[X] =
+        Unsafe.unsafe { implicit u => runtime.unsafe.runToFuture(task) }
+    }
 
   private implicit val exact: fx.type = fx
   private implicit val context: scala.concurrent.ExecutionContext = Asynchrony.defaultContext

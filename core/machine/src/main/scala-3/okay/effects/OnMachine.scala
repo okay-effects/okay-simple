@@ -13,5 +13,5 @@ export Machine.{
   splitOne, splitLast, splitInit, subPure, subOne, subMore,
   pure, flatMap, map, as, andThen, into, delay, tailcall, tailRecM, perform, split, embed, handle, handleLast,
   intercept,
-  run, lower, std, delimited
+  run, lower, lowerLast, std, delimited
 }

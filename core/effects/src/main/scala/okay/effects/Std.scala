@@ -51,6 +51,83 @@ object Std {
     def flatMap[A, B](ga: G[A])(f: A => G[B]): G[B]
   }
 
+  /** A MONAD MORPHISM, `G`'s programs as `H`'s: what `liftVia` replaces each lifted `G[X]` by */
+  trait ~>[G[_], H[_]] {
+    def apply[X](g: G[X]): H[X]
+  }
+
+  /**
+   * A DISTRIBUTIVE LAW OF `G` OVER ANY ROW: a `G[A]` bound to a continuation that is a program, on the
+   * implementation `fx`, `G` coming out inside the program — what `handleLift` needs to handle `Lift[G, *]` in place,
+   * the rest of the row kept.
+   *
+   * Only a TRAVERSABLE monad has one: its values gone through, each given to `k`, in order. `Option`, `Either`, `Try`
+   * give `k` their one value or none; `List` and `Vector` traverse `k` over their elements in order, one after
+   * another, then concatenate what each gave. `Future`, `IO` have none, by design: what they will hold cannot be gone
+   * through now — one of them is the last, lowered by a `Runner`'s `lower`.
+   *
+   * The laws, in the row: `flatMapIn(pure(a))(k) == k(a)`; `flatMapIn(ga)(a => pure(pure(a))) == pure(ga)`;
+   * associativity, for `Option`, `Either`, `Try` with any effects, for `List` and `Vector` with effects that commute
+   */
+  trait Distributes[G[_]] {
+    def pure[A](a: A): G[A]
+    def flatMapIn[A, B, R[_]](fx: Effectful)(ga: G[A])(k: A => fx.![G[B], R]): fx.![G[B], R]
+  }
+
+  object Distributes {
+    implicit val option: Distributes[Option] = new Distributes[Option] {
+      def pure[A](a: A): Option[A] = Some(a)
+      def flatMapIn[A, B, R[_]](fx: Effectful)(ga: Option[A])(k: A => fx.![Option[B], R]): fx.![Option[B], R] =
+        ga match {
+          case Some(a) => k(a)
+          case None => fx.pure[Option[B], R](None)
+        }
+    }
+
+    implicit def either[E]: Distributes[({ type L[x] = Either[E, x] })#L] =
+      new Distributes[({ type L[x] = Either[E, x] })#L] {
+        def pure[A](a: A): Either[E, A] = Right(a)
+        def flatMapIn[A, B, R[_]](fx: Effectful)(ga: Either[E, A])(
+          k: A => fx.![Either[E, B], R]): fx.![Either[E, B], R] =
+          ga match {
+            case Right(a) => k(a)
+            case Left(e) => fx.pure[Either[E, B], R](Left(e))
+          }
+      }
+
+    implicit val tryDistributes: Distributes[scala.util.Try] = new Distributes[scala.util.Try] {
+      def pure[A](a: A): scala.util.Try[A] = scala.util.Success(a)
+      def flatMapIn[A, B, R[_]](fx: Effectful)(ga: scala.util.Try[A])(
+        k: A => fx.![scala.util.Try[B], R]): fx.![scala.util.Try[B], R] =
+        ga match {
+          case scala.util.Success(a) => k(a)
+          case scala.util.Failure(e) => fx.pure[scala.util.Try[B], R](scala.util.Failure(e))
+        }
+    }
+
+    /** `k` over the elements in order, in a loop — constant stack — what each gave concatenated; immutable, so a `k`
+     * resumed twice by a handler outside (a `Choose`) goes on from the same elements */
+    implicit val list: Distributes[List] = new Distributes[List] {
+      def pure[A](a: A): List[A] = List(a)
+      def flatMapIn[A, B, R[_]](fx: Effectful)(ga: List[A])(k: A => fx.![List[B], R]): fx.![List[B], R] =
+        fx.map[Vector[B], List[B], R](traverse[A, B, R](fx)(ga)(k))(_.toList)
+    }
+
+    implicit val vector: Distributes[Vector] = new Distributes[Vector] {
+      def pure[A](a: A): Vector[A] = Vector(a)
+      def flatMapIn[A, B, R[_]](fx: Effectful)(ga: Vector[A])(k: A => fx.![Vector[B], R]): fx.![Vector[B], R] =
+        traverse[A, B, R](fx)(ga.toList)(k)
+    }
+
+    private def traverse[A, B, R[_]](fx: Effectful)(as: List[A])(
+      k: A => fx.![IterableOnce[B], R]): fx.![Vector[B], R] =
+      fx.tailRecM[(List[A], Vector[B]), Vector[B], R]((as, Vector.empty[B])) { case (rest, done) =>
+        if (rest.isEmpty) fx.pure[Either[(List[A], Vector[B]), Vector[B]], R](Right(done))
+        else fx.map[IterableOnce[B], Either[(List[A], Vector[B]), Vector[B]], R](k(rest.head))(bs =>
+          Left((rest.tail, done ++ bs)))
+      }
+  }
+
   /** a generator's: `Emit(o)`, a value given out, the generator going on */
   sealed trait Yield[O, X]
   object Yield {
@@ -133,6 +210,7 @@ class Std[F <: Effects with Singleton](val fx: F) {
   type Lift[G[_], X] = Std.Lift[G, X]
   val Lift: Std.Lift.type = Std.Lift
   type Lowering[G[_]] = Std.Lowering[G]
+  type Distributes[G[_]] = Std.Distributes[G]
   type Abort[X] = Std.Abort[X]
   val Abort: Std.Abort.type = Std.Abort
   type Fresh[X] = Std.Fresh[X]
@@ -313,6 +391,38 @@ class Std[F <: Effects with Singleton](val fx: F) {
         def ret(a: A) = pure(a)
         def op[X](op: E[X], k: X => A ! R) = f[X](op, perform[E].apply[R, X](op)).flatMap(k)
       })
+
+  /** `Lift[G, *]` HANDLED IN PLACE, the rest of the row kept: each lifted `G[X]` bound by `G`'s distributive law to
+   * the rest of the program — so any number of data monads are handled one after another, the last, a `Future` or an
+   * `IO`, lowered by a `Runner`'s `lower`. `List`'s depth first: the whole rest for each element, in order.
+   * `handleLift[List](p)` */
+  def handleLift[G[_]]: HandleLiftHandler[G] = new HandleLiftHandler[G]
+  final class HandleLiftHandler[G[_]] {
+    def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Lift[G, x] })#L, R, Rest],
+      G: Std.Distributes[G]): G[A] ! Rest =
+      handle[({ type L[x] = Lift[G, x] })#L, R, Rest, A, G[A]](p,
+        new Handler[({ type L[x] = Lift[G, x] })#L, Rest, A, G[A]] {
+          def ret(a: A) = pure[G[A], Rest](G.pure(a))
+          def op[X](op: Lift[G, X], k: X => G[A] ! Rest) = op match {
+            case Std.Lift.Of(ga) => G.flatMapIn[X, A, Rest](fx)(ga)(k)
+          }
+        })
+  }
+
+  /** each `Lift[G, *]` operation REPLACED by the `Lift[H, *]` one `nt` makes, `Lift[H, *]` in the row already: several
+   * base monads brought to one, to lower — `liftVia[Try, Future](tryToFuture)(p)` */
+  def liftVia[G[_], H[_]](nt: Std.~>[G, H]): LiftViaHandler[G, H] = new LiftViaHandler[G, H](nt)
+  final class LiftViaHandler[G[_], H[_]](nt: Std.~>[G, H]) {
+    def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Lift[G, x] })#L, R, Rest],
+      in: In[({ type L[x] = Lift[H, x] })#L, Rest]): A ! Rest =
+      handle[({ type L[x] = Lift[G, x] })#L, R, Rest, A, A](p,
+        new Handler[({ type L[x] = Lift[G, x] })#L, Rest, A, A] {
+          def ret(a: A) = pure[A, Rest](a)
+          def op[X](op: Lift[G, X], k: X => A ! Rest) = op match {
+            case Std.Lift.Of(ga) => lift[H, X, Rest](nt[X](ga)).flatMap(k)
+          }
+        })
+  }
 
   /** the value, or `None` if the program aborted: the rest dropped */
   def optional[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Abort, R, Rest]): Option[A] ! Rest =

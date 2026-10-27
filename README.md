@@ -200,7 +200,7 @@ implementation, made by `newStd`: an implementation may offer its own with bette
 | `Fresh` | `fresh` | `freshFrom(n0)(p)` |
 | `Random` | `nextLong`, `nextInt(bound)`, `nextDouble` | `random(seed)(p)`: the same seed, the same numbers |
 | `Store[K, V, *]` | `load(k)`, `save(k, v)`, `remove(k)` | `store(m0)(p)`: the final map and the value |
-| `Lift[G, *]` (Scala 3: `[x] =>> Lift[G, x]`) | `lift(ga)`: a program of another monad `G` | a `Runner`'s `lower[G](p)`, given a `Lowering[G]` (cats, ZIO) |
+| `Lift[G, *]` (Scala 3: `[x] =>> Lift[G, x]`) | `lift(ga)`: a program of another monad `G` | a `Runner`'s `lower[G](p)`, given a `Lowering[G]` (cats, ZIO); data monads in place, `handleLift[G]`, a `Distributes[G]`; `liftVia(nt)` ([more](docs/guide/standard-effects.md#other-monads-data-in-place-one-control-monad-last)) |
 | `Control % (B ! R)` | `shift(f)` | `reset(p)`: delimited control, the answer type fixed |
 
 Delimited control CHANGING ANSWER TYPES is its own type, `Cps[A, B, C, R]` (`fx.delimited`, the trait `Delimited`):

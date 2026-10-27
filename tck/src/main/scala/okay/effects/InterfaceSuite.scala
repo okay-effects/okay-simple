@@ -10,6 +10,7 @@ abstract class InterfaceSuite(fx: okay.effects.Runner) extends munit.FunSuite {
   val u = new Utilities(fx)
   val ic = new Interception(fx)
   val tc = new TailCalls(fx)
+  val lm = new Layered(fx)
 
   test("a program's effects handled in the row's order") {
     assertEquals(p.handledInOrder, (13, (List("hello, Ann"), 10)))
@@ -136,5 +137,36 @@ abstract class InterfaceSuite(fx: okay.effects.Runner) extends munit.FunSuite {
   test("constant stack: 100 000 operations under three handlers, 100 000 binds") {
     assertEquals(p.counted(100000), (List(), (100000, ())))
     assertEquals(p.binds(100000), 100000)
+  }
+
+  test("lifted monads in place: Option first, then List, Future lowered last; the other order") {
+    assertEquals(lm.optionFirst(2), List(Some(11), None, Some(31)))
+    assertEquals(lm.listFirst(2), None)
+    assertEquals(lm.listFirst(0), Some(List(11, 21, 31)))
+  }
+  test("lifted monads in place: three data monads, no control monad, run") {
+    assertEquals(lm.dataOnly, Right(Vector(Some(3), None)))
+  }
+  test("liftVia: an Option as an Either, a Try as a Future, then lowered") {
+    assertEquals((lm.optionToEither(Some(41)), lm.optionToEither(None)), (Right(42), Left("none")))
+    assertEquals(lm.tryToFuture(scala.util.Success(41)), scala.util.Success(42))
+    assertEquals(lm.tryToFuture(scala.util.Failure(Oops(1))), scala.util.Failure(Oops(1)))
+  }
+  test("Distributes: left and right identity, associativity of flatMapIn, effectful, 300 cases each") {
+    assertEquals((lm.optionLaws, lm.eitherLaws, lm.tryLaws), (None, None, None))
+    assertEquals((lm.listLaws, lm.vectorLaws), (None, None))
+  }
+  test("Distributes[List] under effects that do not commute: breadth against depth first; handleLift's depth") {
+    assertEquals(lm.breadthDepthHandled, (List("k", "k", "h", "h", "h", "h"), List("k", "h", "h", "k", "h", "h"),
+      List("k", "h", "h", "k", "h", "h")))
+  }
+  test("handleLift[List] with State: outside, threaded through the elements in order; inside, each its own") {
+    assertEquals(lm.stateOutside, (6, List((1, 0), (2, 1), (3, 3))))
+    assertEquals(lm.stateInside, List((1, (1, 0)), (2, (2, 0)), (3, (3, 0))))
+  }
+  test("handleLift in constant stack: a List and a Vector of 10 000; chains of 100 000 lifts") {
+    assertEquals(lm.longList, (49995000L, 10000, 9999))
+    assertEquals(lm.longVector, (10000, 19998))
+    assertEquals(lm.chains(100000), (Some(100000), List(100000), Right(100000)))
   }
 }

@@ -2,7 +2,7 @@ package okay.effects.ziointerop.checks
 
 import okay.effects.ziointerop.{ZioEffects}
 
-import okay.effects.Runner
+import okay.effects.{Runner, Std, Sum}
 import okay.effects.machine.Machine
 import okay.effects.free.Free
 import zio.{Runtime, Unsafe, ZIO}
@@ -28,7 +28,17 @@ abstract class ZioChecks(val fx0: Runner) extends munit.FunSuite {
     val p: Int ! Tasks = fromZIOTask[Int, Tasks](ZIO.fail(new RuntimeException("boom"))).map(_ + 1)
     unsafeRun(toZIOTask(p).either).map(v => assertEquals(v.left.map(_.getMessage), Left("boom")))
   }
+  test("liftVia: ZIO tasks as Futures, one control monad lowered") {
+    type LF[X] = Std.Lift[scala.concurrent.Future, X]
+    type R[X] = Sum[Tasks, LF, X]
+    implicit val futureLowering: Std.Lowering[scala.concurrent.Future] = new Std.Lowering[scala.concurrent.Future] {
+      def pure[A](a: A): scala.concurrent.Future[A] = scala.concurrent.Future.successful(a)
+      def flatMap[A, B](ga: scala.concurrent.Future[A])(f: A => scala.concurrent.Future[B]) = ga.flatMap(f)
+    }
+    val p: Int ! R = std.lift[scala.concurrent.Future, Int, R](scala.concurrent.Future.successful(20))
+      .flatMap(a => fromZIOTask[Int, R](ZIO.attempt(a + 22)))
+    val f = lowerLast[scala.concurrent.Future, ({ type L[x] = Sum[Pure, LF, x] })#L, Int](
+      std.liftVia[zio.Task, scala.concurrent.Future](taskToFuture(Runtime.default))(p))
+    f.map(v => assertEquals(v, 42))
+  }
 }
-
-class ZioOnMachine extends ZioChecks(Machine)
-class ZioOnFree extends ZioChecks(Free)

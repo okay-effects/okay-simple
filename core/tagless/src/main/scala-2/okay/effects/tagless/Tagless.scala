@@ -138,6 +138,10 @@ object Tagless extends Effects {
   /** a program whose one effect is `Lift[G, *]` as a `G[A]`, on the implementation in the implicit context */
   def lower[G[_], A](p: A ! ({ type L[x] = Std.Lift[G, x] })#L)(implicit G: Std.Lowering[G], fx: Runner): G[A] =
     fx.lower[G, A](p.on(fx))
+  /** a program whose one effect left is `Lift[G, *]`, of any shape (`Pure + Lift[G, *]`), as a `G[A]` */
+  def lowerLast[G[_], R[_], A](p: A ! R)(implicit s: Split[({ type L[x] = Std.Lift[G, x] })#L, R, Pure],
+    G: Std.Lowering[G], fx: Runner): G[A] =
+    fx.lowerLast[G, R, A](p.on(fx))(s.on(fx), G)
 
   /** THE TRUSTED STEP: `fx`'s own program, a `k`'s, as a `Program` — its run on `fx`, the one it was made on. On
    * another implementation it cannot be run: a `k` kept past its handler's run and run on another */

@@ -114,6 +114,10 @@ object Tagless extends Effects:
   /** a program whose one effect is `Lift[G, *]` as a `G[A]`, on the implementation in the implicit context */
   inline def lower[G[_], A](p: A ! ([x] =>> Std.Lift[G, x]))(using G: Std.Lowering[G], fx: Runner): G[A] =
     fx.lower[G, A](p.on(fx))
+  /** a program whose one effect left is `Lift[G, *]`, of any shape (`Pure + Lift[G, *]`), as a `G[A]` */
+  inline def lowerLast[G[_], R[_], A](p: A ! R)(
+    using s: Split[[x] =>> Std.Lift[G, x], R, Pure], G: Std.Lowering[G], fx: Runner): G[A] =
+    fx.lowerLast[G, R, A](p.on(fx))(using s.on(fx), G)
   /** tagless run on `fx`: a `Runner`, for code that runs programs over the interface */
   inline def on(fx: Runner): TaglessRunner = TaglessRunner(fx)
 
