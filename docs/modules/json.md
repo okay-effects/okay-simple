@@ -1,7 +1,11 @@
 # json — JSON: the value, the effect, two handlers
 
 `okay-effects-json`, `okay.effects.json` — `import okay.effects.json.*`, the module on the machine over the default
-streams. `Json` is the value — `Null`, `Bool`, `Num(BigDecimal)`, `Str`, `Arr(Vector)`, `Obj(Vector[(String, Json)])`,
+streams. THE VALUE ALONE is a module of its own, `okay-effects-json-value` — `Json`, its printer, and `JsonText.parse`
+(the recursive descent, its failure an offset and what was expected), `Json.fromText` (the value, or an exception), and
+reading a value — `j("key")` (a field, or `Null`), `j.field("key")`, `.string`, `.int`, `.double`, `.boolean`, `.list`,
+`.record`, `.render` — depending on nothing: a library that wants JSON and none of okay-simple's effects takes that
+one. `Json` is the value — `Null`, `Bool`, `Num(BigDecimal)`, `Str`, `Arr(Vector)`, `Obj(Vector[(String, Json)])`,
 an object ORDERED as written — `Json.print` and `Json.pretty` its text. PARSING IS AN EFFECT, `JsonParser`: a program
 says `parseJson(text)` and no more; HOW is the handler's choice:
 

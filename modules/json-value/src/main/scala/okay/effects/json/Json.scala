@@ -1,9 +1,42 @@
 package okay.effects.json
 
-/** A JSON VALUE: a datum any face and any transport speaks. An `Obj` is ORDERED: the order a wire writes, a form shows
- */
-sealed trait Json
+/** A JSON VALUE: a datum any face and any transport speaks. An `Obj` is ORDERED: the order a wire writes, a form shows.
+ * `okay-effects-json-value` depends on nothing: the value, its text (`print`, `pretty`, `JsonText.parse`, `fromText`), and
+ * reading it (`j("key")`, `.string`, `.list`, …); `Json.fromText` a text's value or an exception */
+sealed trait Json {
+  // ---- a value read: a field, or `Null`; a value at its type, or an error saying what it is instead
+
+  /** the field `key` of a record; `Null` if there is none, or this is no record */
+  def apply(key: String): Json = this match {
+    case o: Json.Obj => o.get(key).getOrElse(Json.Null)
+    case _ => Json.Null
+  }
+  /** the field `key` of a record, if there is one and it is not `null` */
+  def field(key: String): Option[Json] = this match {
+    case o: Json.Obj => o.get(key).filter(_ != Json.Null)
+    case _ => None
+  }
+  def string: String = this match { case Json.Str(s) => s; case _ => Json.wrong("text", this) }
+  def int: Int = this match { case Json.Num(n) => n.toInt; case _ => Json.wrong("a number", this) }
+  def long: Long = this match { case Json.Num(n) => n.toLong; case _ => Json.wrong("a number", this) }
+  def double: Double = this match { case Json.Num(n) => n.toDouble; case _ => Json.wrong("a number", this) }
+  def boolean: Boolean = this match { case Json.Bool(b) => b; case _ => Json.wrong("a boolean", this) }
+  def list: Vector[Json] = this match { case Json.Arr(xs) => xs; case _ => Json.wrong("a list", this) }
+  def record: Vector[(String, Json)] = this match { case Json.Obj(f) => f; case _ => Json.wrong("a record", this) }
+  /** the compact text */
+  def render: String = Json.print(this)
+}
 object Json {
+  private def wrong(what: String, v: Json): Nothing =
+    throw new IllegalArgumentException(s"$what expected, ${kind(v)} found")
+  /** a JSON text's value; a malformed one an `IllegalArgumentException` saying where and what was expected */
+  def fromText(text: String): Json = JsonText.parse(text) match {
+    case Right(v) => v
+    case Left(e) => throw new IllegalArgumentException(s"JSON at ${e.offset}: ${e.expected} expected")
+  }
+  /** a string as a JSON string literal */
+  def quote(s: String): String = { val b = new java.lang.StringBuilder; quote(s, b, ascii = false); b.toString }
+  def num(d: Double): Json = Num(BigDecimal(d))
   case object Null extends Json
   final case class Bool(b: Boolean) extends Json
   final case class Num(n: BigDecimal) extends Json
