@@ -164,6 +164,37 @@
         </dependency>
         <dependency>
             <groupId>io.github.okay-effects</groupId>
+            <artifactId>okay-effects-json-value_native0.5_3</artifactId>
+            <version>0.1.1</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.scala-native</groupId>
+                    <artifactId>nativelib_native0.5_2.13</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.scala-native</groupId>
+                    <artifactId>clib_native0.5_2.13</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.scala-native</groupId>
+                    <artifactId>posixlib_native0.5_2.13</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.scala-native</groupId>
+                    <artifactId>windowslib_native0.5_2.13</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.scala-native</groupId>
+                    <artifactId>javalib_native0.5_2.13</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.scala-native</groupId>
+                    <artifactId>auxlib_native0.5_2.13</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>io.github.okay-effects</groupId>
             <artifactId>okay-effects-parsing_native0.5_3</artifactId>
             <version>0.1.1</version>
             <exclusions>

@@ -60,6 +60,11 @@
         </dependency>
         <dependency>
             <groupId>io.github.okay-effects</groupId>
+            <artifactId>okay-effects-json-value_3</artifactId>
+            <version>0.1.1</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.okay-effects</groupId>
             <artifactId>okay-effects-parsing_3</artifactId>
             <version>0.1.1</version>
         </dependency>

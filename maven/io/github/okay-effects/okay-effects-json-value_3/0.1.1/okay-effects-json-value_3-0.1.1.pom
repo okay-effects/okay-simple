@@ -1,0 +1,51 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>io.github.okay-effects</groupId>
+    <artifactId>okay-effects-json-value_3</artifactId>
+    <packaging>jar</packaging>
+    <description>The JSON value alone: Json (an ordered object), its printer and a recursive-descent parser; no dependency</description>
+    <url>https://github.com/okay-effects/okay-simple</url>
+    <version>0.1.1</version>
+    <licenses>
+        <license>
+            <name>Apache-2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <name>okay-effects-json-value</name>
+    <inceptionYear>2026</inceptionYear>
+    <organization>
+        <name>okay-effects</name>
+        <url>https://github.com/okay-effects/okay-simple</url>
+    </organization>
+    <scm>
+        <url>https://github.com/okay-effects/okay-simple</url>
+        <connection>scm:git:https://github.com/okay-effects/okay-simple.git</connection>
+    </scm>
+    <developers>
+        <developer>
+            <id>sergey-scherbina</id>
+            <name>Sergiy Shcherbyna</name>
+            <url>https://github.com/sergey-scherbina</url>
+            <email>sergey.scherbina@gmail.com</email>
+        </developer>
+    </developers>
+    <properties>
+        <info.versionScheme>early-semver</info.versionScheme>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala3-library_3</artifactId>
+            <version>3.3.8</version>
+        </dependency>
+        <dependency>
+            <groupId>org.scalameta</groupId>
+            <artifactId>munit_3</artifactId>
+            <version>1.2.3</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>
