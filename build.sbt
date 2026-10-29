@@ -16,7 +16,7 @@ ThisBuild / developers := List(Developer("sergey-scherbina", "Sergiy Shcherbyna"
   url("https://github.com/sergey-scherbina")))
 ThisBuild / startYear := Some(2026)
 ThisBuild / versionScheme := Some("early-semver")
-ThisBuild / version := "0.1.2-SNAPSHOT"
+ThisBuild / version := "0.1.1"
 ThisBuild / licenses := List("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.txt"))
 /** RELEASES, ON GITHUB PAGES: `sbt publishPages` writes every published module, for both compilers and every platform
  * asked, as a Maven repository into `target/pages-maven/`; that directory goes to the `gh-pages` branch under
