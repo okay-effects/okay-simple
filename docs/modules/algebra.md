@@ -9,6 +9,8 @@ once for both compilers, from okay's okay2 (its Scala 2.13 core), the platform's
 | computations | `Functor`, `Applicative`, `Selective`, `Monad`, `TailRecM`, `Alternative`, `MonadPlus`, `Comonad`; `ParaMonad` (Atkey), `DiagonalMonad` |
 | combination | `Semigroup`, `Monoid`, `Group`; `Fold` (a state of its own, `end`ed to the result; two folds in one pass, an Applicative), `FoldUntil`, `Foldable` |
 | arrows | `Profunctor`, `Category`, `Arrow`; instances for functions, `Kleisli` over any Monad, `Fold` a Profunctor; `>>>`, `<<<`, `***`, `&&&`, `dimap` |
+| comonads | `History` (the past and a focus), `Env` (a value beside its environment), `Store` (a position in a space), `Cofree[F, A]` (a tree of what may follow; `unfold`, lazy) — each a `Comonad`, its laws property-tested |
+| coeffects | `overHistory(p)(kept, decide)`: each operation of an effect decided by a function of the history behind it (`Kept`: an operation before and after it runs; `Decide`: go on, or answered here) — the history the comonad it reads; `History.extend` of the same decision over the history kept is its audit, the decisions made live |
 | free | `FreeAp[F, A]` with `foldMap` into any Applicative and `analyze` without running; `Validated[E, A]` accumulating by a Semigroup; `~>`, `Const` |
 | instances | `Option`, `Either`, `List`, `Vector`, `LazyList`, `Id` in `Functor`'s companion; every collection a `Foldable`; `String`, collections, `Map`, `Option`, numerics as Monoids |
 | programs | `monad[R]`: `Monad` and `TailRecM` of `A ! R`; `monadPlus[R]` with `Choose` in `R`; `paraMonad[R]`: `Delimited`'s `Cps` as a `ParaMonad` |
@@ -87,3 +89,39 @@ assert((half >>> half).run(8) == Some(2) && (half >>> half).run(6) == None)
 
 `okay2`'s `CanFail` (a `withFilter` for programs over `Abort` or `Choose`) and the `Control` instances are the
 platform's; the specialised folds (`OfLong`, `OfInt`) wait for a measurement that wants them.
+
+## Coeffects: what a computation needs from its context
+
+Effects say what a program does to the world; coeffects (Petricek, Orchard and Mycroft, 2014) what it needs from its
+context — a comonad's. A flat coeffect (a value read anywhere: a setting, the user) is an effect already: an operation
+a handler answers. One that needs the PAST is a comonad's: `overHistory` keeps the history of an effect's operations
+and decides each by a function of it.
+
+```scala
+sealed trait Cmd[X]
+final case class Exec(cmd: String) extends Cmd[Boolean]
+type Seen = (String, Option[Boolean])                      // a command, and how it went (none while pending)
+val kept = new Kept[Cmd, Seen] {
+  def pending[X](op: Cmd[X]): Seen = op match { case Exec(c) => (c, None) }
+  def ended[X](op: Cmd[X], ok: X): Seen = op match { case Exec(c) => (c, Some(ok)) }
+}
+def stuck(h: History[Seen]): Boolean = h.past.reverseIterator.takeWhile(_._2.contains(false)).size >= 3
+val refuseWhenStuck = new Decide[Cmd, Seen] {             // refused after three failures in a row
+  def apply[X](h: History[Seen], op: Cmd[X]): Option[X] = op match { case Exec(_) => if (stuck(h)) Some(false) else None }
+}
+var ran = 0
+val commands = traverse[String, Boolean, Cmd](Vector("bad", "bad", "bad", "ls"))(c => perform[Cmd].apply[Cmd, Boolean](Exec(c)))
+val shell = new TailClauses[Cmd, Vector[Boolean], Vector[Boolean] ! Pure] {
+  def ret(a: Vector[Boolean]) = pure[Vector[Boolean], Pure](a)
+  def answer[X](op: Cmd[X]): X = op match { case Exec(c) => ran += 1; c != "bad" }
+}
+val answers = run(handle(overHistory(commands)(kept, refuseWhenStuck), shell))
+assert(answers == Vector(false, false, false, false) && ran == 3)  // the fourth refused: the shell never asked
+// the audit: the same decision at every step of the history kept
+val journal = Vector("bad", "bad", "bad", "ls").zip(answers).map { case (c, a) => (c, Some(a)): Seen }
+assert(History.of(journal).map(_.extend(stuck).all) == Some(Vector(false, false, false, true)))
+```
+
+The law (`OverHistorySuite`, on the machine and on Free, 300 random sessions): the audit by `extend` over the history
+kept gives exactly the decisions made live.
+

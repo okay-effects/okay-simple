@@ -66,6 +66,23 @@ class Algebra[F <: Effects with Singleton](implicit implementation: F) {
     def void: Unit ! R = fx.map[A, Unit, R](p)((_: A) => ())
   }
 
+  /**
+   * A COEFFECT OVER AN EFFECT: each of `p`'s operations of `E` decided by a function of the HISTORY behind it — the
+   * operations before it, as `kept` keeps them (before it runs, `pending`; after, `ended` with its answer), and it the
+   * focus. `decide` gives `None`: the operation goes on; `Some(x)`: it is answered here with `x`, not passed on. What
+   * a decision needs from the past is the coeffect; `History` the comonad it reads: `History.extend` of the same
+   * decision over a kept history is its audit. The history is the program's as it runs (one run)
+   */
+  def overHistory[E[_], H, R[_], A](p: A ! R)(kept: Kept[E, H], decide: Decide[E, H])(implicit in: In[E, R]): A ! R = {
+    var past = Vector.empty[H]
+    fx.std.around[E, R, A](p)(new fx.std.Around[E, R] {
+      def apply[X](op: E[X], proceed: X ! R): X ! R = decide[X](History(past, kept.pending(op)), op) match {
+        case Some(x) => past = past :+ kept.ended(op, x); fx.pure[X, R](x)
+        case None => fx.map[X, X, R](proceed)((x: X) => { past = past :+ kept.ended(op, x); x })
+      }
+    })
+  }
+
   /** delimited control with answer-type modification, `Cps[A, B, C, R]`, as a parameterised monad: the answer `B` to
    * `C` */
   def paraMonad[R[_]]: ParaMonad[({ type L[A, S, T] = fx.delimited.Cps[A, S, T, R] })#L] =
@@ -75,6 +92,17 @@ class Algebra[F <: Effects with Singleton](implicit implementation: F) {
         f: A => fx.delimited.Cps[B, S2, S, R]): fx.delimited.Cps[B, S2, T, R] =
         fx.delimited.flatMap[A, B, S, T, S2, R](m)(f)
     }
+}
+
+/** an operation as a history keeps it: before it runs, and after, with its answer */
+trait Kept[E[_], H] {
+  def pending[X](op: E[X]): H
+  def ended[X](op: E[X], answer: X): H
+}
+
+/** a decision on an operation from the history behind it (it the focus): `None` it goes on, `Some(x)` answered so */
+trait Decide[E[_], H] {
+  def apply[X](history: History[H], op: E[X]): Option[X]
 }
 
 object Algebra {
