@@ -69,6 +69,7 @@ own type, so the programs it makes run on it: `given Runner = Free; val s = Stre
 | [parsing](modules/parsing.md) | parsers of an input, expectations and a choice: by the next character or backtracking, from a text or a stream, errors that say where |
 | [json](modules/json.md) | `Json` the value (alone, depending on nothing: `okay-effects-json-value`); parsing an effect with two handlers, a recursive descent and the grammar on effects; values from a stream as they come |
 | [yaml](modules/yaml.md) | YAML (compose, Kubernetes, CI) to the `Json` value and back (alone: `okay-effects-yaml-value`); parsing an effect with its descent handler |
+| [time](modules/time.md) | Dates and moments with no java.time: ISO-8601 printed and read (any offset, any fraction), found in a text, the calendar both ways — every platform (`okay-effects-time-value`) |
 | [algebra](modules/algebra.md) | the classes of computations and of combination: Functor to Monad, ParaMonad, Semigroup, Monoid, Foldable, the free applicative; programs as instances |
 | [shape](modules/shape.md) | a typed schema: at once a form, a tool's input schema and the decoder; erased to a value; JSON Schema of it |
 | [describe](modules/describe.md) | an effect as a service: its operations described by shapes, served by name, performed from afar |
