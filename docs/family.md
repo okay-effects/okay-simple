@@ -224,8 +224,8 @@ A program is a generator, `Eff[A]`, and performs through a capability: `yield fr
 operation answers.
 
 - Handlers answer by identity, as in okay-go.
-- Continuations are one-shot (a generator cannot be copied); `every_path` replays the program to resume the rest with
-  each answer.
+- A generator's continuation is one-shot (a generator cannot be copied); a program resumed many times is written
+  as data, and a handler that resumes many times (`resuming`, `all_paths`) takes data only.
 - Async runs on asyncio, with no coloured functions.
 
 ```python
@@ -339,7 +339,6 @@ Certificate.checkAlone(Certificate.of(t))                                 // eve
 | | multi-shot `k` | how |
 |---|---|---|
 | okay-simple, okay-scala, okay-core, okay-kernel, okay-java, okay-rust (`okay`) | yes | `k` is data |
-| okay-ts | data: yes; generators: no | two kinds of program, told apart by type |
+| okay-ts, okay-python | data: yes; generators: no | two kinds of program, told apart by type |
 | okay-lean | yes, across a process and through FFM too | `k` a pure function, kept by the far side under an id |
 | okay-go | coroutines: no; `prog`: yes | a coroutine cannot be copied |
-| okay-python, okay-rust (`okay-effects`) | by replay | the program run again, the answers so far replayed |
