@@ -77,7 +77,9 @@ object OnCek extends Runner with Self:
   override def handle[E[_], S, R[_], Rest[_], A, B](p: Prog[R, A], s0: S, h: StatefulTailHandler[E, S, Rest, A, B])(
     implicit s: Split[E, R, Rest]): Prog[Rest, B] = Prog.Handle(p, s, stateful(s0, h))
 
-  def run[A](p: Prog[Pure, A]): A = Cek.run(p, Spots.escape)
+  /** a run of its own wherever it is begun, inside a running program too — as on this library's other machines,
+   * which refuse no nested run: okay-scala's `Cek.runIsolated`, not its guarded `Cek.run` (`NestedRun`) */
+  def run[A](p: Prog[Pure, A]): A = Cek.runIsolated(p, Spots.escape)
 
   /** `p` as a program of okay-scala's row `S` (`Into`): `OnCek.into[S](p)` */
   def into[S[_]]: IntoRow[S] = IntoRow[S]()
