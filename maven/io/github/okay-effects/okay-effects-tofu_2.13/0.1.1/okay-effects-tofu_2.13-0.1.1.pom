@@ -4,7 +4,7 @@
     <groupId>io.github.okay-effects</groupId>
     <artifactId>okay-effects-tofu_2.13</artifactId>
     <packaging>jar</packaging>
-    <description>Interop of okay-effects with tofu: WithLocal of a Reader, Errors of an Error</description>
+    <description>Interop of okay-effects with tofu: WithLocal of a Reader, Errors of a Throws</description>
     <url>https://github.com/okay-effects/okay-simple</url>
     <version>0.1.1</version>
     <licenses>
