@@ -17,13 +17,13 @@ class ReadmeSuite extends munit.FunSuite {
   type Row[X] = ((Reader % String) + (Writer % String) + (State % Int))#L[X]
 
   test("README's program, one import") {
-    assertEquals(run(reader("Ann")(state(10)(writer[String](greet[Row])))), (13, (List("hello, Ann"), 10)))
+    assertEquals(run(Reader.run("Ann")(State.run(10)(Writer.run[String](greet[Row])))), (13, (List("hello, Ann"), 10)))
   }
 
   test("an effect of no parameter: itself in a row of one, `*[F]` among names") {
     def among3[R[_]](implicit in: In[Choose, R]): Int ! R = among[Int, R](List(1, 2, 3))
-    assertEquals(run(all(among3[Choose])), List(1, 2, 3))
+    assertEquals(run(Choose.all(among3[Choose])), List(1, 2, 3))
     type C[X] = (*[Choose] + (State % Int))#L[X]
-    assertEquals(run(state(0)(all(among3[C]))), (0, List(1, 2, 3)))
+    assertEquals(run(State.run(0)(Choose.all(among3[C]))), (0, List(1, 2, 3)))
   }
 }

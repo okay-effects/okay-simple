@@ -77,7 +77,7 @@ class Logic[F <: Effects with Singleton](implicit implementation: F) {
   /** every answer of `p`, depth-first, fresh variables from 0 */
   def solutions[R[_], R1[_], R2[_], Rest[_], A](p: A ! R)(implicit b: Split[Bindings, R, R1], f: Split[Fresh, R1, R2],
     c: Split[Choose, R2, Rest]): List[A] ! Rest =
-    all(freshFrom(0)(state[Subst](Map.empty)(p))).map(_.map(_._2))
+    Choose.all(Fresh.from(0)(State.run[Subst](Map.empty)(p))).map(_.map(_._2))
 
   /** the first `n` values of `p`'s ways, tried breadth-first: a choice's ways each one step on in turn */
   def fair(n: Int): FairHandler = new FairHandler(n)

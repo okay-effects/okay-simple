@@ -12,7 +12,7 @@ class ConcurrentDefaults extends munit.FunSuite {
     if (n == 0) pure[Int, T](0)
     else tell[String, T](s"$name$n").flatMap(_ => pass[Int, T]).flatMap(_ => worker(name, n - 1)).map(_ + 1)
   test("import okay.effects.concurrent._") {
-    assertEquals(run(writer[String](scheduled[Int](List(worker("a", 2), worker("b", 2))))),
+    assertEquals(run(Writer.run[String](scheduled[Int](List(worker("a", 2), worker("b", 2))))),
       (List("a2", "b2", "a1", "b1"), List(Some(2), Some(2))))
   }
 }

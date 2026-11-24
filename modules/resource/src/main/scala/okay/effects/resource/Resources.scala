@@ -13,7 +13,7 @@ object Scope {
  * RESOURCES over any implementation `fx`: `scoped(p)` runs `p`, then what `p` deferred, the last first — at the end
  * of `p`, its value kept. `bracket(acquire)(release)(use)`: a resource acquired, its release deferred, used.
  *
- * An error handled inside the scope (`scoped(attempt[E](p))`) ends `p` with its `Left`, the scope's end; one handled
+ * An error handled inside the scope (`scoped(Throws.run[E](p))`) ends `p` with its `Left`, the scope's end; one handled
  * outside drops the rest of the scope, its finalizers with it — so handle errors inside. A `k` resumed twice inside
  * the scope ends it twice: each end runs the finalizers deferred before it, so for programs that resume once.
  */

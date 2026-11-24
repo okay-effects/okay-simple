@@ -39,7 +39,7 @@ object Format {
  */
 class Jsons[I <: okay.effects.Effects with Singleton, S <: Streams[I]](val streams: S) {
   import streams.fx._
-  import streams.fx.std.{Choose, Yield, emit, first}
+  import streams.fx.std.{Choose, Emit, emit}
   val parsers: Parsing[streams.fx.type] = new Parsing[streams.fx.type]()(streams.fx)
   import parsers._
   private val fromStreams: StreamInput[streams.type] = new StreamInput[streams.type](streams)
@@ -214,10 +214,10 @@ class Jsons[I <: okay.effects.Effects with Singleton, S <: Streams[I]](val strea
   }
 
   /** as a stream of the texts written, each value one element, pulled as the program writes. The program is lifted
-   * into its row with `Yield` added, so that the handler can emit; both witnesses are found for a concrete row */
+   * into its row with `Emit` added, so that the handler can emit; both witnesses are found for a concrete row */
   def streamed[Rest[_]](format: Format = Format.Compact()): Streamed[Rest] = new Streamed[Rest](format)
   final class Streamed[Rest[_]](format: Format) {
-    type Y[Z] = Yield[String, Z]
+    type Y[Z] = Emit[String, Z]
     type RY[X] = okay.effects.Sum[Rest, Y, X]
     def apply[R[_], A](p: A ! R)(implicit sub: Sub[R, ({ type L[X] = okay.effects.Sum[R, Y, X] })#L],
       sp: Split[JsonWriter, ({ type L[X] = okay.effects.Sum[R, Y, X] })#L, RY]): streams.Stream[String, Rest] = {
@@ -236,7 +236,7 @@ class Jsons[I <: okay.effects.Effects with Singleton, S <: Streams[I]](val strea
   /** a value as a stream of its pieces, compact, as they are written — the dual of `values`: a value too big for one
    * string goes out as it is walked, on the heap, however deep */
   def chunks[Rest[_]](j: Json, ascii: Boolean = false): streams.Stream[String, Rest] = {
-    type Y[X] = Yield[String, X]
+    type Y[X] = Emit[String, X]
     type RY[X] = okay.effects.Sum[Rest, Y, X]
     def out(s: String): Unit ! RY = emit[String, RY](s)
     def quoted(s: String): String = Json.print(Json.Str(s), ascii)
@@ -260,7 +260,7 @@ class Jsons[I <: okay.effects.Effects with Singleton, S <: Streams[I]](val strea
   /** a stream of chunks as a stream of its LINES, cut at `\n` wherever a chunk boundary falls, a trailing `\r` dropped;
    * the last line with no newline is a line too */
   def splitLines[Rest[_]](chunks: streams.Stream[String, Rest]): streams.Stream[String, Rest] = {
-    type Y[X] = Yield[String, X]
+    type Y[X] = Emit[String, X]
     type RY[X] = okay.effects.Sum[Rest, Y, X]
     def line(s: String): String = if (s.endsWith("\r")) s.dropRight(1) else s
     def loop(s: streams.Stream[String, RY], carry: String): Unit ! RY = s.pull().flatMap(_.fold(
@@ -296,7 +296,7 @@ class Jsons[I <: okay.effects.Effects with Singleton, S <: Streams[I]](val strea
    * each a `Right`; a failure is one `Left`, the last element — the stream cannot resynchronise after it */
   def values[Rest[_]](chunks: streams.Stream[String, Rest], maxDepth: Int = 1000)
     : streams.Stream[Either[ParseError, Json], Rest] = {
-    type Y[X] = Yield[Either[ParseError, Json], X]
+    type Y[X] = Emit[Either[ParseError, Json], X]
     type RY[X] = okay.effects.Sum[Rest, Y, X]
     type R1[X] = okay.effects.Sum[RY, Expect, X]
     type R2[X] = okay.effects.Sum[R1, Choose, X]
@@ -308,7 +308,7 @@ class Jsons[I <: okay.effects.Effects with Singleton, S <: Streams[I]](val strea
     // the input handler's outside is R2: the chunks, over `Rest`, lifted into it
     val lifted: streams.Stream[String, R2] = fromStreams.lift[Rest, R2](chunks)
     val parsed: Either[ParseError, Unit] ! RY =
-      parsers.expectations(first(fromStreams.inputFrom[R2](lifted)(loop))).map(_.left.map { case (o, ws) =>
+      parsers.expectations(Choose.first(fromStreams.inputFrom[R2](lifted)(loop))).map(_.left.map { case (o, ws) =>
         ParseError(o, 0, 0, ws, None)
       })
     streams.fromGenerator[Either[ParseError, Json]].apply[RY, Rest, Unit](parsed.flatMap {

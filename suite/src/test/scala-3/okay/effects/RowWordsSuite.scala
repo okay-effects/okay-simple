@@ -22,25 +22,25 @@ class RowWordsSuite extends munit.FunSuite:
   val day = for a <- service.serve("ann"); b <- service.serve("bob"); c <- service.serve("cid") yield List(a, b, c)
 
   test("a service: config, log, counter — no types in its logic"):
-    assertEquals(run(state(0)(writer[String](reader(Config("hello", 2))(day)))),
+    assertEquals(run(State.run(0)(Writer.run[String](Reader.run(Config("hello", 2))(day)))),
       (2, (List("served ann", "served bob", "refused cid: busy"), List("hello ann", "hello bob", "try later"))))
 
   test("get with no type: the state's from the row"):
-    assertEquals(run(state(41)(writer[String](reader(Config("x", 1))(service.counted)))), (42, (Nil, 41)))
+    assertEquals(run(State.run(41)(Writer.run[String](Reader.run(Config("x", 1))(service.counted)))), (42, (Nil, 41)))
 
   test("words imported from a val"):
     val words = std.on[Service]
     import words.*
     val p: Int ! Service = ask[Config].map(_.limit)
-    assertEquals(run(state(0)(writer[String](reader(Config("x", 7))(p))))._2._2, 7)
+    assertEquals(run(State.run(0)(Writer.run[String](Reader.run(Config("x", 7))(p))))._2._2, 7)
 
-  type Failing[X] = (Error % String + State % Int)[X]
+  type Failing[X] = (Throws % String + State % Int)[X]
   object failing extends std.On[Failing]:
     def half(n: Int): Int ! Failing = if n % 2 == 0 then pure(n / 2) else raise(s"$n is odd")
 
   test("raise is a program of any value"):
-    assertEquals(run(attempt[String](state(0)(failing.half(7)))), Left("7 is odd"))
-    assertEquals(run(attempt[String](state(0)(failing.half(8)))), Right((0, 4)))
+    assertEquals(run(Throws.run[String](State.run(0)(failing.half(7)))), Left("7 is odd"))
+    assertEquals(run(Throws.run[String](State.run(0)(failing.half(8)))), Right((0, 4)))
 
   object counter extends std.On[Reader % Int + State % Int]:
     def tick: Int ! Row =
@@ -52,5 +52,5 @@ class RowWordsSuite extends munit.FunSuite:
     val three = for a <- tick; b <- tick; c <- tick yield List(a, b, c)
 
   test("the row written once, inline, and named Row inside"):
-    assertEquals(run(state(0)(reader(1)(counter.three))), (3, List(1, 2, 3)))
-    assertEquals(run(state(100)(reader(10)(counter.three))), (130, List(110, 120, 130)))
+    assertEquals(run(State.run(0)(Reader.run(1)(counter.three))), (3, List(1, 2, 3)))
+    assertEquals(run(State.run(100)(Reader.run(10)(counter.three))), (130, List(110, 120, 130)))

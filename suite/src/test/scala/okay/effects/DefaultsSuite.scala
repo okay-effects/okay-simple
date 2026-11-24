@@ -13,7 +13,7 @@ class DefaultsSuite extends munit.FunSuite {
     ask[String, R].flatMap(name => modify[Int, R](_ + 1).map(_ => s"hello, $name"))
 
   test("perform, handle, run: the standard effects, on the machine") {
-    assertEquals(run(state(0)(reader("Ann")(greet[Row]))), (1, "hello, Ann"))
+    assertEquals(run(State.run(0)(Reader.run("Ann")(greet[Row]))), (1, "hello, Ann"))
   }
   test("an effect of one's own: perform and handle") {
     assertEquals(run(handle[Ticket, Ticket, Pure, Int, Int](perform[Ticket].apply[Ticket, Int](Ticket.Next(n => n)),

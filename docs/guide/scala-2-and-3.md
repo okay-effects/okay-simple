@@ -24,7 +24,7 @@ object TwoEffects {
     for { name <- ask[String, R]; _ <- tell[String, R](s"hello, $name") } yield name.length
 
   type Row[X] = ((Reader % String) + (Writer % String))#L[X]
-  assert(run(writer[String](reader("Ann")(greet[Row]))) == ((List("hello, Ann"), 3)))
+  assert(run(Writer.run[String](Reader.run("Ann")(greet[Row]))) == ((List("hello, Ann"), 3)))
 }
 assert(TwoEffects.toString.nonEmpty)
 ```

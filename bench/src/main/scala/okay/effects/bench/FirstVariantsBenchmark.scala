@@ -92,7 +92,7 @@ class FirstVariantsBenchmark {
 
     val run1: (Int ! Choose) => Option[Int] = shape match {
       case "old" => p => run(old(p))
-      case "std" => p => run(first(p))
+      case "std" => p => run(Choose.first(p))
       case "fused" => p => run(fused(p))
       case _ => p => run(handler(p))
     }

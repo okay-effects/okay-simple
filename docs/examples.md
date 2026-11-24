@@ -12,7 +12,7 @@ the last block of the first part runs them, here, on two implementations.
 | File | What it shows |
 |---|---|
 | [`Basics3.scala`](../examples/src/main/scala-3/okay/effects/examples/Basics3.scala) | Scala 3: rows of type lambdas, requirements as context bounds, an effect of one's own an `enum`, a handler answering in place, a general one resuming `k` twice |
-| [`Control3.scala`](../examples/src/main/scala-3/okay/effects/examples/Control3.scala) | generators (`collect`, `take`, `each`), a search (`first`), `recover`, `shift`/`reset`, the answer type changed |
+| [`Control3.scala`](../examples/src/main/scala-3/okay/effects/examples/Control3.scala) | generators (`Emit.collect`, `Emit.take`, `Emit.each`), a search (`Choose.first`), `Throws.recover`, `shift`/`reset`, the answer type changed |
 | [`Basics2.scala`](../examples/src/main/scala-2/okay/effects/examples/Basics2.scala) | Scala 2: rows by names (`#L`), an effect's operations carrying their answers, a search |
 | [`Shared.scala`](../examples/src/main/scala/okay/effects/examples/Shared.scala) | code written once for both compilers: an effect, its handler, a row by aliases |
 | [`Mixed.scala`](../examples/mixed/src/main/scala/okay/effects/examples/Mixed.scala) | one application of two compilers: Scala 3 code using the effect, handler and program Scala 2.13 compiled |
@@ -52,7 +52,7 @@ def greet[R[_]: Has[Reader % String]: Has[Writer % String]: Has[State % Int]]: I
   yield n
 
 type App[X] = (Reader % String + Writer % String + State % Int)[X]   // Scala 3.3 LTS's form; 3.5 on: type App = ...
-def greeted: (Int, (List[String], Int)) = run(state(0)(writer[String](reader("Ann")(greet[App]))))
+def greeted: (Int, (List[String], Int)) = run(State.run(0)(Writer.run[String](Reader.run("Ann")(greet[App]))))
 ```
 
 ### A handler resuming twice: every way a program can go
@@ -88,7 +88,7 @@ def triple[R[_]: Has[Choose]]: (Int, Int, Int) ! R =
     c <- among[Int, R]((b to max).toList)
     t <- if a * a + b * b == c * c then pure[(Int, Int, Int), R]((a, b, c)) else fail[(Int, Int, Int), R]
   yield t
-run(first(triple[Choose]))   // Some((3, 4, 5))
+run(Choose.first(triple[Choose]))   // Some((3, 4, 5))
 ```
 
 ### Delimited control, the answer type changed
@@ -135,7 +135,7 @@ def doubled[R[_]: Has[Basics2.Counter]#L: Has[(State % Int)#L]#L]: Int ! R =
   basics.tick[R].andThen(basics.peek[R]).flatMap(n => modify[Int, R](_ + 2 * n).as(n))
 
 type Row[X] = (*[Basics2.Counter] + (State % Int))#L[X]
-def both = run(state(0)(basics.counting(basics.tick[Row].andThen(doubled[Row]))))
+def both = run(State.run(0)(basics.counting(basics.tick[Row].andThen(doubled[Row]))))
 ```
 
 ### One program, any implementation
@@ -198,7 +198,7 @@ run(parse("2+3*(4+1)")(expr))   // Some(17)
 the end; an error raised inside drops the log, and the store is as it was:
 
 ```scala excerpt
-run(store[String, Int](start)(attempt[String](atomically[String, Int](transfer("ann", "bob", 20)))))
+run(store[String, Int](start)(Throws.run[String](atomically[String, Int](transfer("ann", "bob", 20)))))
   // (start, Left("insufficient"))
 ```
 
@@ -208,7 +208,7 @@ run(store[String, Int](start)(attempt[String](atomically[String, Int](transfer("
 def worker(name: String, n: Int): Int ! T =
   if n == 0 then pure(0)
   else tell[String, T](s"$name$n").andThen(pass[Int, T]).andThen(worker(name, n - 1)).map(_ + 1)
-run(writer[String](scheduled[Int](List(worker("a", 2), worker("b", 3)))))   // a2, b3, a1, b2, b1
+run(Writer.run[String](scheduled[Int](List(worker("a", 2), worker("b", 3)))))   // a2, b3, a1, b2, b1
 ```
 
 **Streams merged as they come** — [async](modules/async.md): two streams of `Async`, the merged one giving whichever

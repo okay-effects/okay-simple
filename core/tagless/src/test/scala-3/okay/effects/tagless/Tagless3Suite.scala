@@ -17,7 +17,7 @@ object Greeting:
     yield n
 
   type App[X] = (Reader % String + Writer % String + State % Int)[X]
-  val greeted: (Int, (List[String], Int)) ! Pure = state(0)(writer[String](reader("Ann")(greet[App])))
+  val greeted: (Int, (List[String], Int)) ! Pure = State.run(0)(Writer.run[String](Reader.run("Ann")(greet[App])))
 
 class Tagless3Suite extends munit.FunSuite:
   test("on the machine and on Free, the implementation given") {

@@ -28,7 +28,8 @@ val audited = observe[State % Int, Bank, Int](day)(new Observe[State % Int, Bank
     case State.Get(_) => tell[String, Bank]("read")
     case State.Put(s, _) => tell[String, Bank](s"wrote $s"))
 
-assert(run(writer[String](state(0)(audited))) == (List("read", "wrote 10", "read", "wrote 15", "read"), (15, 15)))
+assert(run(Writer.run[String](State.run(0)(audited)))
+  == (List("read", "wrote 10", "read", "wrote 15", "read"), (15, 15)))
 ```
 
 (`modify` is a `get` and a `put`.)
@@ -45,7 +46,7 @@ val doubled = around[State % Int, Bank, Int](day)(new Around[State % Int, Bank]:
     case State.Put(s, answer) => get[Int, Bank].flatMap(old => put[Int, Bank](old + 2 * (s - old))).map(answer)
     case _ => proceed)
 
-assert(run(writer[String](state(0)(doubled)))._2 == (30, 30))
+assert(run(Writer.run[String](State.run(0)(doubled)))._2 == (30, 30))
 ```
 
 ## A general interceptor
@@ -60,7 +61,7 @@ val frozen = intercept[State % Int, Bank, Int, Int](day, new Handler[State % Int
     case State.Get(answer) => k(answer(100))
     case State.Put(s, answer) => put[Int, Bank](s).flatMap(_ => k(answer(()))))
 
-assert(run(writer[String](state(0)(frozen)))._2 == (105, 100))
+assert(run(Writer.run[String](State.run(0)(frozen)))._2 == (105, 100))
 ```
 
 ## Nesting

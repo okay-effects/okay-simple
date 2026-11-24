@@ -45,7 +45,7 @@ def greet: Int ! Reader % String + Writer % String =
   ask[String].flatMap(name => tell(s"hello, $name").map(_ => name.length))
 def twice[T <: Row]: Eff[T, Int] =
   reset[Int, T](shift[Int, T, Int](k => k(10).flatMap(k)).at[Shifts[Int, T] +: T].map(_ + 1))
-run(reader("Ann")(writer[String, Int, Reader % String +: Pure](greet)))   // (List("hello, Ann"), 3)
+run(Reader.run("Ann")(Writer.run[String, Int, Reader % String +: Pure](greet)))   // (List("hello, Ann"), 3)
 run(twice[Pure])                                                         // 12
 ```
 
@@ -211,7 +211,7 @@ let p: Eff<R, i64> = eff! { data;
     s <- get::<i64, _, _>();
     yield s * 2
 };
-assert_eq!(p.handle(reader(5)).handle(state(1)).run(), (6, 12));
+assert_eq!(p.handle(Reader.run(5)).handle(State.run(1)).run(), (6, 12));
 ```
 
 It is checked by okay-core's suites, by a reference interpreter on random programs, and by okay-kernel's TCK digest.
@@ -237,9 +237,9 @@ def prog(outer: Cap[Ask[int]]) -> Eff[int]:
         a = yield from outer.perform(Ask[int]())
         b = yield from inner.perform(Ask[int]())
         return a * 10 + b
-    return (yield from reader(2, inner_body))
+    return (yield from Reader.run(2, inner_body))
 
-run(reader(1, prog))  # 12
+run(Reader.run(1, prog))  # 12
 ```
 
 It implements okay-kernel's protocol, has middleware, and a wire to okay: a shop runs in Python under Scala handlers.
@@ -293,7 +293,7 @@ def greet [In (Reader String) R] [In (Writer String) R] [In (State Nat) R] : Nat
 -- ((10, 13), ["hello, Ann"])
 ```
 
-The standard effects — `State`, `Reader`, `Writer`, `Error`, `Choose`, `Abort` — with their handlers' laws proved. And
+The standard effects — `State`, `Reader`, `Writer`, `Throws`, `Choose`, `Abort` — with their handlers' laws proved. And
 the wire: a Lean worker is a far side of okay's (`Okay.Wire`: programs by name, typed effects through `Wire`, a rest a
 pure function continued any number of times), over a child's pipes or as one library of okay's C ABI that okay loads
 into the JVM's own process through FFM, checked by okay's conformance suite over both; and Lean as the host of another

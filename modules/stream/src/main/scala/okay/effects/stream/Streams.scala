@@ -7,7 +7,7 @@ import okay.effects.{Effects, Std}
  * STREAMS over any implementation `fx`: a `Stream[O, R]` gives elements `O` one at a time, each pull a program of the
  * row `R` — so its elements may be made by effects (`eval`, `evalMap`), and it is LAZY: nothing is pulled until a
  * sink asks (`toList`, `fold`, `foreach`, `drain`), an endless stream taken as far as it is asked. A stream is a value:
- * pulled twice, it runs twice. With the standard generators, `Yield`: `fromGenerator(p)`, a program that `emit`s, as a
+ * pulled twice, it runs twice. With the standard generators, `Emit`: `fromGenerator(p)`, a program that `emit`s, as a
  * stream; `s.emitAll`, a stream as a program that `emit`s.
  */
 class Streams[F <: Effects with Singleton](implicit implementation: F) {
@@ -71,7 +71,7 @@ class Streams[F <: Effects with Singleton](implicit implementation: F) {
     def drain: Unit ! R = foreach(_ => pure[Unit, R](()))
     def headOption: Option[O] ! R = pull().map(_.fold[Option[O]](None)((o, _) => Some(o)))
     /** this stream as a program that `emit`s each element, in a row `S` of more effects */
-    def emitAll[S[_]](implicit y: In[({ type L[x] = Yield[O, x] })#L, S], sub: Sub[R, S]): Unit ! S =
+    def emitAll[S[_]](implicit y: In[({ type L[x] = Std.Emit[O, x] })#L, S], sub: Sub[R, S]): Unit ! S =
       pull().into[S].flatMap(_.fold(pure[Unit, S](()))((o, r) => emit[O, S](o).flatMap(_ => r.emitAll[S])))
   }
 
@@ -120,18 +120,18 @@ class Streams[F <: Effects with Singleton](implicit implementation: F) {
     () => pure[Pull[O, R], R](step)
   })
 
-  /** a generator — a program `emit`ting `O` — as a stream of the row outside its `Yield`: pulled as far as asked, the
+  /** a generator — a program `emit`ting `O` — as a stream of the row outside its `Emit`: pulled as far as asked, the
    * generator run that far, its rest the stream's */
   def fromGenerator[O]: FromGenerator[O] = new FromGenerator[O]
   final class FromGenerator[O] {
     def apply[R[_], Rest[_], A](p: A ! R)(
-      implicit sp: Split[({ type L[x] = Yield[O, x] })#L, R, Rest]): Stream[O, Rest] =
+      implicit sp: Split[({ type L[x] = Std.Emit[O, x] })#L, R, Rest]): Stream[O, Rest] =
       new Stream[O, Rest](() =>
-        handle[({ type L[x] = Yield[O, x] })#L, R, Rest, A, Pull[O, Rest]](p,
-          new Handler[({ type L[x] = Yield[O, x] })#L, Rest, A, Pull[O, Rest]] {
+        handle[({ type L[x] = Std.Emit[O, x] })#L, R, Rest, A, Pull[O, Rest]](p,
+          new Handler[({ type L[x] = Std.Emit[O, x] })#L, Rest, A, Pull[O, Rest]] {
             def ret(a: A) = ended[O, Rest]
-            def op[X](op: Yield[O, X], k: X => Pull[O, Rest] ! Rest) = op match {
-              case Std.Yield.Emit(o, answer) => emitted[O, Rest](o, new Stream[O, Rest](() => k(answer(()))))
+            def op[X](op: Std.Emit[O, X], k: X => Pull[O, Rest] ! Rest) = op match {
+              case Std.Emit.Send(o, answer) => emitted[O, Rest](o, new Stream[O, Rest](() => k(answer(()))))
             }
           }))
   }

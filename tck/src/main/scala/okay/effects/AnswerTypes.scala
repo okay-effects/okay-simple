@@ -19,7 +19,7 @@ class AnswerTypes(val fx: Runner) {
   /** a program of effects under the `reset`, lifted: `ask` answered by the handler outside */
   type RS[X] = fx.std.Reader[String, X]
   type Row[X] = Sum[Void, RS, X]
-  def lifted: Int = run(fx.std.reader("Ann")(d.reset[Int, Int, Row](
+  def lifted: Int = run(fx.std.Reader.run("Ann")(d.reset[Int, Int, Row](
         d.flatMap(d.lift[String, Int, Row](fx.std.ask[String, Row]))(s => d.pure[Int, Int, Row](s.length)))))
 
   /** in constant stack: 100 000 binds */

@@ -67,7 +67,7 @@ val moduleDescriptions: Map[String, String] = Map(
   "okay-effects-monix" -> "Interop of okay-effects with monix: Task and Observable",
   "okay-effects-kyo" -> "Interop of okay-effects with kyo: computations and streams",
   "okay-effects-java-stream" -> "Interop of okay-effects' streams with Java's streams, iterators and iterables",
-  "okay-effects-tofu" -> "Interop of okay-effects with tofu: WithLocal of a Reader, Errors of an Error")
+  "okay-effects-tofu" -> "Interop of okay-effects with tofu: WithLocal of a Reader, Errors of a Throws")
 
 /** one source for both compilers, and each its own convenience in scala-2/ and scala-3/ */
 def crossBuilt: Seq[Def.Setting[?]] = Seq(

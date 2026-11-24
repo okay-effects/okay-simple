@@ -16,8 +16,8 @@ class ReadmeSuite extends munit.FunSuite:
   type Row[X] = (Reader % String + Writer % String + State % Int)[X]
 
   test("README's program, one import"):
-    assertEquals(run(reader("Ann")(state(10)(writer[String](greet[Row])))), (13, (List("hello, Ann"), 10)))
+    assertEquals(run(Reader.run("Ann")(State.run(10)(Writer.run[String](greet[Row])))), (13, (List("hello, Ann"), 10)))
 
   test("an effect with no parameter, by its own name in a row"):
     def among3[R[_]: Has[Choose]]: Int ! R = among[Int, R](List(1, 2, 3))
-    assertEquals(run(all(among3[Choose])), List(1, 2, 3))
+    assertEquals(run(Choose.all(among3[Choose])), List(1, 2, 3))

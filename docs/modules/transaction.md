@@ -17,7 +17,7 @@ import okay.effects.transaction.*
 
 type Accounts = [x] =>> Tx[String, Int, x]
 type Db = [x] =>> Store[String, Int, x]
-type T = Db + Error % String + Accounts
+type T = Db + Throws % String + Accounts
 
 def balance(who: String): Int ! T = read[String, Int, T](who).map(_.getOrElse(0))
 def transfer(from: String, to: String, n: Int): Unit ! T =
@@ -31,9 +31,9 @@ def transfer(from: String, to: String, n: Int): Unit ! T =
   yield ()
 
 val start = Map("ann" -> 10, "bob" -> 0)
-assert(run(store[String, Int](start)(attempt[String](atomically[String, Int](transfer("ann", "bob", 7))))) ==
+assert(run(store[String, Int](start)(Throws.run[String](atomically[String, Int](transfer("ann", "bob", 7))))) ==
   (Map("ann" -> 3, "bob" -> 7), Right(())))
-assert(run(store[String, Int](start)(attempt[String](atomically[String, Int](transfer("ann", "bob", 20))))) ==
+assert(run(store[String, Int](start)(Throws.run[String](atomically[String, Int](transfer("ann", "bob", 20))))) ==
   (start, Left("insufficient")))
 ```
 

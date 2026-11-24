@@ -22,7 +22,7 @@ class Mixed(using val fx: Runner):
   type Row[X] = (*[Basics2.Counter] + (State % Int))#L[X]
 
   /** Scala 2's program and handler with Scala 3's program, one row, one run */
-  def both: (Int, (Int, Int)) = run(state(0)(basics.counting(basics.tick[Row].andThen(doubled[Row]))))
+  def both: (Int, (Int, Int)) = run(State.run(0)(basics.counting(basics.tick[Row].andThen(doubled[Row]))))
 
   /** the shared code's program, written once, run from here */
   def served: (List[String], Unit) = Shared().served(List("Ann"))

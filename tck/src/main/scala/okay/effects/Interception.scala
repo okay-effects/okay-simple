@@ -15,7 +15,7 @@ class Interception(val fx: Runner) {
 
   /** the state's operations told as they go, the state working as it did */
   def observed: (List[String], (Int, Int)) =
-    run(writer[String](state(0)(observe[St, SW, Int](counter)(new Observe[St, SW] {
+    run(Writer.run[String](State.run(0)(observe[St, SW, Int](counter)(new Observe[St, SW] {
       def apply[X](op: State[Int, X]): Unit ! SW = op match {
         case Std.State.Get(_) => tell[String, SW]("get")
         case Std.State.Put(s, _) => tell[String, SW](s"put $s")
@@ -23,7 +23,7 @@ class Interception(val fx: Runner) {
     }))))
 
   /** two interceptors: the inner sees an operation first, then passes it to the outer */
-  def nested: (List[String], (Int, Int)) = run(writer[String](state(0)(
+  def nested: (List[String], (Int, Int)) = run(Writer.run[String](State.run(0)(
         observe[St, SW, Int](observe[St, SW, Int](counter)(new Observe[St, SW] {
               def apply[X](op: State[Int, X]): Unit ! SW = tell[String, SW]("inner")
             }))(new Observe[St, SW] {
@@ -31,7 +31,7 @@ class Interception(val fx: Runner) {
           }))))
 
   /** each ask answered with the environment outside, doubled: an operation changed, another in its place */
-  def doubled: Int = run(reader(21)(around[Rd, Rd, Int](ask[Int, Rd])(new Around[Rd, Rd] {
+  def doubled: Int = run(Reader.run(21)(around[Rd, Rd, Int](ask[Int, Rd])(new Around[Rd, Rd] {
     def apply[X](op: Reader[Int, X], proceed: X ! Rd): X ! Rd = op match {
       case Std.Reader.Ask(answer) => ask[Int, Rd].map(e => answer(e * 2))
     }
@@ -39,7 +39,7 @@ class Interception(val fx: Runner) {
 
   /** the choices refused but the even ones; `all` outside resuming each */
   def evensOnly: List[Int] =
-    run(all(around[Choose, Choose, Int](among[Int, Choose]((1 to 6).toList))(new Around[Choose, Choose] {
+    run(Choose.all(around[Choose, Choose, Int](among[Int, Choose]((1 to 6).toList))(new Around[Choose, Choose] {
       def apply[X](op: Choose[X], proceed: X ! Choose): X ! Choose = op match {
         case Std.Choose.Among(xs) => among[X, Choose](xs.filter { case n: Int => n % 2 == 0; case _ => true })
         case _ => proceed
@@ -47,7 +47,7 @@ class Interception(val fx: Runner) {
     })))
 
   /** a general interceptor: an operation answered here, never passed on */
-  def answeredHere: (Int, Int) = run(state(5)(intercept[St, St, Int, Int](get[Int, St],
+  def answeredHere: (Int, Int) = run(State.run(5)(intercept[St, St, Int, Int](get[Int, St],
         new Handler[St, St, Int, Int] {
           def ret(a: Int) = pure(a)
           def op[X](op: State[Int, X], k: X => Int ! St) = op match {
@@ -60,7 +60,7 @@ class Interception(val fx: Runner) {
   def many(n: Int): (Int, Int) = {
     def loop(i: Int): Unit ! St = if (i == 0) pure[Unit, St](()) else modify[Int, St](_ + 1).flatMap(_ => loop(i - 1))
     var seen = 0
-    val r = run(state(0)(observe[St, St, Unit](loop(n))(new Observe[St, St] {
+    val r = run(State.run(0)(observe[St, St, Unit](loop(n))(new Observe[St, St] {
       def apply[X](op: State[Int, X]): Unit ! St = { seen += 1; pure[Unit, St](()) }
     })))
     (r._1, seen)

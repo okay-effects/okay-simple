@@ -43,5 +43,5 @@ class Shared(implicit val fx: Runner) {
     }
 
   /** the ticket handler inside, the writer outside */
-  def served(names: List[String]): (List[String], Unit) = run(writer[String](tickets(serve[Desk](names))))
+  def served(names: List[String]): (List[String], Unit) = run(Writer.run[String](tickets(serve[Desk](names))))
 }

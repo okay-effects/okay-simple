@@ -10,9 +10,9 @@ Five shapes, from the most general to the most specialised. An implementation ma
 |---|---|---|---|
 | `Handler[E, R, A, B]` | `ret(a)`, `op(op, k)` | the rest, resumed any number of times | choice, generators, search, schedulers |
 | `TailHandler[E, R, A, B]` | `ret(a)`, `answer(op): X` | resumed once, at once, with the answer | `Reader`, environments, services |
-| `AbortHandler[E, R, A, B]` | `ret(a)`, `abort(op)` | never resumed: the clause is the result | `Error`, `Abort` |
+| `AbortHandler[E, R, A, B]` | `ret(a)`, `abort(op)` | never resumed: the clause is the result | `Throws`, `Abort` |
 | `StatefulTailHandler[E, S, R, A, B]` | `ret(s, a)`, `answer(cell, op): X` | resumed once, a state in a `Cell` | `State`, `Writer`, counters |
-| `StatefulHandler[E, S, R, A, B]` | `ret(s, a)`, `op(s, op, k)` | resumed with the answer and the next state | `take`, schedulers with state |
+| `StatefulHandler[E, S, R, A, B]` | `ret(s, a)`, `op(s, op, k)` | resumed with the answer and the next state | `Emit.take`, schedulers with state |
 
 `R` in a shape is the row OUTSIDE the handler; `A` the program's value, `B` the handler's.
 

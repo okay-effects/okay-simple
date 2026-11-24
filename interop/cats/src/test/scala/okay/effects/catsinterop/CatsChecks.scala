@@ -25,12 +25,12 @@ abstract class CatsChecks(val fx0: Runner) extends munit.FunSuite {
   implicit val stMonad: cats.Monad[Program[St]#L] = monad[St]
   test("cats' monad over the programs: a traverse, a state summed") {
     val p = Traverse[List].traverse[Program[St]#L, Int, Int](List(1, 2, 3))(x => modify[Int, St](_ + x).as(x * 10))
-    assertEquals(run(state(0)(p)), (6, List(10, 20, 30)))
+    assertEquals(run(State.run(0)(p)), (6, List(10, 20, 30)))
   }
   test("cats' tailRecM in constant stack: 100 000 steps") {
     val p = stMonad.tailRecM(0)(i =>
       if (i == 100000) pure[Either[Int, Int], St](Right(i)) else modify[Int, St](_ + 1).as(Left(i + 1)))
-    assertEquals(run(state(0)(p)), (100000, 100000))
+    assertEquals(run(State.run(0)(p)), (100000, 100000))
   }
 
   type LO[X] = Std.Lift[Option, X]

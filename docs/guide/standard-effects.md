@@ -2,7 +2,7 @@
 
 `fx.std` — `import fx.std.*` — written once over the interface, for both compilers; their definitions in the object
 `okay.effects.Std`, so other effects of the same names do not clash. Each handler takes its effect from anywhere in
-the row; the effect's parameter is given, the rest inferred: `writer[String](p)`.
+the row; the effect's parameter is given, the rest inferred: `Writer.run[String](p)`.
 
 ```scala
 import okay.effects.Std
@@ -12,19 +12,23 @@ import okay.effects.std.*
 
 | Effect | Operations | Handlers |
 |---|---|---|
-| `State % S` | `get`, `put(s)`, `modify(f)`, `gets(f)`, `getAndSet(s)` | `state(s0)`: the final state and the value |
-| `Reader % E` | `ask` | `reader(e)`; `local(f)(p)`: `p` sees `f(e)` |
-| `Writer % W` | `tell(w)` | `writer[W]`: what was told, in order; `listen[W](p)`, `censor(f)(p)` |
-| `Error % E` | `raise(e)` | `attempt[E]`: `Either[E, A]`; `recover[E](p)(h)` |
+| `State % S` | `get`, `put(s)`, `modify(f)`, `gets(f)`, `getAndSet(s)` | `State.run(s0)`: the final state and the value |
+| `Reader % E` | `ask` | `Reader.run(e)`; `Reader.local(f)(p)`: `p` sees `f(e)` |
+| `Writer % W` | `tell(w)` | `Writer.run[W]`: what was told, in order; `Writer.listen[W](p)`, `Writer.censor(f)(p)` |
+| `Throws % E` | `raise(e)` | `Throws.run[E]`: `Either[E, A]`; `Throws.recover[E](h)(p)` |
 | `Abort` | `abort` | `optional(p)`: `Option[A]` |
-| `Choose` | `among(xs)`, `fail`, `guard(cond)`; the cut: `mark`, `cut(m)`, `once(p)` | `all`: every way; `first`: the first way with no `fail` |
-| `Yield % O` | `emit(o)` | `collect[O]`, `take[O](n)`, `each[O](p)(f)` |
-| `Fresh` | `fresh` | `freshFrom(n0)` |
+| `Choose` | `among(xs)`, `fail`, `guard(cond)`; the cut: `mark`, `cut(m)`, `once(p)` | `Choose.all`: every way; `Choose.first`: the first way with no `fail` |
+| `Emit % O` | `emit(o)`, `Emit.send(o)` | `Emit.collect[O]`, `Emit.take[O](n)`, `Emit.each[O](f)(p)` |
+| `Fresh` | `fresh` | `Fresh.from(n0)` |
 | `Random` | `nextLong`, `nextInt(bound)`, `nextDouble` | `random(seed)` |
 | `Store[K, V, *]` | `load(k)`, `save(k, v)`, `remove(k)` | `store(m0)`: the final map and the value |
 | `Lift[G, *]` (Scala 3: `[x] =>> Lift[G, x]`) | `lift(ga)` | a `Runner`'s `lower[G](p)` (a `Lowering[G]`); `handleLift[G]`, in place (a `Distributes[G]`); `liftVia(nt)` |
 | `Control % (B ! R)` | `shift(f)` | `reset(p)` — see [delimited control](delimited-control.md) |
 | `observe`, `around` | — | over any effect: see [interception](interception.md) |
+
+`Error` and `Yield` are the old names of `Throws` and `Emit` (`Yield.Emit` of `Emit.Send`), and `state(s0)`,
+`reader(e)`, `writer[W]`, `attempt[E]`, `recover[E](p)(h)`, `local`, `listen`, `censor`, `collect[O]`, `each[O](p)(f)`,
+`take[O](n)`, `all`, `first`, `freshFrom(n0)` the old names of the handlers above: deprecated aliases, kept.
 
 ## The words of one row: `On[R]`
 
@@ -50,7 +54,7 @@ object RowWords:
       yield reply
 
   val day = for a <- service.serve("ann"); b <- service.serve("bob"); c <- service.serve("cid") yield List(a, b, c)
-  val result = run(state(0)(writer[String](reader(Config("hello", 2))(day))))
+  val result = run(State.run(0)(Writer.run[String](Reader.run(Config("hello", 2))(day))))
 
 assert(RowWords.result == (2, (List("served ann", "served bob", "refused cid: busy"), List("hello ann", "hello bob", "try later"))))
 ```
@@ -67,8 +71,8 @@ object ticks extends std.On[Reader % Int + State % Int]:
     yield n + step
   val three = for a <- tick; b <- tick; c <- tick yield List(a, b, c)
 
-assert(run(state(0)(reader(1)(ticks.three))) == (3, List(1, 2, 3)))
-assert(run(state(100)(reader(10)(ticks.three))) == (130, List(110, 120, 130)))
+assert(run(State.run(0)(Reader.run(1)(ticks.three))) == (3, List(1, 2, 3)))
+assert(run(State.run(100)(Reader.run(10)(ticks.three))) == (130, List(110, 120, 130)))
 ```
 
 Scala 2 the same: `object service extends std.On[Service] { ... }`, the row by names, `get[Int]`.
@@ -78,7 +82,7 @@ Scala 2 the same: `object service extends std.On[Service] { ... }`, the row by n
 ```scala
 type S = State % Int
 val counter: Int ! S = for _ <- modify[Int, S](_ + 1); n <- gets[Int, Int, S](_ * 10); old <- getAndSet[Int, S](0) yield n + old
-assert(run(state(4)(counter)) == (0, 55))
+assert(run(State.run(4)(counter)) == (0, 55))
 ```
 
 Answered in place. A `k` resumed twice by a handler outside the state resumes the state of its time.
@@ -88,11 +92,11 @@ Answered in place. A `k` resumed twice by a handler outside the state resumes th
 ```scala
 type Rd = Reader % Int
 val seen: (Int, Int, Int) ! Rd =
-  for a <- ask[Int, Rd]; b <- local[Int](_ * 2)(ask[Int, Rd]); c <- ask[Int, Rd] yield (a, b, c)
-assert(run(reader(21)(seen)) == (21, 42, 21))
+  for a <- ask[Int, Rd]; b <- Reader.local[Int](_ * 2)(ask[Int, Rd]); c <- ask[Int, Rd] yield (a, b, c)
+assert(run(Reader.run(21)(seen)) == (21, 42, 21))
 ```
 
-`local(f)(p)` needs `Sub[Rest, R]`: `p` handled by a reader of its own, its other effects back where they were —
+`Reader.local(f)(p)` needs `Sub[Rest, R]`: `p` handled by a reader of its own, its other effects back where they were —
 found by itself for a row named in full.
 
 ## Writer
@@ -100,19 +104,20 @@ found by itself for a row named in full.
 ```scala
 type Wr = Writer % String
 val told: Int ! Wr =
-  tell[String, Wr]("a").andThen(listen[String](tell[String, Wr]("b").andThen(tell[String, Wr]("c")).as(1)).map(_._1.size))
-assert(run(writer[String](told)) == (List("a", "b", "c"), 2))
+  tell[String, Wr]("a").andThen(Writer.listen[String](tell[String, Wr]("b").andThen(tell[String, Wr]("c")).as(1))
+    .map(_._1.size))
+assert(run(Writer.run[String](told)) == (List("a", "b", "c"), 2))
 ```
 
 `listen` and `censor` tell outside what was told inside when the inner program ends — not one by one.
 
-## Error and Abort
+## Throws and Abort
 
 ```scala
-type Er = Error % String
+type Er = Throws % String
 def safeDiv(a: Int, b: Int): Int ! Er = if b == 0 then raise[String, Er, Int]("div by zero") else pure(a / b)
-assert(run(attempt[String](safeDiv(1, 0))) == Left("div by zero"))
-assert(run(recover[String](safeDiv(1, 0))(_ => pure(0))) == 0)
+assert(run(Throws.run[String](safeDiv(1, 0))) == Left("div by zero"))
+assert(run(Throws.recover[String](_ => pure(0))(safeDiv(1, 0))) == 0)
 assert(run(optional(abort[Int, Abort].map(_ + 1))) == None)
 ```
 
@@ -128,13 +133,13 @@ def queens(n: Int): List[Int] ! Choose =
       guard[Choose](qs.zipWithIndex.forall((c, i) => c != q && (c - q).abs != i + 1)).as(q :: qs)
     })
   }
-assert(run(all(queens(6))).size == 4)
-assert(run(first(queens(8))).isDefined)
+assert(run(Choose.all(queens(6))).size == 4)
+assert(run(Choose.first(queens(8))).isDefined)
 ```
 
-`all` resumes `k` for each choice — linear in the ways. `first` tries them in order and stops at the first. Both keep
-the alternatives not yet tried as data, a stack beside the program, and resume the choice in tail position: a chain
-of choice points is as long in memory as the alternatives still pending.
+`Choose.all` resumes `k` for each choice — linear in the ways. `Choose.first` tries them in order and stops at the
+first. Both keep the alternatives not yet tried as data, a stack beside the program, and resume the choice in tail
+position: a chain of choice points is as long in memory as the alternatives still pending.
 
 The CUT is Prolog's. `mark` says how many alternatives are pending; `cut(m)` drops those made since — the ways not
 yet tried there are not tried. `once(p)` is `p`'s first way, its others dropped once it has one: a failure after it
@@ -144,31 +149,32 @@ way.
 
 ```scala
 val two: Int ! Choose = among[Int, Choose](List(1, 2))
-assert(run(all(once[Int, Choose](among[Int, Choose](List(1, 2, 3))))) == List(1))
-assert(run(all(two.flatMap(a => once[Int, Choose](among[Int, Choose](List(10, 20))).map(a + _)))) == List(11, 12))
-assert(run(first(once[Int, Choose](two).flatMap(x => if x == 1 then fail[Int, Choose] else pure(x)))) == None)
-assert(run(first(two.flatMap(x => if x == 1 then fail[Int, Choose] else pure(x)))) == Some(2))
+assert(run(Choose.all(once[Int, Choose](among[Int, Choose](List(1, 2, 3))))) == List(1))
+assert(run(Choose.all(two.flatMap(a => once[Int, Choose](among[Int, Choose](List(10, 20))).map(a + _))))
+  == List(11, 12))
+assert(run(Choose.first(once[Int, Choose](two).flatMap(x => if x == 1 then fail[Int, Choose] else pure(x)))) == None)
+assert(run(Choose.first(two.flatMap(x => if x == 1 then fail[Int, Choose] else pure(x)))) == Some(2))
 ```
 
-## Yield
+## Emit
 
 ```scala
-type Y = Yield % Int
+type Y = Emit % Int
 def nats(n: Int): Unit ! Y = emit[Int, Y](n).andThen(nats(n + 1))
-assert(run(take[Int](3)(nats(0))) == (List(0, 1, 2), None))
+assert(run(Emit.take[Int](3)(nats(0))) == (List(0, 1, 2), None))
 
-type YS = State % Int + Yield % Int
+type YS = State % Int + Emit % Int
 def three: Unit ! YS = emit[Int, YS](1).andThen(emit[Int, YS](2)).andThen(emit[Int, YS](3))
-assert(run(state(0)(each[Int](three)(o => modify[Int, State % Int](_ + o))))._1 == 6)
+assert(run(State.run(0)(Emit.each[Int](o => modify[Int, State % Int](_ + o))(three)))._1 == 6)
 ```
 
-`take(n)` stops the generator at its `n + 1`-th value: an endless generator taken as far as asked. For streams with
+`Emit.take(n)` stops the generator at its `n + 1`-th value: an endless generator taken as far as asked. For streams with
 transformations, see the [stream module](../modules/stream.md).
 
 ## Fresh, Random, Store
 
 ```scala
-assert(run(freshFrom(100)(fresh[Fresh].flatMap(a => fresh[Fresh].map(b => (a, b))))) == (100L, 101L))
+assert(run(Fresh.from(100)(fresh[Fresh].flatMap(a => fresh[Fresh].map(b => (a, b))))) == (100L, 101L))
 
 def roll: Int ! Random = nextInt[Random](6).map(_ + 1)
 val rolls = (1 to 5).toList.foldLeft(pure[List[Int], Random](Nil))((p, _) => p.flatMap(l => roll.map(_ :: l)))
@@ -260,9 +266,9 @@ assert(whole.value.get.get == None)
 `handleLift[List]` goes DEPTH FIRST, as `all` does: the whole rest of the program for the first element, then for the
 next. With another effect in the row:
 
-- handled OUTSIDE (`state(s)(handleLift[List](p))`), the state is threaded through the elements in order: each
+- handled OUTSIDE (`State.run(s)(handleLift[List](p))`), the state is threaded through the elements in order: each
   element's way sees the state the way before it left — the traversal is sequential;
-- handled INSIDE (`handleLift[List](state(s)(p))`), each element's way has the state of the time of the `lift`, its
+- handled INSIDE (`handleLift[List](State.run(s)(p))`), each element's way has the state of the time of the `lift`, its
   own: a `k` resumed twice resumes the state of its time.
 
 `flatMapIn` keeps the monad laws in the row — left and right identity always; associativity for `Option`, `Either`,

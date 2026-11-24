@@ -3,7 +3,7 @@ package okay.effects.examples
 import okay.effects.Runner
 
 /**
- * CONTROL, SCALA 3, over any implementation `fx`: generators (`Yield`), a search (`Choose`'s `first`), errors
+ * CONTROL, SCALA 3, over any implementation `fx`: generators (`Emit`), a search (`Choose.first`), errors
  * recovered, delimited control —
  * `shift`/`reset` with the answer type fixed (an effect of `std`), and with the answer type changed (`delimited`).
  */
@@ -12,15 +12,15 @@ class Control3(using val fx: Runner):
   import fx.std.*
 
   /** A GENERATOR: values given out one by one, the generator going on */
-  def countdown[R[_]: Has[Yield % Int]](n: Int): Unit ! R =
+  def countdown[R[_]: Has[Emit % Int]](n: Int): Unit ! R =
     if n == 0 then pure(()) else emit[Int, R](n).andThen(countdown[R](n - 1))
 
-  def collected: (List[Int], Unit) = run(collect[Int](countdown[Yield % Int](3)))
+  def collected: (List[Int], Unit) = run(Emit.collect[Int](countdown[Emit % Int](3)))
   /** the first two, the generator stopped at the third */
-  def firstTwo: (List[Int], Option[Unit]) = run(take[Int](2)(countdown[Yield % Int](5)))
+  def firstTwo: (List[Int], Option[Unit]) = run(Emit.take[Int](2)(countdown[Emit % Int](5)))
   /** each value to a consumer with effects of its own: a sum in a state */
   def summed: (Int, Unit) =
-    run(state(0)(each[Int](countdown[State % Int + Yield % Int](4))(n => modify[Int, State % Int](_ + n))))
+    run(State.run(0)(Emit.each[Int](n => modify[Int, State % Int](_ + n))(countdown[State % Int + Emit % Int](4))))
 
   /** A SEARCH: the choices tried in order, the first with no `fail` kept */
   def pythagorean(max: Int): Option[(Int, Int, Int)] =
@@ -31,14 +31,14 @@ class Control3(using val fx: Runner):
         c <- among[Int, R]((b to max).toList)
         t <- if a * a + b * b == c * c then pure[(Int, Int, Int), R]((a, b, c)) else fail[(Int, Int, Int), R]
       yield t
-    run(first(triple[Choose]))
+    run(Choose.first(triple[Choose]))
 
   /** ERRORS: raised, recovered — the rest of the program dropped, the recovery in its place */
-  def half[R[_]: Has[Error % String]](n: Int): Int ! R =
+  def half[R[_]: Has[Throws % String]](n: Int): Int ! R =
     if n % 2 == 0 then pure(n / 2) else raise[String, R, Int](s"$n is odd")
   def halves: (Int, Int) =
-    (run(recover[String](half[Error % String](10))(_ => pure(-1))),
-      run(recover[String](half[Error % String](7))(e => pure(e.length))))
+    (run(Throws.recover[String](_ => pure(-1))(half[Throws % String](10))),
+      run(Throws.recover[String](e => pure(e.length))(half[Throws % String](7))))
 
   /** SHIFT AND RESET, the answer type fixed: `k` the rest up to the `reset`, resumed twice — 1 + (1 + 10) */
   type C[X] = (Control % (Int ! Pure))[X]

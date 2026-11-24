@@ -25,11 +25,11 @@ def step: Int ! Counting =
     _   <- put[Int, Counting](n + inc)
   yield n + inc
 
-assert(run(state(10)(reader(5)(step))) == (15, 15))
+assert(run(State.run(10)(Reader.run(5)(step))) == (15, 15))
 ```
 
-`ask`, `get` and `put` are operations; `reader(5)` and `state(10)` their handlers. A program is a value: nothing ran
-until `run`.
+`ask`, `get` and `put` are operations; `Reader.run(5)` and `State.run(10)` their handlers. A program is a value:
+nothing ran until `run`.
 
 ## 2. Handled in any order
 
@@ -37,7 +37,7 @@ A handler takes its effect from wherever it is in the row. Here the state is han
 last of the row; the reader outside:
 
 ```scala
-assert(run(reader(5)(state(10)(step))) == (15, 15))
+assert(run(Reader.run(5)(State.run(10)(step))) == (15, 15))
 ```
 
 The order matters only where effects meet: a state handled inside a choice is each branch's own (section 6).
@@ -104,7 +104,7 @@ def sum[R[_]: {Has[Reader % Int], Has[State % Int]}](n: Int): Unit ! R =
   if n == 0 then pure(())
   else ask[Int, R].flatMap(x => modify[Int, R](_ + x)).andThen(sum[R](n - 1))
 
-assert(run(state(0)(reader(2)(sum[Counting](100))))._1 == 200)
+assert(run(State.run(0)(Reader.run(2)(sum[Counting](100))))._1 == 200)
 ```
 
 A program of a smaller row goes into a bigger one with `into`:
@@ -112,13 +112,13 @@ A program of a smaller row goes into a bigger one with `into`:
 ```scala
 val small: Int ! (State % Int) = get[Int, State % Int]
 val bigger: Int ! (Reader % Int + State % Int) = small.into[Reader % Int + State % Int]
-assert(run(reader(0)(state(7)(bigger))) == (7, 7))
+assert(run(Reader.run(0)(State.run(7)(bigger))) == (7, 7))
 ```
 
 ## 6. Choice: every way, or the first
 
-`Choose` is the standard non-determinism: `among(xs)` one of the values, `fail` none; `all` resumes for each choice,
-`first` gives the first way with no `fail`:
+`Choose` is the standard non-determinism: `among(xs)` one of the values, `fail` none; `Choose.all`
+resumes for each choice, `Choose.first` gives the first way with no `fail`:
 
 ```scala
 def pairs[R[_]: Has[Choose]]: (Int, Int) ! R =
@@ -128,8 +128,8 @@ def pairs[R[_]: Has[Choose]]: (Int, Int) ! R =
     _ <- guard[R](a < b)
   yield (a, b)
 
-assert(run(all(pairs[Choose])) == List((1, 2), (1, 3), (2, 3)))
-assert(run(first(pairs[Choose])) == Some((1, 2)))
+assert(run(Choose.all(pairs[Choose])) == List((1, 2), (1, 3), (2, 3)))
+assert(run(Choose.first(pairs[Choose])) == Some((1, 2)))
 ```
 
 Where a state meets a choice, the order of their handlers decides whether each branch has its own state:
@@ -138,35 +138,35 @@ Where a state meets a choice, the order of their handlers decides whether each b
 type CS = Choose + State % Int
 val counted = among[Int, CS](List(1, 2, 3)).flatMap(x => modify[Int, CS](_ + 1).as(x))
 
-assert(run(all(state(0)(counted))) == List((1, 1), (1, 2), (1, 3)))      // each branch its own state
-assert(run(state(0)(all(counted))) == (3, List(1, 2, 3)))                // one state through every branch
+assert(run(Choose.all(State.run(0)(counted))) == List((1, 1), (1, 2), (1, 3)))      // each branch its own state
+assert(run(State.run(0)(Choose.all(counted))) == (3, List(1, 2, 3)))                // one state through every branch
 ```
 
 ## 7. Errors
 
-`raise` ends the program with an error; `attempt` gives the value or what was raised, `recover` a program in its
-place:
+`raise` ends the program with an error; `Throws.run` gives the value or what was raised, `Throws.recover` a
+program in its place:
 
 ```scala
-def half[R[_]: Has[Error % String]](n: Int): Int ! R =
+def half[R[_]: Has[Throws % String]](n: Int): Int ! R =
   if n % 2 == 0 then pure(n / 2) else raise[String, R, Int](s"$n is odd")
 
-assert(run(attempt[String](half[Error % String](10))) == Right(5))
-assert(run(attempt[String](half[Error % String](7))) == Left("7 is odd"))
-assert(run(recover[String](half[Error % String](7))(e => pure(e.length))) == 8)
+assert(run(Throws.run[String](half[Throws % String](10))) == Right(5))
+assert(run(Throws.run[String](half[Throws % String](7))) == Left("7 is odd"))
+assert(run(Throws.recover[String](e => pure(e.length))(half[Throws % String](7))) == 8)
 ```
 
 ## 8. Generators
 
-`emit` gives a value out and goes on; `collect` gathers them, `take(n)` stops after `n`, `each` gives each to a
-consumer of its own effects:
+`emit` (`Emit.send`) gives a value out and goes on; `Emit.collect` gathers them, `Emit.take(n)` stops after `n`,
+`Emit.each` gives each to a consumer of its own effects:
 
 ```scala
-def countdown[R[_]: Has[Yield % Int]](n: Int): Unit ! R =
+def countdown[R[_]: Has[Emit % Int]](n: Int): Unit ! R =
   if n == 0 then pure(()) else emit[Int, R](n).andThen(countdown[R](n - 1))
 
-assert(run(collect[Int](countdown[Yield % Int](3))) == (List(3, 2, 1), ()))
-assert(run(take[Int](2)(countdown[Yield % Int](100))) == (List(100, 99), None))
+assert(run(Emit.collect[Int](countdown[Emit % Int](3))) == (List(3, 2, 1), ()))
+assert(run(Emit.take[Int](2)(countdown[Emit % Int](100))) == (List(100, 99), None))
 ```
 
 ## 9. Interception
@@ -183,7 +183,7 @@ val traced = observe[State % Int, SW, Unit](program)(new Observe[State % Int, SW
     case State.Get(_) => tell[String, SW]("get")
     case State.Put(s, _) => tell[String, SW](s"put $s"))
 
-assert(run(writer[String](state(0)(traced))) == (List("put 1", "get", "put 10"), (10, ())))
+assert(run(Writer.run[String](State.run(0)(traced))) == (List("put 1", "get", "put 10"), (10, ())))
 ```
 
 ## 10. Delimited control
@@ -207,7 +207,8 @@ object TaglessTour:
 
   type RS = Reader % Int + State % Int
   /** a program of no implementation: a value */
-  val made: (Int, Int) ! Pure = state(0)(reader(5)(ask[Int, RS].flatMap(x => modify[Int, RS](_ + x)).andThen(get[Int, RS])))
+  val made: (Int, Int) ! Pure = State.run(0)(Reader.run(5)(ask[Int, RS].flatMap(x => modify[Int, RS](_ + x))
+    .andThen(get[Int, RS])))
 
   /** run on the implementation in the implicit context */
   val onMachine = run(made)(using okay.effects.machine.Machine)

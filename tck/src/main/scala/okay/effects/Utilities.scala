@@ -12,37 +12,38 @@ class Utilities(val fx: Runner) {
   type RW[X] = Sum[({ type L[x] = Sum[Void, Rd, x] })#L, Wr, X]
 
   /** the environment seen inside `local`, then outside again */
-  def locally: (Int, Int, Int) = run(reader(10)(
-      ask[Int, Rd].flatMap(a => local[Int](_ * 2)(ask[Int, Rd]).flatMap(b => ask[Int, Rd].map(c => (a, b, c))))))
+  def locally: (Int, Int, Int) = run(Reader.run(10)(
+      ask[Int, Rd].flatMap(a => Reader.local[Int](_ * 2)(ask[Int, Rd]).flatMap(b => ask[Int, Rd].map(c => (a, b, c))))))
   /** `local` deep in a row of two */
-  def localInRow: (List[String], Int) = run(reader(1)(writer[String](
-        local[Int](_ + 41)(ask[Int, RW].flatMap(e => tell[String, RW](s"e=$e").as(e))))))
+  def localInRow: (List[String], Int) = run(Reader.run(1)(Writer.run[String](
+        Reader.local[Int](_ + 41)(ask[Int, RW].flatMap(e => tell[String, RW](s"e=$e").as(e))))))
 
-  def listened: (List[String], (List[String], Int)) = run(writer[String](
+  def listened: (List[String], (List[String], Int)) = run(Writer.run[String](
       tell[String, Wr]("a").flatMap(_ =>
-        listen[String](tell[String, Wr]("b").flatMap(_ => tell[String, Wr]("c")).as(3)))))
-  def censored: (List[String], Int) = run(writer[String](
-      tell[String, Wr]("a").flatMap(_ => censor[String](_.map(_.toUpperCase))(tell[String, Wr]("b").as(1)))))
+        Writer.listen[String](tell[String, Wr]("b").flatMap(_ => tell[String, Wr]("c")).as(3)))))
+  def censored: (List[String], Int) = run(Writer.run[String](
+      tell[String, Wr]("a").flatMap(_ => Writer.censor[String](_.map(_.toUpperCase))(tell[String, Wr]("b").as(1)))))
 
   def stateWords: (Int, (Int, Int)) =
-    run(state(5)(gets[Int, Int, St](_ * 10).flatMap(g => getAndSet[Int, St](7).map(o => (g, o)))))
+    run(State.run(5)(gets[Int, Int, St](_ * 10).flatMap(g => getAndSet[Int, St](7).map(o => (g, o)))))
 
-  def guarded: List[Int] = run(all(among[Int, Choose]((1 to 10).toList).flatMap(x => guard[Choose](x % 3 == 0).as(x))))
+  def guarded: List[Int] = run(Choose.all(among[Int, Choose]((1 to 10).toList)
+    .flatMap(x => guard[Choose](x % 3 == 0).as(x))))
 
   type Ab[X] = Sum[({ type L[x] = Sum[Void, Abort, x] })#L, St, X]
   /** aborted: the state's handler outside sees what was put before */
-  def aborted: (Int, Option[Int]) = run(state(0)(optional(put[Int, Ab](1).flatMap(_ => abort[Int, Ab]).map(_ + 1))))
+  def aborted: (Int, Option[Int]) = run(State.run(0)(optional(put[Int, Ab](1).flatMap(_ => abort[Int, Ab]).map(_ + 1))))
   def notAborted: Option[Int] = run(optional(pure[Int, Abort](3)))
 
   def freshOnes: List[Long] =
-    run(freshFrom(100)(fresh[Fresh].flatMap(a => fresh[Fresh].flatMap(b => fresh[Fresh].map(c => List(a, b, c))))))
+    run(Fresh.from(100)(fresh[Fresh].flatMap(a => fresh[Fresh].flatMap(b => fresh[Fresh].map(c => List(a, b, c))))))
   /** fresh in the branches of a choice: the supply inside the choice, each branch's from its time; outside, one
    * supply through every branch */
   type FC[X] = Sum[({ type L[x] = Sum[Void, Choose, x] })#L, Fresh, X]
   def twoWays: (Int, Long) ! FC =
     fresh[FC].flatMap(_ => among[Int, FC](List(1, 2))).flatMap(x => fresh[FC].map(n => (x, n)))
-  def freshEachBranch: List[(Int, Long)] = run(all(freshFrom(0)(twoWays)))
-  def freshThroughBranches: List[(Int, Long)] = run(freshFrom(0)(all(twoWays)))
+  def freshEachBranch: List[(Int, Long)] = run(Choose.all(Fresh.from(0)(twoWays)))
+  def freshThroughBranches: List[(Int, Long)] = run(Fresh.from(0)(Choose.all(twoWays)))
 
   def randoms(seed: Long): List[Int] =
     run(random(seed)((1 to 5).toList.foldLeft(pure[List[Int], Random](Nil))((p, _) =>

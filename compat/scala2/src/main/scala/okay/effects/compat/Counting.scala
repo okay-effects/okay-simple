@@ -35,5 +35,5 @@ class Counting(val fx: Runner) {
 
   /** a row named in Scala 2: by names, each `%` in parentheses, taken as its constructor */
   type Row[X] = (*[Counter] + (Writer % String))#L[X]
-  def greeted(names: List[String]): (List[String], (Int, Int)) = run(writer[String](counting(greetAll[Row](names))))
+  def greeted(names: List[String]): (List[String], (Int, Int)) = run(Writer.run[String](counting(greetAll[Row](names))))
 }

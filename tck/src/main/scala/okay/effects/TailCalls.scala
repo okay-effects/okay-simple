@@ -19,10 +19,10 @@ class TailCalls(val fx: Runner) {
 
   def isEven(n: Int): Boolean = run(even(n))
   def isOdd(n: Int): Boolean = run(odd(n))
-  def counted(n: Int): (Int, Boolean) = run(state(0)(evenCounted(n)))
+  def counted(n: Int): (Int, Boolean) = run(State.run(0)(evenCounted(n)))
 
   /** a loop: the sum of 1 to n, its steps in a state */
-  def summed(n: Int): (Int, Long) = run(state(0)(tailRecM[(Int, Long), Long, St]((n, 0L)) { case (i, acc) =>
+  def summed(n: Int): (Int, Long) = run(State.run(0)(tailRecM[(Int, Long), Long, St]((n, 0L)) { case (i, acc) =>
     modify[Int, St](_ + 1).as(if (i == 0) Right(acc) else Left((i - 1, acc + i)))
   }))
 }

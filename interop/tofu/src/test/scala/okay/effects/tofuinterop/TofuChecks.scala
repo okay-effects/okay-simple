@@ -16,7 +16,7 @@ abstract class TofuChecks(val fx0: Runner) extends munit.FunSuite {
   import t.catsInterop.fx.std._
 
   type RS[X] = Std.Reader[String, X]
-  type Er[X] = Std.Error[String, X]
+  type Er[X] = Std.Throws[String, X]
   type Row[X] = Sum[({ type L[x] = Sum[Void, RS, x] })#L, Er, X]
   type NoReader[X] = Sum[Void, Er, X]
   type NoError[X] = Sum[Void, RS, X]
@@ -25,16 +25,16 @@ abstract class TofuChecks(val fx0: Runner) extends munit.FunSuite {
     val wl = withLocal[Row, NoReader, String]
     val p: String ! Row =
       wl.context.flatMap(c => wl.local(ask[String, Row].map(_ + "!"))(_.toUpperCase).map(c + " " + _))
-    assertEquals(run(attempt[String](reader("ann")(p))), Right("ann ANN!"))
+    assertEquals(run(Throws.run[String](Reader.run("ann")(p))), Right("ann ANN!"))
   }
   test("Errors: raised, handled with, restored") {
     val er = errors[Row, NoError, String]
     val handled: Int ! Row = er.tryHandleWith(er.raise[Int]("bad"))(e => Some(pure[Int, Row](e.length)))
     val unhandled: Int ! Row = er.tryHandleWith(er.raise[Int]("bad"))(_ => None)
     val restored: Option[Int] ! Row = er.restore(er.raise[Int]("bad"))
-    assertEquals(run(attempt[String](reader("x")(handled))), Right(3))
-    assertEquals(run(attempt[String](reader("x")(unhandled))), Left("bad"))
-    assertEquals(run(attempt[String](reader("x")(restored))), Right(None))
+    assertEquals(run(Throws.run[String](Reader.run("x")(handled))), Right(3))
+    assertEquals(run(Throws.run[String](Reader.run("x")(unhandled))), Left("bad"))
+    assertEquals(run(Throws.run[String](Reader.run("x")(restored))), Right(None))
   }
 }
 

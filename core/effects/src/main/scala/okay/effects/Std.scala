@@ -21,10 +21,17 @@ object Std {
     final case class Tell[W, X](w: W, answer: Unit => X) extends Writer[W, X]
   }
 
-  sealed trait Error[E, X]
-  object Error {
-    final case class Raise[E, X](e: E) extends Error[E, X]
+  /** failure with an error of type `E`: `Raise(e)`, the rest dropped */
+  sealed trait Throws[E, X]
+  object Throws {
+    final case class Raise[E, X](e: E) extends Throws[E, X]
   }
+  /** the old name of `Throws` */
+  @deprecated("use Throws", "0.1.2")
+  type Error[E, X] = Throws[E, X]
+  /** the old name of `Throws` */
+  @deprecated("use Throws", "0.1.2")
+  val Error: Throws.type = Throws
 
   /** an effect of no parameter: `Choose` in a Scala 3 row, `*[Choose]#L` in a Scala 2 one. `Among` the choice;
    * `Mark` and `Cut` a CUT, Prolog's: `Mark` says how many alternatives are pending, `Cut(m)` drops those made since
@@ -128,10 +135,19 @@ object Std {
       }
   }
 
-  /** a generator's: `Emit(o)`, a value given out, the generator going on */
-  sealed trait Yield[O, X]
+  /** a stream of values: `Send(value)`, a value sent out, the producer going on */
+  sealed trait Emit[O, X]
+  object Emit {
+    final case class Send[O, X](value: O, answer: Unit => X) extends Emit[O, X]
+  }
+  /** the old name of `Emit` */
+  @deprecated("use Emit", "0.1.2")
+  type Yield[O, X] = Emit[O, X]
+  /** the old name of `Emit`: its `Emit` is `Emit.Send` */
+  @deprecated("use Emit", "0.1.2")
   object Yield {
-    final case class Emit[O, X](o: O, answer: Unit => X) extends Yield[O, X]
+    val Emit: Std.Emit.Send.type = Std.Emit.Send
+    type Emit[O, X] = Std.Emit.Send[O, X]
   }
 
   /** an early end with no value: `Exit()`, the rest dropped — `optional` gives `None` */
@@ -183,10 +199,10 @@ object Std {
  * THE STANDARD EFFECTS' OPERATIONS AND HANDLERS, written once on the interface, for both compilers: over any
  * implementation `fx`, apart from it — the implementation knows nothing of them, and offers them as its `std`, a
  * member of the interface. So two imports, the implementation's and its standard effects':
- * `import Machine._; import Machine.std._`. The effects (`State`, `Reader`, `Writer`, `Error`, `Choose`, `Control` for
+ * `import Machine._; import Machine.std._`. The effects (`State`, `Reader`, `Writer`, `Throws`, `Choose`, `Control` for
  * shift and reset), their
  * operations and their handlers, each handler taking its effect from anywhere in the row; the parameter named, the
- * rest inferred: `writer[String](p)`. A handler answering in place is the implementation's `handle` of its shape.
+ * rest inferred: `Writer.run[String](p)`. A handler answering in place is the implementation's `handle` of its shape.
  * An effect with a parameter is written here as both compilers read it, `({ type L[x] = State[S, x] })#L` — Scala 3's
  * `State % S`, Scala 2's `(State % S)#L`.
  */
@@ -194,18 +210,100 @@ class Std[F <: Effects with Singleton](val fx: F) {
   import fx._
 
   type State[S, X] = Std.State[S, X]
-  val State: Std.State.type = Std.State
+  /** `State`'s operations, and its handler: `State.run(s0)(p)` */
+  val State: StateEffect = new StateEffect
+  final class StateEffect {
+    val Get: Std.State.Get.type = Std.State.Get
+    type Get[S, X] = Std.State.Get[S, X]
+    val Put: Std.State.Put.type = Std.State.Put
+    type Put[S, X] = Std.State.Put[S, X]
+    /** the final state and the value; a `k` resumed twice resumes the state of its time. Answered in place */
+    def run[S](s0: S): StateHandler[S] = new StateHandler(s0)
+  }
   type Reader[E, X] = Std.Reader[E, X]
-  val Reader: Std.Reader.type = Std.Reader
+  /** `Reader`'s operation, and its handlers: `Reader.run(e)(p)`, `Reader.local(f)(p)` */
+  val Reader: ReaderEffect = new ReaderEffect
+  final class ReaderEffect {
+    val Ask: Std.Reader.Ask.type = Std.Reader.Ask
+    type Ask[E, X] = Std.Reader.Ask[E, X]
+    /** answered in place */
+    def run[E](e: E): ReaderHandler[E] = new ReaderHandler(e)
+    /** the program's `Reader` answered by `f` of the environment outside: `p`'s asks see `f(e)`, the row's own
+     * `Reader` stays — `p` handled by a reader of its own, its row back where it was (`Sub[Rest, R]`) */
+    def local[E](f: E => E): LocalHandler[E] = new LocalHandler(f)
+  }
   type Writer[W, X] = Std.Writer[W, X]
-  val Writer: Std.Writer.type = Std.Writer
-  type Error[E, X] = Std.Error[E, X]
-  val Error: Std.Error.type = Std.Error
+  /** `Writer`'s operation, and its handlers: `Writer.run[W](p)`, `Writer.listen`, `Writer.censor` */
+  val Writer: WriterEffect = new WriterEffect
+  final class WriterEffect {
+    val Tell: Std.Writer.Tell.type = Std.Writer.Tell
+    type Tell[W, X] = Std.Writer.Tell[W, X]
+    /** what was told, in order, and the value. Answered in place */
+    def run[W]: WriterHandler[W] = new WriterHandler[W]
+    /** what `p` told, with its value — told outside too, when `p` ends */
+    def listen[W]: ListenHandler[W] = new ListenHandler[W]
+    /** what `p` told, through `f`, told outside when `p` ends */
+    def censor[W](f: List[W] => List[W]): CensorHandler[W] = new CensorHandler[W](f)
+  }
+  type Throws[E, X] = Std.Throws[E, X]
+  /** `Throws`' operation, its word and its handlers: `Throws.run[E](p)`, `Throws.recover[E](rescue)(p)` */
+  val Throws: ThrowsEffect = new ThrowsEffect
+  final class ThrowsEffect {
+    val Raise: Std.Throws.Raise.type = Std.Throws.Raise
+    type Raise[E, X] = Std.Throws.Raise[E, X]
+    def raise[E, R[_], X](e: E)(implicit in: In[({ type L[x] = Std.Throws[E, x] })#L, R]): X ! R =
+      Std.this.raise[E, R, X](e)
+    /** the value, or what was raised: the rest dropped — a handler aborting, no `k` */
+    def run[E]: ThrowsHandler[E] = new ThrowsHandler[E]
+    /** the value, or `rescue` given what was raised: the rest of the program dropped, `rescue`'s program in its
+     * place — in the row without this `Throws`, so one raised again goes to the next handler of it */
+    def recover[E]: Recover[E] = new Recover[E]
+  }
+  /** the old name of `Throws` */
+  @deprecated("use Throws", "0.1.2")
+  type Error[E, X] = Std.Throws[E, X]
+  /** the old name of `Throws` */
+  @deprecated("use Throws", "0.1.2")
+  val Error: Std.Throws.type = Std.Throws
   type Choose[X] = Std.Choose[X]
-  val Choose: Std.Choose.type = Std.Choose
+  /** `Choose`'s operations, and its handlers: `Choose.all(p)`, `Choose.first(p)` */
+  val Choose: ChooseEffect = new ChooseEffect
+  final class ChooseEffect {
+    val Among: Std.Choose.Among.type = Std.Choose.Among
+    type Among[X] = Std.Choose.Among[X]
+    val Mark: Std.Choose.Mark.type = Std.Choose.Mark
+    type Mark[X] = Std.Choose.Mark[X]
+    val Cut: Std.Choose.Cut.type = Std.Choose.Cut
+    type Cut[X] = Std.Choose.Cut[X]
+    /** every way the program can go: each choice's ways in turn, its others pending; a cut drops the alternatives
+     * made since its mark */
+    def all[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Std.Choose, R, Rest]): List[A] ! Rest = allWays(p)
+    /** the first way the program goes with no `fail`: the choices tried in order, the rest not tried; a cut drops
+     * the alternatives made since its mark */
+    def first[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Std.Choose, R, Rest]): Option[A] ! Rest = firstWay(p)
+  }
   type Control[P, X] = Std.Control[P, X]
   val Control: Std.Control.type = Std.Control
-  type Yield[O, X] = Std.Yield[O, X]
+  type Emit[O, X] = Std.Emit[O, X]
+  /** `Emit`'s operation, its word and its handlers: `Emit.send(o)`, `Emit.collect[O](p)`, `Emit.each[O](f)(p)`,
+   * `Emit.take[O](n)(p)` */
+  val Emit: EmitEffect = new EmitEffect
+  final class EmitEffect {
+    val Send: Std.Emit.Send.type = Std.Emit.Send
+    type Send[O, X] = Std.Emit.Send[O, X]
+    def send[O, R[_]](o: O)(implicit in: In[({ type L[x] = Std.Emit[O, x] })#L, R]): Unit ! R = emit[O, R](o)
+    /** what was sent, in order, and the value. Answered in place */
+    def collect[O]: CollectHandler[O] = new CollectHandler[O]
+    /** each value sent to `f`, a program of the row outside — the producer going on after it */
+    def each[O]: Each[O] = new Each[O]
+    /** the first `n` values sent, and the producer's value if it ended by then: stopped at the next one */
+    def take[O](n: Int): TakeHandler[O] = new TakeHandler[O](n)
+  }
+  /** the old name of `Emit` */
+  @deprecated("use Emit", "0.1.2")
+  type Yield[O, X] = Std.Emit[O, X]
+  /** the old name of `Emit`; its `Emit` is `Emit.Send` */
+  @deprecated("use Emit", "0.1.2")
   val Yield: Std.Yield.type = Std.Yield
   type Lift[G[_], X] = Std.Lift[G, X]
   val Lift: Std.Lift.type = Std.Lift
@@ -214,7 +312,16 @@ class Std[F <: Effects with Singleton](val fx: F) {
   type Abort[X] = Std.Abort[X]
   val Abort: Std.Abort.type = Std.Abort
   type Fresh[X] = Std.Fresh[X]
-  val Fresh: Std.Fresh.type = Std.Fresh
+  /** `Fresh`'s operation, and its handlers: `Fresh.run(p)` from 0, `Fresh.from(n0)(p)` */
+  val Fresh: FreshEffect = new FreshEffect
+  final class FreshEffect {
+    val Next: Std.Fresh.Next.type = Std.Fresh.Next
+    type Next[X] = Std.Fresh.Next[X]
+    /** fresh numbers from 0 on. Answered in place */
+    def run[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Std.Fresh, R, Rest]): A ! Rest = new FreshHandler(0L)(p)
+    /** fresh numbers from `n0` on. Answered in place */
+    def from(n0: Long): FreshHandler = new FreshHandler(n0)
+  }
   type Random[X] = Std.Random[X]
   val Random: Std.Random.type = Std.Random
   type Store[K, V, X] = Std.Store[K, V, X]
@@ -233,7 +340,7 @@ class Std[F <: Effects with Singleton](val fx: F) {
     def modify[S](f: S => S)(implicit in: In[({ type L[x] = State[S, x] })#L, R]): Unit ! R = Std.this.modify[S, R](f)
     def tell[W](w: W)(implicit in: In[({ type L[x] = Writer[W, x] })#L, R]): Unit ! R = Std.this.tell[W, R](w)
     /** a raise is a program of no value, so of any: `Nothing ! R` */
-    def raise[E](e: E)(implicit in: In[({ type L[x] = Error[E, x] })#L, R]): Nothing ! R =
+    def raise[E](e: E)(implicit in: In[({ type L[x] = Throws[E, x] })#L, R]): Nothing ! R =
       Std.this.raise[E, R, Nothing](e)
     def among[X](xs: List[X])(implicit in: In[Choose, R]): X ! R = Std.this.among[X, R](xs)
     def fail(implicit in: In[Choose, R]): Nothing ! R = Std.this.fail[Nothing, R]
@@ -252,8 +359,8 @@ class Std[F <: Effects with Singleton](val fx: F) {
     perform[({ type L[x] = Reader[E, x] })#L].apply[R, E](Std.Reader.Ask(e => e))
   def tell[W, R[_]](w: W)(implicit in: In[({ type L[x] = Writer[W, x] })#L, R]): Unit ! R =
     perform[({ type L[x] = Writer[W, x] })#L].apply[R, Unit](Std.Writer.Tell(w, u => u))
-  def raise[E, R[_], X](e: E)(implicit in: In[({ type L[x] = Error[E, x] })#L, R]): X ! R =
-    perform[({ type L[x] = Error[E, x] })#L].apply[R, X](Std.Error.Raise(e))
+  def raise[E, R[_], X](e: E)(implicit in: In[({ type L[x] = Throws[E, x] })#L, R]): X ! R =
+    perform[({ type L[x] = Throws[E, x] })#L].apply[R, X](Std.Throws.Raise(e))
   def among[X, R[_]](xs: List[X])(implicit in: In[Choose, R]): X ! R = perform[Choose].apply[R, X](Std.Choose.Among(xs))
   def fail[X, R[_]](implicit in: In[Choose, R]): X ! R = among[X, R](Nil)
   /** the alternatives pending, to cut back to */
@@ -267,8 +374,8 @@ class Std[F <: Effects with Singleton](val fx: F) {
     mark[R].flatMap(m => p.flatMap(a => cut[R](m).map(_ => a)))
   def lift[G[_], X, R[_]](ga: G[X])(implicit in: In[({ type L[x] = Lift[G, x] })#L, R]): X ! R =
     perform[({ type L[x] = Lift[G, x] })#L].apply[R, X](Std.Lift.Of(ga))
-  def emit[O, R[_]](o: O)(implicit in: In[({ type L[x] = Yield[O, x] })#L, R]): Unit ! R =
-    perform[({ type L[x] = Yield[O, x] })#L].apply[R, Unit](Std.Yield.Emit(o, u => u))
+  def emit[O, R[_]](o: O)(implicit in: In[({ type L[x] = Emit[O, x] })#L, R]): Unit ! R =
+    perform[({ type L[x] = Emit[O, x] })#L].apply[R, Unit](Std.Emit.Send(o, u => u))
 
   /** the state through `f` */
   def gets[S, A, R[_]](f: S => A)(implicit in: In[({ type L[x] = State[S, x] })#L, R]): A ! R = get[S, R].map(f)
@@ -296,7 +403,8 @@ class Std[F <: Effects with Singleton](val fx: F) {
     perform[({ type L[x] = Store[K, V, x] })#L].apply[R, Unit](Std.Store.Remove[K, V, Unit](k, u => u))
 
   /** the final state and the value; a `k` resumed twice resumes the state of its time. Answered in place */
-  def state[S](s0: S): StateHandler[S] = new StateHandler(s0)
+  @deprecated("use State.run", "0.1.2")
+  def state[S](s0: S): StateHandler[S] = State.run(s0)
   final class StateHandler[S](s0: S) {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = State[S, x] })#L, R, Rest]): (S, A) ! Rest =
       handle[({ type L[x] = State[S, x] })#L, S, R, Rest, A, (S, A)](p, s0,
@@ -310,7 +418,8 @@ class Std[F <: Effects with Singleton](val fx: F) {
   }
 
   /** answered in place */
-  def reader[E](e: E): ReaderHandler[E] = new ReaderHandler(e)
+  @deprecated("use Reader.run", "0.1.2")
+  def reader[E](e: E): ReaderHandler[E] = Reader.run(e)
   final class ReaderHandler[E](e: E) {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Reader[E, x] })#L, R, Rest]): A ! Rest =
       handle[({ type L[x] = Reader[E, x] })#L, R, Rest, A, A](p,
@@ -321,7 +430,8 @@ class Std[F <: Effects with Singleton](val fx: F) {
   }
 
   /** what was told, in order, and the value. Answered in place */
-  def writer[W]: WriterHandler[W] = new WriterHandler[W]
+  @deprecated("use Writer.run", "0.1.2")
+  def writer[W]: WriterHandler[W] = Writer.run[W]
   final class WriterHandler[W] {
     def apply[R[_], Rest[_], A](p: A ! R)(
       implicit sp: Split[({ type L[x] = Writer[W, x] })#L, R, Rest]): (List[W], A) ! Rest =
@@ -335,39 +445,46 @@ class Std[F <: Effects with Singleton](val fx: F) {
   }
 
   /** the value, or what was raised: the rest dropped — a handler aborting, no `k` */
-  def attempt[E]: ErrorHandler[E] = new ErrorHandler[E]
-  final class ErrorHandler[E] {
+  @deprecated("use Throws.run", "0.1.2")
+  def attempt[E]: ThrowsHandler[E] = Throws.run[E]
+  /** the old name of `ThrowsHandler` */
+  @deprecated("use ThrowsHandler", "0.1.2")
+  type ErrorHandler[E] = ThrowsHandler[E]
+  final class ThrowsHandler[E] {
     def apply[R[_], Rest[_], A](p: A ! R)(
-      implicit sp: Split[({ type L[x] = Error[E, x] })#L, R, Rest]): Either[E, A] ! Rest =
-      handle[({ type L[x] = Error[E, x] })#L, R, Rest, A, Either[E, A]](p,
-        new AbortHandler[({ type L[x] = Error[E, x] })#L, Rest, A, Either[E, A]] {
+      implicit sp: Split[({ type L[x] = Throws[E, x] })#L, R, Rest]): Either[E, A] ! Rest =
+      handle[({ type L[x] = Throws[E, x] })#L, R, Rest, A, Either[E, A]](p,
+        new AbortHandler[({ type L[x] = Throws[E, x] })#L, Rest, A, Either[E, A]] {
           def ret(a: A) = pure(Right(a))
-          def abort[X](op: Error[E, X]) = op match { case Std.Error.Raise(e) => pure(Left(e)) }
+          def abort[X](op: Throws[E, X]) = op match { case Std.Throws.Raise(e) => pure(Left(e)) }
         })
   }
 
   /** the program's `Reader` answered by `f` of the environment outside: `p`'s asks see `f(e)`, the row's own `Reader`
    * stays — `p` handled by a reader of its own, its row back where it was (`Sub[Rest, R]`) */
-  def local[E](f: E => E): LocalHandler[E] = new LocalHandler(f)
+  @deprecated("use Reader.local", "0.1.2")
+  def local[E](f: E => E): LocalHandler[E] = Reader.local(f)
   final class LocalHandler[E](f: E => E) {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Reader[E, x] })#L, R, Rest],
       back: Sub[Rest, R]): A ! R =
-      ask[E, R].flatMap(e => reader[E](f(e))(p).into[R])
+      ask[E, R].flatMap(e => Reader.run[E](f(e))(p).into[R])
   }
 
   /** what `p` told, with its value — told outside too, when `p` ends */
-  def listen[W]: ListenHandler[W] = new ListenHandler[W]
+  @deprecated("use Writer.listen", "0.1.2")
+  def listen[W]: ListenHandler[W] = Writer.listen[W]
   final class ListenHandler[W] {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Writer[W, x] })#L, R, Rest],
       back: Sub[Rest, R]): (List[W], A) ! R =
-      writer[W](p).into[R].flatMap { case (ws, a) => tellAll[W, R](ws).as((ws, a)) }
+      Writer.run[W](p).into[R].flatMap { case (ws, a) => tellAll[W, R](ws).as((ws, a)) }
   }
   /** what `p` told, through `f`, told outside when `p` ends */
-  def censor[W](f: List[W] => List[W]): CensorHandler[W] = new CensorHandler[W](f)
+  @deprecated("use Writer.censor", "0.1.2")
+  def censor[W](f: List[W] => List[W]): CensorHandler[W] = Writer.censor[W](f)
   final class CensorHandler[W](f: List[W] => List[W]) {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Writer[W, x] })#L, R, Rest],
       back: Sub[Rest, R]): A ! R =
-      writer[W](p).into[R].flatMap { case (ws, a) => tellAll[W, R](f(ws)).as(a) }
+      Writer.run[W](p).into[R].flatMap { case (ws, a) => tellAll[W, R](f(ws)).as(a) }
   }
   private def tellAll[W, R[_]](ws: List[W])(implicit in: In[({ type L[x] = Writer[W, x] })#L, R]): Unit ! R =
     ws.foldLeft(pure[Unit, R](()))((p, w) => p.flatMap(_ => tell[W, R](w)))
@@ -433,7 +550,8 @@ class Std[F <: Effects with Singleton](val fx: F) {
       })
 
   /** fresh numbers from `n0` on. Answered in place */
-  def freshFrom(n0: Long): FreshHandler = new FreshHandler(n0)
+  @deprecated("use Fresh.from", "0.1.2")
+  def freshFrom(n0: Long): FreshHandler = Fresh.from(n0)
   final class FreshHandler(n0: Long) {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Fresh, R, Rest]): A ! Rest =
       handle[Fresh, Long, R, Rest, A, A](p, n0,
@@ -490,56 +608,74 @@ class Std[F <: Effects with Singleton](val fx: F) {
       })
 
   /** the value, or `h` given what was raised: the rest of the program dropped, `h`'s program in its place — in the
-   * row without this `Error`, so one raised again goes to the next handler of it */
+   * row without this `Throws`, so one raised again goes to the next handler of it */
+  @deprecated("use Throws.recover, the rescue first: Throws.recover[E](rescue)(p)", "0.1.2")
   def recover[E]: RecoverHandler[E] = new RecoverHandler[E]
   final class RecoverHandler[E] {
     def apply[R[_], Rest[_], A](p: A ! R)(h: E => A ! Rest)(
-      implicit sp: Split[({ type L[x] = Error[E, x] })#L, R, Rest]): A ! Rest =
-      attempt[E](p).flatMap {
+      implicit sp: Split[({ type L[x] = Throws[E, x] })#L, R, Rest]): A ! Rest =
+      Throws.run[E](p).flatMap {
         case Right(a) => pure[A, Rest](a)
         case Left(e) => h(e)
       }
   }
+  /** `Throws.recover[E](rescue)(p)`: the value, or `rescue` given what was raised */
+  final class Recover[E] {
+    def apply[R[_], Rest[_], A](rescue: E => A ! Rest)(p: A ! R)(
+      implicit sp: Split[({ type L[x] = Throws[E, x] })#L, R, Rest]): A ! Rest =
+      Throws.run[E](p).flatMap {
+        case Right(a) => pure[A, Rest](a)
+        case Left(e) => rescue(e)
+      }
+  }
 
   /** what the generator gave out, in order, and its value. Answered in place */
-  def collect[O]: CollectHandler[O] = new CollectHandler[O]
+  @deprecated("use Emit.collect", "0.1.2")
+  def collect[O]: CollectHandler[O] = Emit.collect[O]
   final class CollectHandler[O] {
     def apply[R[_], Rest[_], A](p: A ! R)(
-      implicit sp: Split[({ type L[x] = Yield[O, x] })#L, R, Rest]): (List[O], A) ! Rest =
-      handle[({ type L[x] = Yield[O, x] })#L, List[O], R, Rest, A, (List[O], A)](p, Nil,
-        new StatefulTailHandler[({ type L[x] = Yield[O, x] })#L, List[O], Rest, A, (List[O], A)] {
+      implicit sp: Split[({ type L[x] = Emit[O, x] })#L, R, Rest]): (List[O], A) ! Rest =
+      handle[({ type L[x] = Emit[O, x] })#L, List[O], R, Rest, A, (List[O], A)](p, Nil,
+        new StatefulTailHandler[({ type L[x] = Emit[O, x] })#L, List[O], Rest, A, (List[O], A)] {
           def ret(os: List[O], a: A) = pure((os.reverse, a))
-          def answer[X](cell: Cell[List[O]], op: Yield[O, X]): X = op match {
-            case Std.Yield.Emit(o, answer) => cell.set(o :: cell.get); answer(())
+          def answer[X](cell: Cell[List[O]], op: Emit[O, X]): X = op match {
+            case Std.Emit.Send(o, answer) => cell.set(o :: cell.get); answer(())
           }
         })
   }
 
   /** each value the generator gives out to `f`, a program of the row outside — the generator going on after it */
+  @deprecated("use Emit.each, the function first: Emit.each[O](f)(p)", "0.1.2")
   def each[O]: EachHandler[O] = new EachHandler[O]
   final class EachHandler[O] {
     def apply[R[_], Rest[_], A](p: A ! R)(f: O => Unit ! Rest)(
-      implicit sp: Split[({ type L[x] = Yield[O, x] })#L, R, Rest]): A ! Rest =
-      handle[({ type L[x] = Yield[O, x] })#L, R, Rest, A, A](p,
-        new Handler[({ type L[x] = Yield[O, x] })#L, Rest, A, A] {
+      implicit sp: Split[({ type L[x] = Emit[O, x] })#L, R, Rest]): A ! Rest =
+      handle[({ type L[x] = Emit[O, x] })#L, R, Rest, A, A](p,
+        new Handler[({ type L[x] = Emit[O, x] })#L, Rest, A, A] {
           def ret(a: A) = pure(a)
-          def op[X](op: Yield[O, X], k: X => A ! Rest) = op match {
-            case Std.Yield.Emit(o, answer) => f(o).flatMap(_ => k(answer(())))
+          def op[X](op: Emit[O, X], k: X => A ! Rest) = op match {
+            case Std.Emit.Send(o, answer) => f(o).flatMap(_ => k(answer(())))
           }
         })
   }
+  /** `Emit.each[O](f)(p)`: each value sent to `f`, the producer going on after it */
+  final class Each[O] {
+    def apply[R[_], Rest[_], A](f: O => Unit ! Rest)(p: A ! R)(
+      implicit sp: Split[({ type L[x] = Emit[O, x] })#L, R, Rest]): A ! Rest = (new EachHandler[O]).apply(p)(f)
+  }
 
   /** the first `n` values given out, and the generator's value if it ended by then: stopped at the next one */
-  def take[O](n: Int): TakeHandler[O] = new TakeHandler[O](n)
+  @deprecated("use Emit.take", "0.1.2")
+  def take[O](n: Int): TakeHandler[O] = Emit.take[O](n)
   final class TakeHandler[O](n: Int) {
     def apply[R[_], Rest[_], A](p: A ! R)(
-      implicit sp: Split[({ type L[x] = Yield[O, x] })#L, R, Rest]): (List[O], Option[A]) ! Rest =
-      handle[({ type L[x] = Yield[O, x] })#L, (Int, List[O]), R, Rest, A, (List[O], Option[A])](p, (n, Nil),
-        new StatefulHandler[({ type L[x] = Yield[O, x] })#L, (Int, List[O]), Rest, A, (List[O], Option[A])] {
+      implicit sp: Split[({ type L[x] = Emit[O, x] })#L, R, Rest]): (List[O], Option[A]) ! Rest =
+      handle[({ type L[x] = Emit[O, x] })#L, (Int, List[O]), R, Rest, A, (List[O], Option[A])](p, (n, Nil),
+        new StatefulHandler[({ type L[x] = Emit[O, x] })#L, (Int, List[O]), Rest, A, (List[O], Option[A])] {
           def ret(s: (Int, List[O]), a: A) = pure((s._2.reverse, Some(a)))
-          def op[X](s: (Int, List[O]), op: Yield[O, X], k: (X, (Int, List[O])) => (List[O], Option[A]) ! Rest) =
+          def op[X](s: (Int, List[O]), op: Emit[O, X], k: (X, (Int, List[O])) => (List[O], Option[A]) ! Rest) =
             op match {
-              case Std.Yield.Emit(o, answer) =>
+              case Std.Emit.Send(o, answer) =>
                 if (s._1 <= 0) pure[(List[O], Option[A]), Rest]((s._2.reverse, None))
                 else k(answer(()), (s._1 - 1, o :: s._2))
             }
@@ -563,7 +699,9 @@ class Std[F <: Effects with Singleton](val fx: F) {
 
   /** the first way the program goes with no `fail`: the choices tried in order, the rest not tried; a cut drops the
    * alternatives made since its mark */
-  def first[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): Option[A] ! Rest = {
+  @deprecated("use Choose.first", "0.1.2")
+  def first[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): Option[A] ! Rest = firstWay(p)
+  private def firstWay[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): Option[A] ! Rest = {
     type B = Option[A] ! Rest
     type P = Alternative[B]
     handle[Choose, P, R, Rest, A, Option[A]](p, null,
@@ -594,7 +732,9 @@ class Std[F <: Effects with Singleton](val fx: F) {
 
   /** every way the program can go: each choice's ways in turn, its others pending; a cut drops the alternatives made
    * since its mark. The ways found kept reversed: linear in the ways, not quadratic */
-  def all[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): List[A] ! Rest = {
+  @deprecated("use Choose.all", "0.1.2")
+  def all[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): List[A] ! Rest = allWays(p)
+  private def allWays[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): List[A] ! Rest = {
     type B = List[A] => List[A] ! Rest
     handle[Choose, Pending[B], R, Rest, A, List[A] => List[A] ! Rest](p, Pending.empty[B],
       new StatefulHandler[Choose, Pending[B], Rest, A, List[A] => List[A] ! Rest] {

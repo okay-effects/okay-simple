@@ -14,7 +14,7 @@ import zio.{Exit, Runtime, Tag, Task, Unsafe, ZEnvironment, ZIO, ZLayer}
  * TYPED, each of ZIO's channels one of the effects: a `ZIO[Env, Err, A]` in a row `ZioRow[Env, Err]` —
  *
  *  - its environment `Env` the standard `Reader % ZEnvironment[Env]`, asked when it runs;
- *  - its typed error `Err` the standard `Error % Err`, raised;
+ *  - its typed error `Err` the standard `Throws % Err`, raised;
  *  - its run the async module's `Async`: forked on ZIO's runtime, its value or its defect the callback's.
  *
  * `fromZIOTyped(z)` and `toZIOTyped(p)` (the reader ZIO's environment, a raise ZIO's failure, a throw a defect). The
@@ -52,9 +52,9 @@ class ZioEffects[F <: Runner with Singleton](implicit implementation: F) {
   /** asynchrony on this implementation: what runs a `ZioRow`'s `Async` */
   val asynchrony: Asynchrony[fx.type] = new Asynchrony[fx.type]
 
-  /** the row of a ZIO of environment `Env` and error `Err`: `Async + Error % Err + Reader % ZEnvironment[Env]` */
+  /** the row of a ZIO of environment `Env` and error `Err`: `Async + Throws % Err + Reader % ZEnvironment[Env]` */
   type ZioRow[Env, Err] = {
-    type L[X] = Sum[({ type M[Y] = Sum[Async, ({ type E[Z] = Std.Error[Err, Z] })#E, Y] })#M,
+    type L[X] = Sum[({ type M[Y] = Sum[Async, ({ type E[Z] = Std.Throws[Err, Z] })#E, Y] })#M,
       ({ type N[Y] = Std.Reader[ZEnvironment[Env], Y] })#N, X]
   }
 
@@ -75,7 +75,7 @@ class ZioEffects[F <: Runner with Singleton](implicit implementation: F) {
   /** a ZIO in the effects: its environment asked, its typed error raised, its run an `Async` */
   def fromZIOTyped[Env, Err, A, R[_]](z: ZIO[Env, Err, A], runtime: Runtime[Any] = Runtime.default)(
     implicit env: In[({ type N[Y] = Std.Reader[ZEnvironment[Env], Y] })#N, R],
-    err: In[({ type E[Z] = Std.Error[Err, Z] })#E, R],
+    err: In[({ type E[Z] = Std.Throws[Err, Z] })#E, R],
     as: In[Async, R]): A ! R =
     std.ask[ZEnvironment[Env], R].flatMap(e =>
       fromTaskAsync[Either[Err, A], R](z.provideEnvironment(e).either, runtime)).flatMap {
@@ -88,7 +88,7 @@ class ZioEffects[F <: Runner with Singleton](implicit implementation: F) {
   def toZIOTyped[Env, Err, A](p: A ! ZioRow[Env, Err]#L): ZIO[Env, Err, A] =
     ZIO.environmentWithZIO[Env] { (env: ZEnvironment[Env]) =>
       ZIO.asyncInterrupt[Any, Err, A] { done =>
-        val running = asynchrony.start(std.attempt[Err](std.reader[ZEnvironment[Env]](env)(p)))
+        val running = asynchrony.start(std.Throws.run[Err](std.reader[ZEnvironment[Env]](env)(p)))
         running.future.onComplete {
           case scala.util.Success(Right(a)) => done(ZIO.succeed(a))
           case scala.util.Success(Left(e)) => done(ZIO.fail(e))
@@ -102,7 +102,7 @@ class ZioEffects[F <: Runner with Singleton](implicit implementation: F) {
    * answered, the row of the layer's input `In0` asked instead */
   def provideLayer[In0, Err, Env, A, R[_]](layer: ZLayer[In0, Err, Env])(p: A ! ZioRow[Env, Err]#L)(
     implicit env: In[({ type N[Y] = Std.Reader[ZEnvironment[In0], Y] })#N, R],
-    err: In[({ type E[Z] = Std.Error[Err, Z] })#E, R],
+    err: In[({ type E[Z] = Std.Throws[Err, Z] })#E, R],
     as: In[Async, R]): A ! R =
     fromZIOTyped[In0, Err, A, R](toZIOTyped[Env, Err, A](p).provideLayer(layer))
 

@@ -97,7 +97,7 @@ class StreamInput[S <: Streams[_ <: okay.effects.Effects]](val streams: S) {
     def apply[R[_], R1[_], R2[_], A](p: A ! R)(implicit si: Split[Input, R, R1], sc: Split[Choose, R1, R2],
       se: Split[Expect, R2, Rest],
       i: In[Input, R], e: In[Expect, R], c: In[Choose, R], sub: Sub[Rest, R1]): Either[ParseError, A] ! Rest =
-      parsers.expectations(first(inputFrom[R1](lift[Rest, R1](chunks))(p.flatMap(a => parsers.eof[R].as(a)))))
+      parsers.expectations(Choose.first(inputFrom[R1](lift[Rest, R1](chunks))(p.flatMap(a => parsers.eof[R].as(a)))))
         .map(_.left.map { case (o, ws) => ParseError(o, 0, 0, ws, None) })
   }
   /** a stream of a row as one of a row of more effects */

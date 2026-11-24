@@ -112,7 +112,8 @@ abstract class JsonChecks(val fx0: Runner) extends munit.FunSuite {
     type RW[X] = okay.effects.Sum[W, JsonWriter, X]
     val told: Int ! RW = js.writeJson[RW](j).flatMap(_ => js.writeJson[RW](num(7))).map(_ => 42)
     assertEquals(
-      fx0.run(writer[String](js.writing[W]((s: String) => tell[String, W](s))(told))), (List(Json.print(j), "7"), 42))
+      fx0.run(Writer.run[String](js.writing[W]((s: String) => tell[String, W](s))(told))),
+      (List(Json.print(j), "7"), 42))
     // as a stream, pulled as the program writes
     assertEquals(fx0.run(js.streamed[Void]()(program).toList), List(Json.print(j), "7"))
   }

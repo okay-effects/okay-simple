@@ -15,7 +15,7 @@ import okay.effects.std.*
 import okay.effects.resource.*
 
 type Out = Writer % String
-type In0 = Writer % String + Scope % (Unit ! Out) + Error % String
+type In0 = Writer % String + Scope % (Unit ! Out) + Throws % String
 
 def open(name: String): String ! In0 = tell[String, In0](s"open $name").as(name)
 def close(name: String): Unit ! Out = tell[String, Out](s"close $name")
@@ -25,16 +25,16 @@ def work(fail: Boolean): Int ! In0 =
     bracket[String, Int, Out, In0](open("b"))(close)(b =>
       tell[String, In0](s"use $a $b").andThen(if fail then raise[String, In0, Int]("boom") else pure(2))))
 
-assert(run(writer[String](scoped(attempt[String](work(false))))) ==
+assert(run(Writer.run[String](scoped(Throws.run[String](work(false))))) ==
   (List("open a", "open b", "use a b", "close b", "close a"), Right(2)))
-assert(run(writer[String](scoped(attempt[String](work(true))))) ==
+assert(run(Writer.run[String](scoped(Throws.run[String](work(true))))) ==
   (List("open a", "open b", "use a b", "close b", "close a"), Left("boom")))
 ```
 
 ## Semantics
 
 - Finalizers run when the scope's program ends with its value. An error HANDLED INSIDE the scope —
-  `scoped(attempt(p))` — ends it with a `Left`, so the finalizers run.
+  `scoped(Throws.run(p))` — ends it with a `Left`, so the finalizers run.
 - An error handled OUTSIDE the scope drops the rest of the scope, its finalizers with it: handle errors inside.
 - A `k` resumed twice inside a scope ends it twice, each end running the finalizers deferred before it: scopes are
   for programs that resume once.

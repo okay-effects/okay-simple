@@ -12,7 +12,8 @@ object Tx {
 /**
  * TRANSACTIONS over any implementation `fx`, on the standard `Store` outside: `atomically(p)` keeps `p`'s writes in a
  * log of its own — a read sees the log first, then the store — and writes the log to the store when `p` ends. What
- * ends `p` before (an error raised and handled outside, an abort) drops the log: nothing written. `attempt[E]` outside
+ * ends `p` before (an error raised and handled
+ * outside, an abort) drops the log: nothing written. `Throws.run[E]` outside
  * `atomically` is a transaction that rolls back on `E`.
  */
 class Transactions[F <: Effects with Singleton](implicit implementation: F) {

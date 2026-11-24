@@ -110,8 +110,8 @@ type Form = Problem + Writer % String
 def logged(form: Map[String, Int]): Int ! Form =
   tell[String, Form]("start").andThen(total[Form](form)).flatMap(t => tell[String, Form](s"total $t").as(t))
 
-assert(run(writer[String](defaulting(logged(partial)))) == (List("start", "total 100"), 100))
-assert(run(writer[String](failing(logged(partial)))) == (List("start"), Left("missing tax")))
+assert(run(Writer.run[String](defaulting(logged(partial)))) == (List("start", "total 100"), 100))
+assert(run(Writer.run[String](failing(logged(partial)))) == (List("start"), Left("missing tax")))
 ```
 
 The order of the handlers is chosen when the program is run, not when it is written. `total` was written for any row

@@ -43,7 +43,7 @@ def evenCounted(n: Int): Boolean ! Steps =
 def oddCounted(n: Int): Boolean ! Steps =
   if n == 0 then pure(false) else modify[Int, Steps](_ + 1).flatMap(_ => tailcall(evenCounted(n - 1)))
 
-assert(run(state(0)(evenCounted(1000000))) == (1000000, true))
+assert(run(State.run(0)(evenCounted(1000000))) == (1000000, true))
 ```
 
 A call inside `flatMap`'s function is already made by the run; `tailcall` is for the call that IS the program. A loop
@@ -111,7 +111,7 @@ passes it on:
 def total[R[_]: {Has[Reader % Int], Has[State % Int]}](n: Int): Unit ! R =
   if n == 0 then pure(()) else ask[Int, R].flatMap(x => modify[Int, R](_ + x)).andThen(total[R](n - 1))
 
-assert(run(state(0)(reader(3)(total[Reader % Int + State % Int](10))))._1 == 30)
+assert(run(State.run(0)(Reader.run(3)(total[Reader % Int + State % Int](10))))._1 == 30)
 ```
 
 Passing it on is also the fast way: the evidence is made once, not at each operation.

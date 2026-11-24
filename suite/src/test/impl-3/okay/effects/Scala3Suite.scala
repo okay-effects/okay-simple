@@ -32,12 +32,12 @@ class Scala3Suite extends munit.FunSuite:
     ).flatMap(f => f(0))
 
   test("a row with no parentheses, a program by context bounds"):
-    assertEquals(run(state(1)(reader("Ann")(greet[Row]))), (4, 1))
+    assertEquals(run(State.run(1)(Reader.run("Ann")(greet[Row]))), (4, 1))
 
   test("an effect of one's own, its clauses typed by GADT inference"):
     type C[X] = (Counter + State % Int)[X]
     val p: Int ! C = tick[C].andThen(tick[C]).andThen(peek[C]).flatMap(n => put[Int, C](n * 10).as(n))
-    assertEquals(run(state(0)(counting(p))), (20, (2, 2)))
+    assertEquals(run(State.run(0)(counting(p))), (20, (2, 2)))
 
   test("a handler of an effect with a parameter: its operations as they are"):
     val h = new Handler[Reader % String, Pure, Int, Int]:
@@ -48,4 +48,4 @@ class Scala3Suite extends munit.FunSuite:
 
   test("`*[F]` is `F`: code written alike for both compilers still compiles"):
     def among3[R[_]: Has[*[Choose]]]: Int ! R = among[Int, R](List(1, 2, 3))
-    assertEquals(run(state(0)(all(among3[*[Choose] + State % Int]))), (0, List(1, 2, 3)))
+    assertEquals(run(State.run(0)(Choose.all(among3[*[Choose] + State % Int]))), (0, List(1, 2, 3)))

@@ -34,9 +34,9 @@ class ChoiceBenchmark {
       else fail[Int, Choose])
     def single(n: Int, acc: Int): Int ! Choose =
       if (n == 0) pure[Int, Choose](acc) else among[Int, Choose](List(1)).flatMap(x => single(n - 1, acc + x))
-    search = () => run(first(ones(16)))
-    ways = () => run(all(bits(12, 0))).length
-    chain = () => run(first(single(100000, 0)))
+    search = () => run(Choose.first(ones(16)))
+    ways = () => run(Choose.all(bits(12, 0))).length
+    chain = () => run(Choose.first(single(100000, 0)))
   }
 
   @Benchmark def firstSearch: Option[Int] = search()

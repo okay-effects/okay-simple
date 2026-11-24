@@ -45,7 +45,7 @@ class Numbering(val fx: Runner) {
     for {
       _ <- next[R2]; b <- fork[R2]; n <- get[Int, R2]; _ <- put[Int, R2](n + 1); c <- next[R2]
     } yield (b, n, c)
-  def numberedInState = run(state(5)(numbering(withState)))
+  def numberedInState = run(State.run(5)(numbering(withState)))
 
   /** a branch stopped: dropped, its state with it */
   def stopped = run(numbering(for {

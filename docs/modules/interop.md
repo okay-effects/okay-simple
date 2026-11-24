@@ -12,7 +12,7 @@ a `G[A]` is a `Runner`'s `lower(p)`, given a `Lowering[G]`. The interop modules 
 | `okay-effects-fs2` | JVM, Scala.js | `import okay.effects.fs2interop.*`: a stream of `F`'s programs (cats-effect's `IO`, any cats monad) an `fs2.Stream`, and back |
 | `okay-effects-monix` | JVM, Scala.js | `import okay.effects.monixinterop.*`: monix's `Task` an effect; its `Observable` a stream, and back — monix 3 is of cats-effect 2 |
 | `okay-effects-kyo` | JVM, Scala.js, Scala Native (Scala 3) | `import okay.effects.kyointerop.*`: a kyo computation a standard `Lift`, a program of them a kyo computation; streams to kyo's and back |
-| `okay-effects-tofu` | JVM | `import okay.effects.tofuinterop.*`: tofu's `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row |
+| `okay-effects-tofu` | JVM | `import okay.effects.tofuinterop.*`: tofu's `WithLocal` of a `Reader`, `Errors` of a `Throws`, anywhere in a row |
 
 ## cats
 
@@ -28,7 +28,7 @@ import okay.effects.catsinterop.*
 def twice[F[_]: Monad](fa: F[Int]): F[Int] = Monad[F].flatMap(fa)(a => Monad[F].map(fa)(_ + a))
 type R = State % Int
 val p: Int ! R = twice[Program[R]#L](modify[Int, R](_ + 1).andThen(get[Int, R]))
-assert(run(state(0)(p)) == (2, 3))
+assert(run(State.run(0)(p)) == (2, 3))
 
 /** cats-effect's IO lifted, lowered to an IO: the `Lowering` of any cats monad found, `lowering` */
 type LIO = [x] =>> Lift[IO, x]
@@ -56,7 +56,7 @@ On Scala.js and Scala Native, ZIO's runtime needs `java.time`: add `"io.github.c
 ### ZIO typed: its environment, error and run our effects
 
 `Lift[Task, *]` takes a ZIO of no environment and no typed error. `fromZIOTyped` takes any `ZIO[Env, Err, A]`, each of
-its channels one of the effects, in a row `ZioRow[Env, Err]` — `Async + Error % Err + Reader % ZEnvironment[Env]`:
+its channels one of the effects, in a row `ZioRow[Env, Err]` — `Async + Throws % Err + Reader % ZEnvironment[Env]`:
 its environment is asked of the `Reader`, its typed error raised as the `Error`, its run the async module's `Async`
 (forked on ZIO's runtime; a defect the run's failure). `toZIOTyped` goes back: the `Reader` ZIO's environment, a raise
 ZIO's failure, a throw a defect. The row accumulates as ZIO's types do — ZIO is contravariant in its environment and
@@ -172,7 +172,8 @@ object WithJava:
   val doubled: List[Int] = run(fromJava[Int, Pure](JStream.of(1, 2, 3, 4)).map(_ * 2).filter(_ > 2).toList)
 
   type St = State % Int
-  val totals: (Int, List[Int]) = run(state(0)(fromJava[Int, St](JStream.of(1, 2, 3)).evalMap(n => modify[Int, St](_ + n).andThen(get[Int, St])).toList))
+  val totals: (Int, List[Int]) = run(State.run(0)(fromJava[Int, St](JStream.of(1, 2, 3))
+    .evalMap(n => modify[Int, St](_ + n).andThen(get[Int, St])).toList))
 
   val squares: String = toJava(iterate[Int, Pure](1)(_ + 1).map(n => n * n)).limit(4).collect(Collectors.toList[Int]()).toString
 
@@ -290,5 +291,5 @@ assert(WithKyo.result == 22)
 ## tofu
 
 `import okay.effects.tofuinterop.*` gives `withLocal[R, Rest, C]`, tofu's `WithLocal[Program[R]#L, C]` of a `Reader % C` in `R`, and
-`errors[R, Rest, E]`, tofu's `Errors` (`raise`, `tryHandleWith`, `restore`) of an `Error % E` in `R` — so code
+`errors[R, Rest, E]`, tofu's `Errors` (`raise`, `tryHandleWith`, `restore`) of an `Throws % E` in `R` — so code
 written to tofu's typeclasses runs on the effects. The JVM's only: tofu has no Scala.js build.

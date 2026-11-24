@@ -27,7 +27,7 @@ class Basics:
   /** another effect handled first, the row then `Async` alone — so `Async` the row's first, the state after it */
   type SA = Async + State % Int
   def tick(n: Int): Unit ! SA = if n == 0 then pure(()) else sleep[SA](1).andThen(modify[Int, SA](_ + 1)).andThen(tick(n - 1))
-  def ticked: Future[(Int, Unit)] = toFuture(state(0)(tick(5)))
+  def ticked: Future[(Int, Unit)] = toFuture(State.run(0)(tick(5)))
 
 val basics = Basics()
 assert(Await.result(basics.answer, 5.seconds) == 42)

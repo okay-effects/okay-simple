@@ -34,7 +34,7 @@ class Basics2[F <: Runner with Singleton](implicit val fx: F) {
 
   type App[X] = ((Reader % String) + (Writer % String) + (State % Int))#L[X]
 
-  def greeted: (Int, (List[String], Int)) = run(state(0)(writer[String](reader("Ann")(greet[App]))))
+  def greeted: (Int, (List[String], Int)) = run(State.run(0)(Writer.run[String](Reader.run("Ann")(greet[App]))))
 
   def tick[R[_]](implicit in: In[Counter, R]): Unit ! R = perform[Counter].apply[R, Unit](Counter.Tick(u => u))
   def peek[R[_]](implicit in: In[Counter, R]): Int ! R = perform[Counter].apply[R, Int](Counter.Peek(n => n))
@@ -52,10 +52,11 @@ class Basics2[F <: Runner with Singleton](implicit val fx: F) {
   /** the effect beside a standard one, by names: `*[Counter]` the effect of no parameter among names */
   type Ticking[X] = (*[Counter] + (State % Int))#L[X]
   def counted: (Int, (Int, Int)) =
-    run(state(100)(counting(tick[Ticking].andThen(tick[Ticking]).andThen(peek[Ticking])
+    run(State.run(100)(counting(tick[Ticking].andThen(tick[Ticking]).andThen(peek[Ticking])
             .flatMap(n => modify[Int, Ticking](_ + n).as(n)))))
 
   /** a search, Scala 2: the first even number among the choices, times ten */
   def firstEven(xs: List[Int]): Option[Int] =
-    run(first(among[Int, Choose](xs).flatMap(x => if (x % 2 == 0) pure[Int, Choose](x * 10) else fail[Int, Choose])))
+    run(Choose.first(among[Int, Choose](xs).flatMap(x => if (x % 2 == 0) pure[Int, Choose](x * 10)
+      else fail[Int, Choose])))
 }

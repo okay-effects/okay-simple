@@ -21,7 +21,7 @@ class RowWordsSuite2 extends munit.FunSuite {
   test("a service in Scala 2: no row in its logic") {
     val day =
       for { a <- service.serve("ann"); b <- service.serve("bob"); c <- service.serve("cid") } yield List(a, b, c)
-    assertEquals(run(state(0)(writer[String](reader(Config("hello", 2))(day)))),
+    assertEquals(run(State.run(0)(Writer.run[String](Reader.run(Config("hello", 2))(day)))),
       (2, (List("served ann", "served bob", "refused cid: busy"), List("hello ann", "hello bob", "try later"))))
   }
 
@@ -35,6 +35,6 @@ class RowWordsSuite2 extends munit.FunSuite {
   }
 
   test("Row in Scala 2") {
-    assertEquals(run(state(0)(reader(5)(counter.tick.flatMap(_ => counter.tick)))), (10, 10))
+    assertEquals(run(State.run(0)(Reader.run(5)(counter.tick.flatMap(_ => counter.tick)))), (10, 10))
   }
 }

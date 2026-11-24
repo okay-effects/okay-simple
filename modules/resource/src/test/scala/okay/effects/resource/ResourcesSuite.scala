@@ -16,7 +16,7 @@ abstract class ResourcesChecks(val fx0: Runner) extends munit.FunSuite {
   type Wr[X] = Writer[String, X]
   type Out[X] = Sum[Void, Wr, X]
   type Sc[X] = Scope[Unit ! Out, X]
-  type Er[X] = Error[String, X]
+  type Er[X] = Throws[String, X]
   type In0[X] = Sum[({ type L[x] = Sum[({ type M[y] = Sum[Void, Wr, y] })#M, Sc, x] })#L, Er, X]
 
   def open(name: String): String ! In0 = tell[String, In0](s"open $name").as(name)
@@ -27,11 +27,11 @@ abstract class ResourcesChecks(val fx0: Runner) extends munit.FunSuite {
         tell[String, In0](s"use $a $b").flatMap(_ => if (fail) raise[String, In0, Int]("boom") else pure[Int, In0](2))))
 
   test("released, the last acquired first, when the scope ends") {
-    assertEquals(r.fx.run(writer[String](scoped(attempt[String](use2(false))))),
+    assertEquals(r.fx.run(Writer.run[String](scoped(Throws.run[String](use2(false))))),
       (List("open a", "open b", "use a b", "close b", "close a"), Right(2)))
   }
   test("released when an error ends the scope, handled inside it") {
-    assertEquals(r.fx.run(writer[String](scoped(attempt[String](use2(true))))),
+    assertEquals(r.fx.run(Writer.run[String](scoped(Throws.run[String](use2(true))))),
       (List("open a", "open b", "use a b", "close b", "close a"), Left("boom")))
   }
 }

@@ -31,7 +31,7 @@ runs.
 | [Imports and defaults](guide/imports.md) | `import okay.effects.*`, `.std.*`, `.delimited.*`, each module's package: the machine by default; another implementation |
 | [Programs and rows](guide/programs-and-rows.md) | `A ! R`, effects as GADTs, rows `R + E`, the evidence `In`, `Split`, `Sub`; `Effects` and `Runner` |
 | [Handlers](guide/handlers.md) | the five shapes — general, in place, aborting, stateful, stateful general — deep handlers, `k` |
-| [The standard effects](guide/standard-effects.md) | `State`, `Reader`, `Writer`, `Error`, `Abort`, `Choose`, `Yield`, `Fresh`, `Random`, `Store`, `Lift` |
+| [The standard effects](guide/standard-effects.md) | `State`, `Reader`, `Writer`, `Throws`, `Abort`, `Choose`, `Emit`, `Fresh`, `Random`, `Store`, `Lift` |
 | [Interception](guide/interception.md) | `intercept`, `observe`, `around`: an effect's operations seen, changed, refused, the row kept |
 | [Delimited control](guide/delimited-control.md) | `shift`/`reset` as an effect; `delimited`, the answer type changing |
 | [Implementations](guide/implementations.md) | the machine, `Free`, tagless, okay-core's and okay-kernel's bridges; choosing; measured |
@@ -51,7 +51,8 @@ import okay.effects.stream.*
 
 type St = State % Int
 assert(run(range[Pure](0, 5).map(_ * 2).toList) == List(0, 2, 4, 6, 8))
-assert(run(state(0)(range[St](1, 4).evalMap(n => modify[Int, St](_ + n).andThen(get[Int, St])).toList)) == (6, List(1, 3, 6)))
+assert(run(State.run(0)(range[St](1, 4).evalMap(n => modify[Int, St](_ + n).andThen(get[Int, St])).toList))
+  == (6, List(1, 3, 6)))
 ```
 
 On another implementation, a module is a class over the implementation in the implicit context —

@@ -73,7 +73,8 @@ assert(run(collected(Format.Compact(ascii = true))(out))._1 == """{"a":[1,"\u00e
 assert(run(collected(Format.Indented())(out))._1 == "{\n  \"a\": [\n    1,\n    \"é\"\n  ]\n}\n7")
 assert(run(streamed[Pure]()(out).toList) == List("""{"a":[1,"é"]}""", "7"))
 type WT = Writer % String + JsonWriter
-assert(run(writer[String](writing[Writer % String](s => tell[String, Writer % String](s))(out.into[WT])))._1 == List("""{"a":[1,"é"]}""", "7"))
+assert(run(Writer.run[String](writing[Writer % String](s => tell[String, Writer % String](s))(out.into[WT])))
+  ._1 == List("""{"a":[1,"é"]}""", "7"))
 assert(run(chunks[Pure](obj("a" -> arr(num(1)))).toList).mkString == """{"a":[1]}""")
 assert(run(toLines[Pure](emits[Json, Pure](List(num(1), Null))).toList) == List("1\n", "null\n"))
 ```

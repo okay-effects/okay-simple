@@ -14,7 +14,7 @@ abstract class TransactionsChecks(val fx0: Runner) extends munit.FunSuite {
   import t.fx.std._
 
   type Accounts[X] = Tx[String, Int, X]
-  type Er[X] = Error[String, X]
+  type Er[X] = Throws[String, X]
   type Db[X] = Std.Store[String, Int, X]
   type T[X] = Sum[({ type L[x] = Sum[({ type M[y] = Sum[Void, Db, y] })#M, Er, x] })#L, Accounts, X]
 
@@ -27,12 +27,12 @@ abstract class TransactionsChecks(val fx0: Runner) extends munit.FunSuite {
 
   val start = Map("ann" -> 10, "bob" -> 0)
   test("committed: the writes in the store at the end") {
-    assertEquals(t.fx.run(store[String, Int](start)(attempt[String](atomically[String, Int](transfer("ann", "bob",
+    assertEquals(t.fx.run(store[String, Int](start)(Throws.run[String](atomically[String, Int](transfer("ann", "bob",
                 7))))),
       (Map("ann" -> 3, "bob" -> 7), Right(())))
   }
   test("rolled back: an error raised inside, nothing written") {
-    assertEquals(t.fx.run(store[String, Int](start)(attempt[String](atomically[String, Int](transfer("ann", "bob",
+    assertEquals(t.fx.run(store[String, Int](start)(Throws.run[String](atomically[String, Int](transfer("ann", "bob",
                 20))))),
       (start, Left("insufficient")))
   }

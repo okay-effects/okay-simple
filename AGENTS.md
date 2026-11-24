@@ -14,11 +14,15 @@ libraryDependencies += "io.github.okay-effects" %% "okay-effects-machine" % "0.1
 More modules are one line each of the same form (`okay-effects-io`, `-stream`, `-async`, `-resource`, ...); `%%%` for
 Scala.js/Native. Built on Scala 3.3 LTS and 2.13.
 
-### The model (Scala 3; compiled and run with scala-cli 3.9.0 against 0.1.1)
+### The model (Scala 3)
+
+The names here are master's (0.1.2-SNAPSHOT): `Throws`, `Emit` and the handlers `State.run(0)`, `Throws.run[E]`,
+`Choose.all`, ... In 0.1.1 they are `Error`, `Yield` and `state(0)`, `attempt[E]`, `all`, ...; on master those old names
+are deprecated aliases.
 
 ```scala
 import okay.effects.*        // !, Has, Split, perform, handle, run, handler shapes — on the machine
-import okay.effects.std.*    // State, Reader, Writer, Error, Choose, ... and their handlers
+import okay.effects.std.*    // State, Reader, Writer, Throws, Choose, ... and their handlers
 
 // an effect: a GADT of its operations, each typed by its answer
 enum Prices[X]:
@@ -27,7 +31,7 @@ enum Prices[X]:
 def price[R[_]: Has[Prices]](item: String): Option[Int] ! R = perform[Prices](Prices.Price(item))
 
 // a program: generic in its row, it asks only for the effects it uses
-def total[R[_]: {Has[Prices], Has[Error % String]}](cart: List[String]): Int ! R =
+def total[R[_]: {Has[Prices], Has[Throws % String]}](cart: List[String]): Int ! R =
   cart.foldLeft(pure[Int, R](0)) { (acc, item) =>
     for
       sum <- acc
@@ -44,8 +48,8 @@ def prices[R[_], Rest[_], A](table: Map[String, Int])(p: A ! R)(using Split[Pric
       case Prices.Price(item) => table.get(item))
 
 // the entry point: name the row, handle every effect, run once
-type Shop = Prices + Error % String
-run(attempt[String](prices(Map("tea" -> 30, "cake" -> 50))(total[Shop](List("tea", "cake")))))   // Right(80)
+type Shop = Prices + Throws % String
+run(Throws.run[String](prices(Map("tea" -> 30, "cake" -> 50))(total[Shop](List("tea", "cake")))))   // Right(80)
 // with "coffee": Left(no price for coffee)
 ```
 
@@ -65,7 +69,7 @@ def logged[A](p: A ! Logged): A ! Logged =
   observe[Prices, Logged, A](p)(new Observe[Prices, Logged]:
     def apply[X](op: Prices[X]): Unit ! Logged = tell[String, Logged](s"asked $op"))
 
-run(writer[String](prices(Map("tea" -> 30))(logged(price[Logged]("tea")))))   // (List(asked Price(tea)),Some(30))
+run(Writer.run[String](prices(Map("tea" -> 30))(logged(price[Logged]("tea")))))   // (List(asked Price(tea)),Some(30))
 ```
 
 There is no type-enforced "sensitive effect" here (that is okay-direct's `Audited`/okay-scala's): auditing is a
@@ -77,18 +81,18 @@ handler you install around the program, so make sure the entry point installs it
 - Real resources (DB, network, files, clock, keys) only in handlers built by the host at the entry point. Programs get
   data, effects and ids, never live clients.
 - `run` only at the entry point (`main`, a request handler, a test). Never call `run` inside a program to get a value
-  out: install the handler around the sub-program (`state(0)(p)`, `prices(t)(p)`) and keep it a program.
+  out: install the handler around the sub-program (`State.run(0)(p)`, `prices(t)(p)`) and keep it a program.
 - Sensitive operations under `around`/`observe`/`intercept` installed by the host.
-- Tests swap handlers: `state(...)`, `store(m0)`, `random(seed)`, the io module's pure `console(inputs)`,
+- Tests swap handlers: `State.run(...)`, `store(m0)`, `random(seed)`, the io module's pure `console(inputs)`,
   `clock(start, step)`, `env(vars)` instead of `realConsole`/`systemClock`/`systemEnv`. No mocks.
 - No ambient effects in programs: no `System.currentTimeMillis`, `Random`, IO, `sys.env`, threads, mutable globals —
   `Clock`, `Random`, `Console`, `Env` exist as effects (`okay-effects-io`, package `okay.effects.world`).
-- Multi-shot is real: a `k` is data, resumed any number of times, no replay (`all(pair)` with `among` gives every way:
-  `List((1,10), (1,20), (2,10), (2,20))`).
+- Multi-shot is real: a `k` is data, resumed any number of times, no replay
+  (`Choose.all(pair)` with `among` gives every way: `List((1,10), (1,20), (2,10), (2,20))`).
 
 ### Pitfalls
 
-- Handler order is meaning: `State` handled OUTSIDE `Error` keeps what was put before a `raise`; handled inside, it is
+- Handler order is meaning: `State` handled OUTSIDE `Throws` keeps what was put before a `raise`; handled inside, it is
   dropped with the rest.
 - `run` compiles only on `A ! Pure`: every effect must be handled first.
 - Explicit type arguments are usually needed: `get[Int, R]`, `raise[String, R, Int](...)`, `tell[String, R](...)`.
@@ -97,6 +101,7 @@ handler you install around the program, so make sure the entry point installs it
 - The io module's artifact is `okay-effects-io` but its package is `okay.effects.world`.
 - `import okay.effects.delimited.*` brings its own `pure`/`map`/`flatMap` (`Cps`): keep it in a separate scope.
 - Effects of the same names elsewhere clash with `std`'s: they are defined in the object `okay.effects.Std`, use it.
+- `std.*` and `stream.*` both have an `Emit` (the standard effect; a stream's step): `import okay.effects.std.Emit`.
 - `concurrent`: no `fork` from inside a thread (structured only). An interceptor's clause runs outside the
   interception: an operation of `E` it performs goes to the handler further out.
 - Tagless: a `k` kept and run on another implementation fails. Code over a non-default implementation takes it as a

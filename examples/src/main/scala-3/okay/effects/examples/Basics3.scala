@@ -36,7 +36,7 @@ class Basics3(using val fx: Runner):
 
   /** each handler takes its effect from wherever it is in the row: the order of handling is the reader's, the
    * writer's, the state's, from the inside out — the row's order is not */
-  def greeted: (Int, (List[String], Int)) = run(state(0)(writer[String](reader("Ann")(greet[App]))))
+  def greeted: (Int, (List[String], Int)) = run(State.run(0)(Writer.run[String](Reader.run("Ann")(greet[App]))))
 
   def tick[R[_]: Has[Counter]]: Unit ! R = perform[Counter](Counter.Tick)
   def peek[R[_]: Has[Counter]]: Int ! R = perform[Counter](Counter.Peek)
@@ -53,7 +53,7 @@ class Basics3(using val fx: Runner):
   /** the same effect beside a standard one: ticks and a state, one row */
   type Ticking[X] = (Counter + State % Int)[X]
   def counted: (Int, (Int, Int)) =
-    run(state(100)(counting(tick[Ticking].andThen(tick[Ticking]).andThen(peek[Ticking])
+    run(State.run(100)(counting(tick[Ticking].andThen(tick[Ticking]).andThen(peek[Ticking])
             .flatMap(n => modify[Int, Ticking](_ + n).as(n)))))
 
   /** A GENERAL HANDLER, its clause given `k`: here `k` resumed twice — every way the program can go */

@@ -55,21 +55,25 @@ For streams that wait, merged as their elements come, see [async](async.md#strea
 ```scala
 type St = State % Int
 val counted = repeatEval[Int, St](modify[Int, St](_ + 1).andThen(get[Int, St])).take(3).toList
-assert(run(state(0)(counted)) == (3, List(1, 2, 3)))     // pulled three times, no more
+assert(run(State.run(0)(counted)) == (3, List(1, 2, 3)))     // pulled three times, no more
 
 type SW = Writer % String + State % Int
 val totals = range[SW](1, 4).evalMap(n => modify[Int, SW](_ + n).andThen(get[Int, SW])).foreach(t => tell[String, SW](s"total $t"))
-assert(run(writer[String](state(0)(totals))) == (List("total 1", "total 3", "total 6"), (6, ())))
+assert(run(Writer.run[String](State.run(0)(totals))) == (List("total 1", "total 3", "total 6"), (6, ())))
 ```
 
 ## Generators
 
+With `stream.*` imported beside `std.*`, `Emit` is two names: the standard effect and a stream's step (`Pull`). Say
+which by importing it — `import okay.effects.std.Emit` — or write `Std.Emit`.
+
 ```scala
-type Y = Yield % Int
+import okay.effects.std.Emit
+type Y = Emit % Int
 def naturals(n: Int): Unit ! Y = emit[Int, Y](n).andThen(naturals(n + 1))
 
 assert(run(fromGenerator[Int](naturals(0)).filter(_ % 3 == 0).take(4).toList) == List(0, 3, 6, 9))
-assert(run(collect[Int](range[P](0, 3).emitAll[Y])) == (List(0, 1, 2), ()))
+assert(run(Emit.collect[Int](range[P](0, 3).emitAll[Y])) == (List(0, 1, 2), ()))
 ```
 
 The generator runs only as far as it is pulled. Constant stack: 100 000 elements through `map`, `filter`, `fold`.

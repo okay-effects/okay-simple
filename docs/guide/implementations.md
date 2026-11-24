@@ -36,7 +36,7 @@ import okay.effects.Runner
 import okay.effects.tagless.Tagless.*
 import okay.effects.tagless.Tagless.std.*
 
-val p: (Int, Int) ! Pure = state(1)(modify[Int, State % Int](_ * 42).andThen(get[Int, State % Int]))
+val p: (Int, Int) ! Pure = State.run(1)(modify[Int, State % Int](_ * 42).andThen(get[Int, State % Int]))
 
 assert(run(p)(using okay.effects.machine.Machine) == (42, 42))
 locally { given Runner = okay.effects.free.Free; assert(run(p) == (42, 42)) }

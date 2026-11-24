@@ -58,26 +58,27 @@ abstract class StreamsChecks(val fx0: Runner) extends munit.FunSuite {
   test("merge pulls each stream only as far as asked, its effects in turn") {
     def counted(name: String): Stream[String, St] =
       repeatEval[String, St](modify[Int, St](_ + 1).flatMap(_ => get[Int, St]).map(n => s"$name$n"))
-    assertEquals(st.fx.run(state(0)(merge[String, St](List(counted("a"), counted("b"))).take(4).toList)),
+    assertEquals(st.fx.run(State.run(0)(merge[String, St](List(counted("a"), counted("b"))).take(4).toList)),
       (4, List("a1", "b2", "a3", "b4")))
   }
   test("effects in a stream: each element made by one, each pull only as far as asked") {
     val counted = repeatEval[Int, St](modify[Int, St](_ + 1).flatMap(_ => get[Int, St])).take(3).toList
-    assertEquals(st.fx.run(state(0)(counted)), (3, List(1, 2, 3)))
+    assertEquals(st.fx.run(State.run(0)(counted)), (3, List(1, 2, 3)))
   }
   test("evalMap and foreach: effects of the row, in order") {
     val p = range[SW](1, 4).evalMap(n => modify[Int, SW](_ + n).flatMap(_ => get[Int, SW])).foreach(t =>
       tell[String, SW](s"total $t"))
-    assertEquals(st.fx.run(writer[String](state(0)(p))), (List("total 1", "total 3", "total 6"), (6, ())))
+    assertEquals(st.fx.run(Writer.run[String](State.run(0)(p))), (List("total 1", "total 3", "total 6"), (6, ())))
   }
 
-  type Y[X] = Yield[Int, X]
+  type Y[X] = okay.effects.Std.Emit[Int, X]
   def nums(n: Int): Unit ! Y = if (n > 3) pure[Unit, Y](()) else emit[Int, Y](n).flatMap(_ => nums(n + 1))
   def naturals(n: Int): Unit ! Y = emit[Int, Y](n).flatMap(_ => naturals(n + 1))
   test("a generator as a stream, and a stream as a generator") {
     assertEquals(list(fromGenerator[Int](nums(1)).map(_ * 10)), List(10, 20, 30))
     assertEquals(list(fromGenerator[Int](naturals(0)).filter(_ % 3 == 0).take(4)), List(0, 3, 6, 9))
-    assertEquals(st.fx.run(collect[Int](range[P](0, 3).map(_ + 100).emitAll[Y])), (List(100, 101, 102), ()))
+    assertEquals(st.fx.run(st.fx.std.Emit.collect[Int](range[P](0, 3).map(_ + 100).emitAll[Y])),
+      (List(100, 101, 102), ()))
   }
   test("in constant stack: 100 000 elements") {
     assertEquals(st.fx.run(range[P](0, 100000).map(_ + 1).filter(_ % 2 == 0).fold(0L)(_ + _)),

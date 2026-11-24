@@ -15,21 +15,21 @@ object Programs1 {
   def greet[R[_]](implicit r: In[Reads, R], s: In[Counts, R]): String ! R =
     ask[String, R].flatMap((name: String) => get[Int, R].flatMap((n: Int) => put[Int, R](n + 1).map(_ => s"$n: $name")))
 
-  val greeted: (Int, String) ! Pure = state(10)(reader("Ann")(greet[App]))
+  val greeted: (Int, String) ! Pure = State.run(10)(Reader.run("Ann")(greet[App]))
 
   type Pick[X] = Sum[Void, Std.Choose, X]
   val pairs: List[(Int, Int)] ! Pure =
-    all(among[Int, Pick](List(1, 2)).flatMap((a: Int) => among[Int, Pick](List(10, 20)).map((b: Int) => (a, b))))
+    Choose.all(among[Int, Pick](List(1, 2)).flatMap((a: Int) => among[Int, Pick](List(10, 20)).map((b: Int) => (a, b))))
   val found: Option[Int] ! Pure =
-    first(among[Int, Pick](List(1, 2, 3, 4)).flatMap((a: Int) =>
+    Choose.first(among[Int, Pick](List(1, 2, 3, 4)).flatMap((a: Int) =>
         if (a % 2 == 0) pure[Int, Pick](a) else fail[Int, Pick]))
 
-  type Gen[X] = Sum[Void, ({ type L[x] = Std.Yield[Int, x] })#L, X]
+  type Gen[X] = Sum[Void, ({ type L[x] = Std.Emit[Int, x] })#L, X]
   def nats(n: Int): Unit ! Gen = emit[Int, Gen](n).flatMap(_ => nats(n + 1))
-  val firstThree: (List[Int], Option[Unit]) ! Pure = take[Int](3)(nats(0))
+  val firstThree: (List[Int], Option[Unit]) ! Pure = Emit.take[Int](3)(nats(0))
 
-  type Fails[X] = Sum[Void, ({ type L[x] = Std.Error[String, x] })#L, X]
-  val raised: Either[String, Int] ! Pure = attempt[String](raise[String, Fails, Int]("boom").map(_ + 1))
+  type Fails[X] = Sum[Void, ({ type L[x] = Std.Throws[String, x] })#L, X]
+  val raised: Either[String, Int] ! Pure = Throws.run[String](raise[String, Fails, Int]("boom").map(_ + 1))
 
   type C[X] = Std.Control[Int ! Pure, X]
   type Ctl[X] = Sum[Void, C, X]
@@ -38,7 +38,7 @@ object Programs1 {
 
   def loop(n: Int): Unit ! App =
     if (n == 0) pure[Unit, App](()) else modify[Int, App](_ + 1).flatMap(_ => loop(n - 1))
-  val counted: (Int, Unit) ! Pure = state(0)(reader("x")(loop(100000)))
+  val counted: (Int, Unit) ! Pure = State.run(0)(Reader.run("x")(loop(100000)))
 }
 
 abstract class TaglessChecks(fx0: Runner) extends munit.FunSuite {

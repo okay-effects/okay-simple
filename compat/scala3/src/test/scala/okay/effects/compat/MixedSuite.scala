@@ -18,11 +18,11 @@ class MixedSuite extends munit.FunSuite {
 
   test("Scala 2.13's program and handler, in Scala 3, beside Scala 3's program, in one row") {
     val both: Int ! Row = counting.greetAll[Row](List("Ann")).flatMap(n => countedState[Row].map(_ + n))
-    assertEquals(run(state(100)(writer[String](counting.counting(both)))), (103, (List("hello, Ann"), (3, 4))))
+    assertEquals(run(State.run(100)(Writer.run[String](counting.counting(both)))), (103, (List("hello, Ann"), (3, 4))))
   }
 
   test("Scala 2.13's row type is Scala 3's") {
     val p: Int ! (*[Counter] + (Writer % String))#L = counting.greetAll[counting.Row](List("Ann", "Bob"))
-    assertEquals(run(writer[String](counting.counting(p))), (List("hello, Ann", "hello, Bob"), (2, 2)))
+    assertEquals(run(Writer.run[String](counting.counting(p))), (List("hello, Ann", "hello, Bob"), (2, 2)))
   }
 }

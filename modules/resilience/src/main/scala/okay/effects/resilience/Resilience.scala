@@ -19,8 +19,8 @@ class Resilience[F <: Effects with Singleton](implicit implementation: F) {
   def retryIf[E](times: Int)(worth: E => Boolean): RetryHandler[E] = new RetryHandler[E](times, worth)
   final class RetryHandler[E](times: Int, worth: E => Boolean) {
     def apply[R[_], Rest[_], A](p: => A ! R)(
-      implicit sp: Split[({ type L[x] = Error[E, x] })#L, R, Rest]): Either[E, A] ! Rest =
-      attempt[E](p).flatMap {
+      implicit sp: Split[({ type L[x] = Throws[E, x] })#L, R, Rest]): Either[E, A] ! Rest =
+      Throws.run[E](p).flatMap {
         case Left(e) if times > 0 && worth(e) => new RetryHandler[E](times - 1, worth)[R, Rest, A](p)
         case done => pure[Either[E, A], Rest](done)
       }
@@ -29,8 +29,8 @@ class Resilience[F <: Effects with Singleton](implicit implementation: F) {
   def fallback[E]: FallbackHandler[E] = new FallbackHandler[E]
   final class FallbackHandler[E] {
     def apply[R[_], Rest[_], A](p: A ! R)(q: E => A ! Rest)(
-      implicit sp: Split[({ type L[x] = Error[E, x] })#L, R, Rest]): A ! Rest =
-      recover[E](p)(q)
+      implicit sp: Split[({ type L[x] = Throws[E, x] })#L, R, Rest]): A ! Rest =
+      Throws.recover[E](q)(p)
   }
 }
 

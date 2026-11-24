@@ -30,7 +30,8 @@ assert(run(monad[Pure].flatMap(pure[Int, Pure](1))(n => pure[Int, Pure](n + 1)))
 
 // a row with Choose is a MonadPlus: append is a choice, empty fails
 val P = monadPlus[Choose]
-assert(run(first(P.flatMap(P.append(pure[Int, Choose](1), pure[Int, Choose](2)))(n => P.flatMap(P.guard(n > 1))(_ => P.pure(n))))) == Some(2))
+assert(run(Choose.first(P.flatMap(P.append(pure[Int, Choose](1), pure[Int, Choose](2)))
+  (n => P.flatMap(P.guard(n > 1))(_ => P.pure(n))))) == Some(2))
 
 // the standard types, and the structures
 assert(Monad[Option].flatMap(Some(2))(n => Some(n + 1)) == Some(3))

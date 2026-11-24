@@ -71,7 +71,7 @@ def greet[R[_]: {Has[Reader % String], Has[Writer % String], Has[State % Int]}]:
   yield n
 
 type Row = Reader % String + Writer % String + State % Int
-run(reader("Ann")(state(10)(writer[String](greet[Row]))))             // (13, (List("hello, Ann"), 10))
+run(Reader.run("Ann")(State.run(10)(Writer.run[String](greet[Row]))))             // (13, (List("hello, Ann"), 10))
 ```
 
 Scala 2:
@@ -89,7 +89,7 @@ def greet[R[_]](implicit r: In[(Reader % String)#L, R], w: In[(Writer % String)#
   } yield n
 
 type Row[X] = ((Reader % String) + (Writer % String) + (State % Int))#L[X]    // names; each % in parentheses
-run(reader("Ann")(state(10)(writer[String](greet[Row]))))
+run(Reader.run("Ann")(State.run(10)(Writer.run[String](greet[Row]))))
 ```
 
 Code over any implementation — not the default — takes it as a value, `class Greeting(implicit val fx: Effects) {
@@ -132,7 +132,7 @@ Five shapes, each a trait of clauses of no implementation (`Clauses`, `TailClaus
 
 | | its clause gets `k` | answered in place, every clause resuming `k` once, at once | never resuming `k` |
 |---|---|---|---|---|
-| no state | `Handler` | `TailHandler` (`Reader`) | `AbortHandler` (`Error`) |
+| no state | `Handler` | `TailHandler` (`Reader`) | `AbortHandler` (`Throws`) |
 | a state of its own | `StatefulHandler`: the state of its time, `k(x, s)` resumed with the next | `StatefulTailHandler`, the state in a `Cell` (`State`, `Writer`) | |
 
 A handler is deep: `k` is the rest of the program under the same handler, resumable any number of times. A stateful
@@ -190,18 +190,22 @@ implementation, made by `newStd`: an implementation may offer its own with bette
 
 | Effect | Operations | Handlers |
 |---|---|---|
-| `State % S` | `get`, `put`, `modify`, `gets(f)`, `getAndSet(s)` | `state(s0)`, in place |
-| `Reader % E` | `ask` | `reader(e)`, in place; `local(f)(p)`: `p` sees `f(e)` |
-| `Writer % W` | `tell` | `writer[W]`, in place; `listen[W](p)`, `censor(f)(p)`: what `p` told, told outside when it ends |
-| `Error % E` | `raise` | `attempt[E]` (aborting), `recover[E](p)(h)` |
-| `Choose` | `among`, `fail`, `guard(cond)` | `all` (every way, `k` resumed per choice), `first` (the first way with no `fail`) |
-| `Yield % O` | `emit` | `collect[O]`, `take[O](n)`, `each[O](p)(f)` |
+| `State % S` | `get`, `put`, `modify`, `gets(f)`, `getAndSet(s)` | `State.run(s0)`, in place |
+| `Reader % E` | `ask` | `Reader.run(e)`, in place; `Reader.local(f)(p)`: `p` sees `f(e)` |
+| `Writer % W` | `tell` | `Writer.run[W]`, in place; `Writer.listen[W](p)`, `Writer.censor(f)(p)`: what `p` told, told outside when it ends |
+| `Throws % E` | `raise` | `Throws.run[E]` (aborting), `Throws.recover[E](h)(p)` |
+| `Choose` | `among`, `fail`, `guard(cond)` | `Choose.all` (every way, `k` resumed per choice), `Choose.first` (the first way with no `fail`) |
+| `Emit % O` | `emit`, `Emit.send` | `Emit.collect[O]`, `Emit.take[O](n)`, `Emit.each[O](f)(p)` |
 | `Abort` | `abort` | `optional(p)`: `None` if it aborted |
-| `Fresh` | `fresh` | `freshFrom(n0)(p)` |
+| `Fresh` | `fresh` | `Fresh.from(n0)(p)` |
 | `Random` | `nextLong`, `nextInt(bound)`, `nextDouble` | `random(seed)(p)`: the same seed, the same numbers |
 | `Store[K, V, *]` | `load(k)`, `save(k, v)`, `remove(k)` | `store(m0)(p)`: the final map and the value |
 | `Lift[G, *]` (Scala 3: `[x] =>> Lift[G, x]`) | `lift(ga)`: a program of another monad `G` | a `Runner`'s `lower[G](p)`, given a `Lowering[G]` (cats, ZIO); data monads in place, `handleLift[G]`, a `Distributes[G]`; `liftVia(nt)` ([more](docs/guide/standard-effects.md#other-monads-data-in-place-one-control-monad-last)) |
 | `Control % (B ! R)` | `shift(f)` | `reset(p)`: delimited control, the answer type fixed |
+
+`Error` and `Yield` are the old names of `Throws` and `Emit` (`Yield.Emit` of `Emit.Send`), and `state(s0)`,
+`reader(e)`, `writer[W]`, `attempt[E]`, `recover[E](p)(h)`, `local`, `listen`, `censor`, `collect[O]`, `each[O](p)(f)`,
+`take[O](n)`, `all`, `first`, `freshFrom(n0)` the old names of the handlers above: deprecated aliases, kept.
 
 Delimited control CHANGING ANSWER TYPES is its own type, `Cps[A, B, C, R]` (`fx.delimited`, the trait `Delimited`):
 `shift`, `reset`, `pure`, `map`, `flatMap`, `lift`. By default continuation-passing over any implementation, in
@@ -321,7 +325,7 @@ import okay.effects.tagless.Tagless.std.*
 def greet[R[_]: {Has[Reader % String], Has[State % Int]}]: Int ! R =
   for { name <- ask[String, R]; n <- get[Int, R]; _ <- put[Int, R](n + 1) } yield n
 
-val greeted: (Int, Int) ! Pure = state(0)(reader("Ann")(greet[Reader % String + State % Int]))
+val greeted: (Int, Int) ! Pure = State.run(0)(Reader.run("Ann")(greet[Reader % String + State % Int]))
 
 given Runner = Machine      // or Free, or okay-core's Core
 run(greeted)
@@ -348,13 +352,13 @@ Over any implementation, both compilers; another monad's programs inside a progr
 | Module | What it gives |
 |---|---|
 | [`interop/cats`](docs/modules/interop.md#cats) | `import okay.effects.catsinterop._`: `monad[R]`, cats' `Monad` of the programs (stack safe); a `Lowering` of any cats monad — `IO` of cats-effect 3, `Either`, `Option` |
-| [`interop/zio`](docs/modules/interop.md#zio) | `import okay.effects.ziointerop._`: `fromZIOTyped(z)`, `toZIOTyped(p)` — a `ZIO[Env, Err, A]`'s environment, typed error and run our `Reader`, `Error`, `Async`, the row accumulating as ZIO's types do, cancellation both ways, `provideLayer`/`layer` for `ZLayer`s; ZIO's own types as effects (Scala 3), `z.step`, `p.toZIOSteps` — one member per `ZIO[Env, Err, *]`; and `fromZIOTask(task)`, `toZIOTask(p)` — a ZIO task a `Lift[Task, *]`, a program a `Task` |
+| [`interop/zio`](docs/modules/interop.md#zio) | `import okay.effects.ziointerop._`: `fromZIOTyped(z)`, `toZIOTyped(p)` — a `ZIO[Env, Err, A]`'s environment, typed error and run our `Reader`, `Throws`, `Async`, the row accumulating as ZIO's types do, cancellation both ways, `provideLayer`/`layer` for `ZLayer`s; ZIO's own types as effects (Scala 3), `z.step`, `p.toZIOSteps` — one member per `ZIO[Env, Err, *]`; and `fromZIOTask(task)`, `toZIOTask(p)` — a ZIO task a `Lift[Task, *]`, a program a `Task` |
 | [`interop/java-stream`](docs/modules/interop.md#javas-streams) | `import okay.effects.jstream._`: Java's `Stream`s, `Iterator`s, `Iterable`s to and from the stream module's streams, both ways lazy (`fromJava`, `fromJavaIterator`, `toJava`, `toJavaIterator`; the JVM's) |
 | [`interop/zio-stream`](docs/modules/interop.md#zios-streams) | `import okay.effects.zstream._`: a stream of ZIO's tasks a `ZStream` (`toZStream`), a `ZStream` a stream (`fromZStream`) |
 | [`interop/fs2`](docs/modules/interop.md#fs2) | `import okay.effects.fs2interop._`: a stream of `F`'s programs (cats-effect's `IO`, any cats monad) an `fs2.Stream` (`toFs2`), an fs2 stream a stream (`fromFs2`) |
 | [`interop/monix`](docs/modules/interop.md#monix) | `import okay.effects.monixinterop._`: monix's `Task` an effect; its `Observable` a stream (`fromObservable`) and back (`toObservable`) — monix 3 is of cats-effect 2 |
 | [`interop/kyo`](docs/modules/interop.md#kyo) | `import okay.effects.kyointerop._`: a kyo computation `A < S` a standard `Lift` (`fromKyo`), a program of them a kyo computation (`toKyo`), streams to kyo's and back (Scala 3's) |
-| [`interop/tofu`](docs/modules/interop.md#tofu) | `import okay.effects.tofuinterop._`: `WithLocal` of a `Reader`, `Errors` of an `Error`, anywhere in a row named |
+| [`interop/tofu`](docs/modules/interop.md#tofu) | `import okay.effects.tofuinterop._`: `WithLocal` of a `Reader`, `Errors` of a `Throws`, anywhere in a row named |
 
 ## Examples
 
@@ -364,7 +368,7 @@ Over any implementation, both compilers; another monad's programs inside a progr
 |---|---|
 | `scala/.../Shared.scala` | code written once for both compilers: an effect, its handler, a row by aliases |
 | `scala-3/.../Basics3.scala` | Scala 3's rows and context bounds, an effect of one's own an `enum`, a handler in place, a general one resuming `k` twice |
-| `scala-3/.../Control3.scala` | generators (`collect`, `take`, `each`), a search (`first`), `recover`, `shift`/`reset`, the answer type changed |
+| `scala-3/.../Control3.scala` | generators (`Emit.collect`, `Emit.take`, `Emit.each`), a search (`Choose.first`), `Throws.recover`, `shift`/`reset`, the answer type changed |
 | `scala-2/.../Basics2.scala` | Scala 2's rows by names (`#L`), an effect's operations with their answers, a search |
 | `mixed/.../Mixed.scala` | one application of two compilers: Scala 3 code using Scala 2.13's effect, handler and program, one row, one run |
 

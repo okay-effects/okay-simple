@@ -84,7 +84,7 @@ class Layered(val fx: Runner) {
   type WS[X] = Writer[String, X]
   type LR[X] = Sum[SI, WS, X]
 
-  def ran[A](p: A ! LR): (List[String], (Int, A)) = run(writer[String](state(1)(p)))
+  def ran[A](p: A ! LR): (List[String], (Int, A)) = run(Writer.run[String](State.run(1)(p)))
 
   /** an effectful continuation of effects that DO NOT commute: it reads the state, writes it, tells */
   def noncommuting[G[_]](tag: String, make: (Int, Int) => G[Int]): Int => G[Int] ! LR =
@@ -141,7 +141,7 @@ class Layered(val fx: Runner) {
     val p: Int ! R =
       lift[List, Int, R](List(1, 2)).flatMap(x => tell[String, R]("k").flatMap(_ =>
         lift[List, Int, R](List(x, x + 1)).flatMap(b => tell[String, R]("h").map(_ => b))))
-    (tags(breadth), tags(depth), run(writer[String](state(0)(handleLift[List](p))))._1)
+    (tags(breadth), tags(depth), run(Writer.run[String](State.run(0)(handleLift[List](p))))._1)
   }
 
   // ---- with State
@@ -151,8 +151,8 @@ class Layered(val fx: Runner) {
   def adding: (Int, Int) ! SL =
     lift[List, Int, SL](List(1, 2, 3)).flatMap(x =>
       get[Int, SL].flatMap(s => put[Int, SL](s + x).map(_ => (x, s))))
-  def stateOutside: (Int, List[(Int, Int)]) = run(state(0)(handleLift[List](adding)))
-  def stateInside: List[(Int, (Int, Int))] = run(handleLift[List](state(0)(adding)))
+  def stateOutside: (Int, List[(Int, Int)]) = run(State.run(0)(handleLift[List](adding)))
+  def stateInside: List[(Int, (Int, Int))] = run(handleLift[List](State.run(0)(adding)))
 
   // ---- constant stack
 
@@ -160,7 +160,7 @@ class Layered(val fx: Runner) {
   /** a List of 10 000 elements, a state through them: the sum, the length, the last */
   def longList: (Long, Int, Int) = {
     val p: Int ! SLL = lift[List, Int, SLL](List.range(0, 10000)).flatMap(x => modify[Long, SLL](_ + x).map(_ => x))
-    val (sum, xs) = run(state(0L)(handleLift[List](p)))
+    val (sum, xs) = run(State.run(0L)(handleLift[List](p)))
     (sum, xs.length, xs.last)
   }
   def longVector: (Int, Int) = {

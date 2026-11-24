@@ -28,7 +28,7 @@ abstract class AsynchronyChecks(val fx0: Runner) extends munit.FunSuite {
   test("another effect handled first, the row then Async alone") {
     def tick(n: Int): Unit ! SA =
       if (n == 0) pure[Unit, SA](()) else sleep[SA](1).flatMap(_ => modify[Int, SA](_ + 1)).flatMap(_ => tick(n - 1))
-    toFuture(state(0)(tick(5))).map(v => assertEquals(v, (5, ())))
+    toFuture(State.run(0)(tick(5))).map(v => assertEquals(v, (5, ())))
   }
   test("both at once, a race, a timeout") {
     val slow = sleep[Async](300).as("slow")

@@ -16,11 +16,11 @@ class RowSuite extends munit.FunSuite {
   def greet[R[_]](implicit r: In[Reads, R], s: In[Counts, R]): String ! R =
     ask[String, R].flatMap(name => get[Int, R].flatMap(n => put[Int, R](n + 1).map(_ => s"$n: $name")))
   test("a row of parameterised effects by names, run") {
-    assertEquals(run(state(10)(reader("Ann")(greet[App]))), (11, "10: Ann"))
+    assertEquals(run(State.run(10)(Reader.run("Ann")(greet[App]))), (11, "10: Ann"))
   }
   test("a row of one effect after the empty one, by names") {
     val pairs: List[(Int, Int)] ! Pure =
-      all(among[Int, Pick](List(1, 2)).flatMap(a => among[Int, Pick](List(10, 20)).map(b => (a, b))))
+      Choose.all(among[Int, Pick](List(1, 2)).flatMap(a => among[Int, Pick](List(10, 20)).map(b => (a, b))))
     assertEquals(run(pairs), List((1, 10), (1, 20), (2, 10), (2, 20)))
   }
 }

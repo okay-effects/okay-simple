@@ -22,7 +22,7 @@ abstract class ConcurrentChecks(val fx0: Runner) extends munit.FunSuite {
     else tell[String, T](s"$name$n").flatMap(_ => pass[Int, T]).flatMap(_ => worker(name, n - 1)).map(_ + 1)
 
   test("threads in turns: each passes, the next runs") {
-    val (log, results) = c.fx.run(writer[String](scheduled[Int](List(worker("a", 2), worker("b", 3)))))
+    val (log, results) = c.fx.run(Writer.run[String](scheduled[Int](List(worker("a", 2), worker("b", 3)))))
     assertEquals(log, List("a2", "b3", "a1", "b2", "b1"))
     assertEquals(results, List(Some(2), Some(3)))
   }
@@ -33,15 +33,15 @@ abstract class ConcurrentChecks(val fx0: Runner) extends munit.FunSuite {
     if (n == 0) pure[Int, T](sum) else recv[Int, T].flatMap(x => consumer(n - 1, sum + x))
 
   test("a channel: a producer and a consumer meet at each value") {
-    assertEquals(c.fx.run(writer[String](scheduled[Int](List(producer(List(1, 2, 3)), consumer(3, 0)))))._2,
+    assertEquals(c.fx.run(Writer.run[String](scheduled[Int](List(producer(List(1, 2, 3)), consumer(3, 0)))))._2,
       List(Some(3), Some(6)))
   }
   test("a receiver no one sends to waits forever: None") {
-    assertEquals(c.fx.run(writer[String](scheduled[Int](List(consumer(1, 0), pure[Int, T](5)))))._2,
+    assertEquals(c.fx.run(Writer.run[String](scheduled[Int](List(consumer(1, 0), pure[Int, T](5)))))._2,
       List(None, Some(5)))
   }
   test("many threads, many turns, in constant stack") {
-    val r = c.fx.run(writer[String](scheduled[Int]((1 to 50).toList.map(_ => worker("x", 200)))))
+    val r = c.fx.run(Writer.run[String](scheduled[Int]((1 to 50).toList.map(_ => worker("x", 200)))))
     assertEquals(r._2.flatten.sum, 50 * 200)
   }
 }

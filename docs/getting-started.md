@@ -67,14 +67,14 @@ has happened yet — `greet` is a description. To run it, choose a row and give 
 ```scala
 type App = Reader % String + State % Int
 
-val handled: (Int, String) ! Pure = state(0)(reader("Ann")(greet[App]))
+val handled: (Int, String) ! Pure = State.run(0)(Reader.run("Ann")(greet[App]))
 val result: (Int, String) = run(handled)
 
 assert(result == (1, "hello, Ann (#1)"))
 ```
 
-- `reader("Ann")` handles the `Reader`, answering every `ask` with `"Ann"`.
-- `state(0)` handles the `State` from `0`, and gives the final state with the value: `(1, "hello, Ann (#1)")`.
+- `Reader.run("Ann")` handles the `Reader`, answering every `ask` with `"Ann"`.
+- `State.run(0)` handles the `State` from `0`, and gives the final state with the value: `(1, "hello, Ann (#1)")`.
 - What is left is `Pure`, a program of no effect, and `run` runs it.
 
 Each handler takes its effect from wherever it is in the row — the order you handle in is yours, not the row's.
@@ -104,7 +104,7 @@ class Greeter[F <: Effects](val fx: F):
 def greeted(fx: Runner): (Int, String) =
   val g = Greeter[fx.type](fx)
   import g.fx.*, g.fx.std.*
-  run(state(0)(reader("Ann")(g.greet[Reader % String + State % Int])))
+  run(State.run(0)(Reader.run("Ann")(g.greet[Reader % String + State % Int])))
 
 assert(greeted(okay.effects.machine.Machine) == (1, "hello, Ann"))
 assert(greeted(okay.effects.free.Free) == (1, "hello, Ann"))
@@ -127,7 +127,7 @@ object Greeting {
     for { name <- ask[String, R]; n <- get[Int, R]; _ <- put[Int, R](n + 1) } yield s"hello, $name"
 
   type App[X] = ((Reader % String) + (State % Int))#L[X]
-  val result: (Int, String) = run(state(0)(reader("Ann")(greet[App])))
+  val result: (Int, String) = run(State.run(0)(Reader.run("Ann")(greet[App])))
   assert(result == ((1, "hello, Ann")))
 }
 assert(Greeting.result._1 == 1)

@@ -27,7 +27,7 @@ abstract class ZioTypedChecks(val fx0: Runner) extends munit.FunSuite {
 
   /** run here: the reader given, the error attempted, the async driven to a future */
   def here[A](p: A ! Row): Future[Either[String, A]] =
-    toFuture(attempt[String](reader[ZEnvironment[Greeting]](ZEnvironment(hello))(p)))
+    toFuture(Throws.run[String](reader[ZEnvironment[Greeting]](ZEnvironment(hello))(p)))
 
   test("the environment our Reader") {
     val p = fromZIOTyped[Greeting, String, String, Row](ZIO.serviceWith[Greeting](_.greet("Ann")))
@@ -50,7 +50,7 @@ abstract class ZioTypedChecks(val fx0: Runner) extends munit.FunSuite {
     val interrupted = scala.concurrent.Promise[Unit]()
     val never: ZIO[Greeting, String, Int] = ZIO.never.onInterrupt(ZIO.succeed { interrupted.trySuccess(()); () })
     val p: Option[Int] ! okay.effects.async.Async =
-      z.asynchrony.timeout(30)(attempt[String](reader[ZEnvironment[Greeting]](ZEnvironment(hello))(
+      z.asynchrony.timeout(30)(Throws.run[String](reader[ZEnvironment[Greeting]](ZEnvironment(hello))(
             fromZIOTyped[Greeting, String, Int, Row](never)))).map(_.map(_.getOrElse(-1)))
     for { t <- toFuture(p); _ <- interrupted.future } yield assertEquals(t, None)
   }
@@ -68,7 +68,7 @@ abstract class ZioTypedChecks(val fx0: Runner) extends munit.FunSuite {
     val greeted: String ! Row = ask[ZEnvironment[Greeting], Row].map(_.get[Greeting].greet("Cy"))
     val provided: String ! NoEnv = provideLayer[Any, String, Greeting, String, NoEnv](ZLayer.succeed(hello))(greeted)
     val made: ZLayer[Any, String, Greeting] = layer[Any, String, Greeting](pure[Greeting, NoEnv](hello))
-    toFuture(attempt[String](reader[ZEnvironment[Any]](ZEnvironment.empty)(provided))).map(v =>
+    toFuture(Throws.run[String](reader[ZEnvironment[Any]](ZEnvironment.empty)(provided))).map(v =>
       assertEquals(v, Right("hello, Cy")))
       .flatMap(_ => unsafeRun(ZIO.serviceWith[Greeting](_.greet("Di")).provideLayer(made).either))
       .map(v => assertEquals(v, Right("hello, Di")))

@@ -20,7 +20,7 @@ type T = Writer % String + Coop % Int
 def worker(name: String, n: Int): Unit ! T =
   if n == 0 then pure(()) else tell[String, T](s"$name$n").andThen(pass[Int, T]).andThen(worker(name, n - 1))
 
-assert(run(writer[String](scheduled[Int](List(worker("a", 2), worker("b", 1)))))._1 == List("a2", "b1", "a1"))
+assert(run(Writer.run[String](scheduled[Int](List(worker("a", 2), worker("b", 1)))))._1 == List("a2", "b1", "a1"))
 assert(run(range[Pure](0, 3).toList) == List(0, 1, 2))
 ```
 

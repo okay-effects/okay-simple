@@ -27,18 +27,18 @@ class Tofu[F <: Runner with Singleton](val catsInterop: Cats[F]) {
     def functor: Functor[catsInterop.Program[R]#L] = catsInterop.monad[R]
     def context: C ! R = std.ask[C, R]
     def local[A](fa: A ! R)(project: C => C): A ! R =
-      std.ask[C, R].flatMap(c => embed[Rest, R, A](std.reader[C](project(c))(fa)))
+      std.ask[C, R].flatMap(c => embed[Rest, R, A](std.Reader.run[C](project(c))(fa)))
   }
 
-  implicit def errors[R[_], Rest[_], E](implicit sp: Split[({ type L[x] = Std.Error[E, x] })#L, R, Rest],
+  implicit def errors[R[_], Rest[_], E](implicit sp: Split[({ type L[x] = Std.Throws[E, x] })#L, R, Rest],
     sub: Sub[Rest, R]): Errors[catsInterop.Program[R]#L, E] = new Errors[catsInterop.Program[R]#L, E] {
     def raise[A](err: E): A ! R = std.raise[E, R, A](err)
     def tryHandleWith[A](fa: A ! R)(f: E => Option[A ! R]): A ! R =
-      embed[Rest, R, Either[E, A]](std.attempt[E](fa)).flatMap {
+      embed[Rest, R, Either[E, A]](std.Throws.run[E](fa)).flatMap {
         case Right(a) => pure[A, R](a)
         case Left(e) => f(e).getOrElse(raise[A](e))
       }
-    def restore[A](fa: A ! R): Option[A] ! R = embed[Rest, R, Either[E, A]](std.attempt[E](fa)).map(_.toOption)
+    def restore[A](fa: A ! R): Option[A] ! R = embed[Rest, R, Either[E, A]](std.Throws.run[E](fa)).map(_.toOption)
     def lift[A](fa: A ! R): A ! R = fa
   }
 }
