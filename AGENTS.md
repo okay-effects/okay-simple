@@ -16,9 +16,8 @@ Scala.js/Native. Built on Scala 3.3 LTS and 2.13.
 
 ### The model (Scala 3)
 
-The names here are master's (0.1.2-SNAPSHOT): `Throws`, `Emit` and the handlers `State.run(0)`, `Throws.run[E]`,
-`Choose.all`, ... In 0.1.1 they are `Error`, `Yield` and `state(0)`, `attempt[E]`, `all`, ...; on master those old names
-are deprecated aliases.
+`Error`, `Yield` and the handlers `state(0)`, `attempt[E]`, `all`, ... are the old names of `Throws`, `Emit` and
+`State.run(0)`, `Throws.run[E]`, `Choose.all`, ...: deprecated aliases, kept.
 
 ```scala
 import okay.effects.*        // !, Has, Split, perform, handle, run, handler shapes — on the machine

@@ -27,10 +27,10 @@ object Std {
     final case class Raise[E, X](e: E) extends Throws[E, X]
   }
   /** the old name of `Throws` */
-  @deprecated("use Throws", "0.1.2")
+  @deprecated("use Throws", "0.1.1")
   type Error[E, X] = Throws[E, X]
   /** the old name of `Throws` */
-  @deprecated("use Throws", "0.1.2")
+  @deprecated("use Throws", "0.1.1")
   val Error: Throws.type = Throws
 
   /** an effect of no parameter: `Choose` in a Scala 3 row, `*[Choose]#L` in a Scala 2 one. `Among` the choice;
@@ -141,10 +141,10 @@ object Std {
     final case class Send[O, X](value: O, answer: Unit => X) extends Emit[O, X]
   }
   /** the old name of `Emit` */
-  @deprecated("use Emit", "0.1.2")
+  @deprecated("use Emit", "0.1.1")
   type Yield[O, X] = Emit[O, X]
   /** the old name of `Emit`: its `Emit` is `Emit.Send` */
-  @deprecated("use Emit", "0.1.2")
+  @deprecated("use Emit", "0.1.1")
   object Yield {
     val Emit: Std.Emit.Send.type = Std.Emit.Send
     type Emit[O, X] = Std.Emit.Send[O, X]
@@ -260,10 +260,10 @@ class Std[F <: Effects with Singleton](val fx: F) {
     def recover[E]: Recover[E] = new Recover[E]
   }
   /** the old name of `Throws` */
-  @deprecated("use Throws", "0.1.2")
+  @deprecated("use Throws", "0.1.1")
   type Error[E, X] = Std.Throws[E, X]
   /** the old name of `Throws` */
-  @deprecated("use Throws", "0.1.2")
+  @deprecated("use Throws", "0.1.1")
   val Error: Std.Throws.type = Std.Throws
   type Choose[X] = Std.Choose[X]
   /** `Choose`'s operations, and its handlers: `Choose.all(p)`, `Choose.first(p)` */
@@ -300,10 +300,10 @@ class Std[F <: Effects with Singleton](val fx: F) {
     def take[O](n: Int): TakeHandler[O] = new TakeHandler[O](n)
   }
   /** the old name of `Emit` */
-  @deprecated("use Emit", "0.1.2")
+  @deprecated("use Emit", "0.1.1")
   type Yield[O, X] = Std.Emit[O, X]
   /** the old name of `Emit`; its `Emit` is `Emit.Send` */
-  @deprecated("use Emit", "0.1.2")
+  @deprecated("use Emit", "0.1.1")
   val Yield: Std.Yield.type = Std.Yield
   type Lift[G[_], X] = Std.Lift[G, X]
   val Lift: Std.Lift.type = Std.Lift
@@ -403,7 +403,7 @@ class Std[F <: Effects with Singleton](val fx: F) {
     perform[({ type L[x] = Store[K, V, x] })#L].apply[R, Unit](Std.Store.Remove[K, V, Unit](k, u => u))
 
   /** the final state and the value; a `k` resumed twice resumes the state of its time. Answered in place */
-  @deprecated("use State.run", "0.1.2")
+  @deprecated("use State.run", "0.1.1")
   def state[S](s0: S): StateHandler[S] = State.run(s0)
   final class StateHandler[S](s0: S) {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = State[S, x] })#L, R, Rest]): (S, A) ! Rest =
@@ -418,7 +418,7 @@ class Std[F <: Effects with Singleton](val fx: F) {
   }
 
   /** answered in place */
-  @deprecated("use Reader.run", "0.1.2")
+  @deprecated("use Reader.run", "0.1.1")
   def reader[E](e: E): ReaderHandler[E] = Reader.run(e)
   final class ReaderHandler[E](e: E) {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Reader[E, x] })#L, R, Rest]): A ! Rest =
@@ -430,7 +430,7 @@ class Std[F <: Effects with Singleton](val fx: F) {
   }
 
   /** what was told, in order, and the value. Answered in place */
-  @deprecated("use Writer.run", "0.1.2")
+  @deprecated("use Writer.run", "0.1.1")
   def writer[W]: WriterHandler[W] = Writer.run[W]
   final class WriterHandler[W] {
     def apply[R[_], Rest[_], A](p: A ! R)(
@@ -445,10 +445,10 @@ class Std[F <: Effects with Singleton](val fx: F) {
   }
 
   /** the value, or what was raised: the rest dropped — a handler aborting, no `k` */
-  @deprecated("use Throws.run", "0.1.2")
+  @deprecated("use Throws.run", "0.1.1")
   def attempt[E]: ThrowsHandler[E] = Throws.run[E]
   /** the old name of `ThrowsHandler` */
-  @deprecated("use ThrowsHandler", "0.1.2")
+  @deprecated("use ThrowsHandler", "0.1.1")
   type ErrorHandler[E] = ThrowsHandler[E]
   final class ThrowsHandler[E] {
     def apply[R[_], Rest[_], A](p: A ! R)(
@@ -462,7 +462,7 @@ class Std[F <: Effects with Singleton](val fx: F) {
 
   /** the program's `Reader` answered by `f` of the environment outside: `p`'s asks see `f(e)`, the row's own `Reader`
    * stays — `p` handled by a reader of its own, its row back where it was (`Sub[Rest, R]`) */
-  @deprecated("use Reader.local", "0.1.2")
+  @deprecated("use Reader.local", "0.1.1")
   def local[E](f: E => E): LocalHandler[E] = Reader.local(f)
   final class LocalHandler[E](f: E => E) {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Reader[E, x] })#L, R, Rest],
@@ -471,7 +471,7 @@ class Std[F <: Effects with Singleton](val fx: F) {
   }
 
   /** what `p` told, with its value — told outside too, when `p` ends */
-  @deprecated("use Writer.listen", "0.1.2")
+  @deprecated("use Writer.listen", "0.1.1")
   def listen[W]: ListenHandler[W] = Writer.listen[W]
   final class ListenHandler[W] {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Writer[W, x] })#L, R, Rest],
@@ -479,7 +479,7 @@ class Std[F <: Effects with Singleton](val fx: F) {
       Writer.run[W](p).into[R].flatMap { case (ws, a) => tellAll[W, R](ws).as((ws, a)) }
   }
   /** what `p` told, through `f`, told outside when `p` ends */
-  @deprecated("use Writer.censor", "0.1.2")
+  @deprecated("use Writer.censor", "0.1.1")
   def censor[W](f: List[W] => List[W]): CensorHandler[W] = Writer.censor[W](f)
   final class CensorHandler[W](f: List[W] => List[W]) {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[({ type L[x] = Writer[W, x] })#L, R, Rest],
@@ -550,7 +550,7 @@ class Std[F <: Effects with Singleton](val fx: F) {
       })
 
   /** fresh numbers from `n0` on. Answered in place */
-  @deprecated("use Fresh.from", "0.1.2")
+  @deprecated("use Fresh.from", "0.1.1")
   def freshFrom(n0: Long): FreshHandler = Fresh.from(n0)
   final class FreshHandler(n0: Long) {
     def apply[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Fresh, R, Rest]): A ! Rest =
@@ -609,7 +609,7 @@ class Std[F <: Effects with Singleton](val fx: F) {
 
   /** the value, or `h` given what was raised: the rest of the program dropped, `h`'s program in its place — in the
    * row without this `Throws`, so one raised again goes to the next handler of it */
-  @deprecated("use Throws.recover, the rescue first: Throws.recover[E](rescue)(p)", "0.1.2")
+  @deprecated("use Throws.recover, the rescue first: Throws.recover[E](rescue)(p)", "0.1.1")
   def recover[E]: RecoverHandler[E] = new RecoverHandler[E]
   final class RecoverHandler[E] {
     def apply[R[_], Rest[_], A](p: A ! R)(h: E => A ! Rest)(
@@ -630,7 +630,7 @@ class Std[F <: Effects with Singleton](val fx: F) {
   }
 
   /** what the generator gave out, in order, and its value. Answered in place */
-  @deprecated("use Emit.collect", "0.1.2")
+  @deprecated("use Emit.collect", "0.1.1")
   def collect[O]: CollectHandler[O] = Emit.collect[O]
   final class CollectHandler[O] {
     def apply[R[_], Rest[_], A](p: A ! R)(
@@ -645,7 +645,7 @@ class Std[F <: Effects with Singleton](val fx: F) {
   }
 
   /** each value the generator gives out to `f`, a program of the row outside — the generator going on after it */
-  @deprecated("use Emit.each, the function first: Emit.each[O](f)(p)", "0.1.2")
+  @deprecated("use Emit.each, the function first: Emit.each[O](f)(p)", "0.1.1")
   def each[O]: EachHandler[O] = new EachHandler[O]
   final class EachHandler[O] {
     def apply[R[_], Rest[_], A](p: A ! R)(f: O => Unit ! Rest)(
@@ -665,7 +665,7 @@ class Std[F <: Effects with Singleton](val fx: F) {
   }
 
   /** the first `n` values given out, and the generator's value if it ended by then: stopped at the next one */
-  @deprecated("use Emit.take", "0.1.2")
+  @deprecated("use Emit.take", "0.1.1")
   def take[O](n: Int): TakeHandler[O] = Emit.take[O](n)
   final class TakeHandler[O](n: Int) {
     def apply[R[_], Rest[_], A](p: A ! R)(
@@ -699,7 +699,7 @@ class Std[F <: Effects with Singleton](val fx: F) {
 
   /** the first way the program goes with no `fail`: the choices tried in order, the rest not tried; a cut drops the
    * alternatives made since its mark */
-  @deprecated("use Choose.first", "0.1.2")
+  @deprecated("use Choose.first", "0.1.1")
   def first[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): Option[A] ! Rest = firstWay(p)
   private def firstWay[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): Option[A] ! Rest = {
     type B = Option[A] ! Rest
@@ -732,7 +732,7 @@ class Std[F <: Effects with Singleton](val fx: F) {
 
   /** every way the program can go: each choice's ways in turn, its others pending; a cut drops the alternatives made
    * since its mark. The ways found kept reversed: linear in the ways, not quadratic */
-  @deprecated("use Choose.all", "0.1.2")
+  @deprecated("use Choose.all", "0.1.1")
   def all[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): List[A] ! Rest = allWays(p)
   private def allWays[R[_], Rest[_], A](p: A ! R)(implicit sp: Split[Choose, R, Rest]): List[A] ! Rest = {
     type B = List[A] => List[A] ! Rest
