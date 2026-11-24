@@ -67,13 +67,13 @@ class OnDirect(val effects: okay.direct.Effects) extends Runner {
       clause: (Op[E, Any], Any => B) => B): B = effects match {
     case multi: okay.direct.MultiEffects =>
       multi.handle(new okay.direct.MultiHandler[Fam[E], A, B, RuntimeException] {
-        def value(a: A): B = onValue(a)
-        def operation(op: Fam[E], k: MultiResume[Fam[E], B, RuntimeException]): B = resumed(op, k, clause)
+        def ret(a: A): B = onValue(a)
+        def on(op: Fam[E], k: MultiResume[Fam[E], B, RuntimeException]): B = resumed(op, k, clause)
       }, body[E, A](p, env))
     case one =>
       one.handle(new okay.direct.Handler[Fam[E], A, B, RuntimeException] {
-        def value(a: A): B = onValue(a)
-        def operation(op: Fam[E], k: Resume[Fam[E], B, RuntimeException]): B = resumed(op, k, clause)
+        def ret(a: A): B = onValue(a)
+        def on(op: Fam[E], k: Resume[Fam[E], B, RuntimeException]): B = resumed(op, k, clause)
       }, body[E, A](p, env))
   }
 
@@ -88,9 +88,9 @@ class OnDirect(val effects: okay.direct.Effects) extends Runner {
 
   /** answered in place: okay-direct's tail handler, in constant stack */
   override def handleLast[E[_], R[_], A, B](p: A ! ({ type L[x] = Sum[R, E, x] })#L, h: TailHandler[E, R, A, B]): B ! R =
-    Act(env => effects.handle(new okay.direct.TailHandler[Fam[E], A, B] {
-      def value(a: A): B = exec(h.ret(a), env).asInstanceOf[B]
-      def operation(op: Fam[E], k: Answer[Fam[E]]): Unit = op match {
+    Act(env => effects.handle(new okay.direct.InPlace[Fam[E], A, B] {
+      def ret(a: A): B = exec(h.ret(a), env).asInstanceOf[B]
+      def answer(op: Fam[E], k: Answer[Fam[E]]): Unit = op match {
         case o: Op[E, Any] @unchecked => k.answer(o, h.answer[Any](o.op))
       }
     }, body[E, A](p, env)))
@@ -102,8 +102,8 @@ class OnDirect(val effects: okay.direct.Effects) extends Runner {
       /** the state where the clause is: one cell for the handler, set from the state of each operation's time (a
        * clause reads and writes it while it runs, and keeps it no longer) */
       private[this] val cell = new Cell.Var[S](s0)
-      def value(s: S, a: A): B = exec(h.ret(s, a), env).asInstanceOf[B]
-      def operation(s: S, op: Fam[E], k: Answer[Fam[E]]): S = op match {
+      def ret(s: S, a: A): B = exec(h.ret(s, a), env).asInstanceOf[B]
+      def answer(s: S, op: Fam[E], k: Answer[Fam[E]]): S = op match {
         case o: Op[E, Any] @unchecked =>
           cell.state = s
           k.answer(o, h.answer[Any](cell, o.op))
@@ -145,7 +145,7 @@ object OnDirect {
 
   /** the family of okay-effects' effect `E` in okay-direct; its operations wrapped */
   sealed trait Fam[E[_]]
-  final case class Op[E[_], X](op: E[X]) extends Fam[E] with okay.direct.Effect.Op[Fam[E], X]
+  final case class Op[E[_], X](op: E[X]) extends Fam[E] with okay.effect.Op[Fam[E], X, Fam[E]]
 
   private def capability[E[_]](env: Env, offset: Int): okay.direct.Effect[Fam[E]] =
     env(offset).asInstanceOf[okay.direct.Effect[Fam[E]]]
@@ -179,7 +179,7 @@ object OnDirect {
         case Done(a) => value = a; valued = true
         case b: Bind[x, Any] @unchecked => stack = new Frame(b.f.asInstanceOf[Any => Prog[Any]], null, stack); p = b.p
         case Perf(offset, op) =>
-          value = env(offset).asInstanceOf[okay.direct.Effect[AnyRef]].perform(op.asInstanceOf[okay.direct.Effect.Op[AnyRef, Any]])
+          value = env(offset).asInstanceOf[okay.direct.Effect[AnyRef]].perform(op.asInstanceOf[okay.effect.Op[AnyRef, Any, AnyRef]])
           valued = true
         case Suspend(thunk) => p = thunk()
         case Act(step) => value = step(env); valued = true
